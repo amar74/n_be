@@ -22,11 +22,17 @@ AsyncSessionLocal = async_sessionmaker(bind=engine, autoflush=False, expire_on_c
 
 
 @asynccontextmanager
-async def get_session() -> AsyncIterator[AsyncSession]:
+async def get_session_context() -> AsyncIterator[AsyncSession]:
     session: AsyncSession = AsyncSessionLocal()
     try:
         yield session
     finally:
         await session.close()
+
+
+# Dependency function for FastAPI
+async def get_session() -> AsyncIterator[AsyncSession]:
+    async with get_session_context() as session:
+        yield session
 
 
