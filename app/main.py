@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Depends, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any
 
@@ -7,9 +8,19 @@ from app.models.user import User, UserCreateRequest, UserUpdateRequest
 
 app = FastAPI(title="Megapolis API", version="0.1.0")
 
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
 
 @app.get("/")
 async def read_root() -> dict[str, str]:
+
     return {"message": "Hello, world!"}
 
 
@@ -17,6 +28,7 @@ async def read_root() -> dict[str, str]:
 @app.post("/users/", status_code=201)
 async def create_user(
     user_data: UserCreateRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session)
 ) -> Dict[str, Any]:
     """Create a new user"""
@@ -29,7 +41,7 @@ async def create_user(
     return user.to_dict()
 
 
-@app.get("/users/")
+@app.get("/api/users")
 async def get_users(
     skip: int = Query(0, ge=0, description="Number of users to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Number of users to return"),
