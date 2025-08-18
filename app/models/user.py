@@ -2,19 +2,8 @@ from sqlalchemy import String, select
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
 
 from app.db.base import Base
-
-
-class UserCreateRequest(BaseModel):
-    """Simple request model for creating users"""
-    email: str
-
-
-class UserUpdateRequest(BaseModel):
-    """Simple request model for updating users"""
-    email: Optional[str] = None
 
 
 class User(Base):
