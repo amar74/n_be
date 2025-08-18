@@ -136,7 +136,6 @@ async def get_current_user(
 ):
     """Get current authenticated user info"""
     print("Endpoint hit: /auth/me")
-    print(f"Request headers: {request.headers}")
     
     # Get the authorization header
     auth_header = request.headers.get('Authorization')
@@ -146,63 +145,32 @@ async def get_current_user(
     
     # Extract the token
     token = auth_header.replace('Bearer ', '')
-    print("Hello: ",token)
     
     try:
-        # First attempt to decode as a Supabase token
-        try:
-            # Decode without verification to extract email
-            decoded_token = jwt.decode(token, options={"verify_signature": False})
-            
-            # Check if this looks like a Supabase token
-            is_supabase_token = ('iss' in decoded_token and 'supabase' in decoded_token['iss'])
-            
-            if is_supabase_token:
-                print("Detected Supabase token")
-                # Extract email from token
-                user_email = decoded_token.get('email')
-                
-                if not user_email:
-                    print("No email found in Supabase token")
-                    raise HTTPException(status_code=401, detail="Invalid token - no email found")
-                    
-                # Look up user by email
-                user = await User.get_by_email(session, user_email)
-                
-                if not user:
-                    # Create new user if they don't exist in our database
-                    print(f"User with email {user_email} not found, creating new user")
-                    user = await User.create(session, user_email)
-                
-                print(f"Found user from Supabase token: {user.email}")
-                return {"user": user.to_dict()}
-                
-        except (jwt.InvalidTokenError, KeyError) as e:
-            print(f"Not a valid Supabase token, trying custom token: {str(e)}")
-            # If not a valid Supabase token, continue to try as our custom JWT
-        
-        # Try as our custom JWT token
+        # Decode and verify the JWT token (our own token only)
         secret_key = os.environ.get("JWT_SECRET_KEY", "your-secret-key-here")
         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
         
+        # Extract user ID from token
         user_id = payload.get("sub")
         if not user_id:
             print("No user ID found in token")
             raise HTTPException(status_code=401, detail="Invalid token")
         
+        # Get user from database
         user = await User.get_by_id(session, int(user_id))
         if not user:
             print(f"User with ID {user_id} not found in database")
             raise HTTPException(status_code=404, detail="User not found")
         
-        print(f"Found user from custom JWT: {user.email}")
+        print(f"Found user: {user.email}")
         return {"user": user.to_dict()}
         
     except jwt.ExpiredSignatureError:
         print("Token has expired")
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidTokenError:
-        print("Invalid token")
+    except jwt.InvalidTokenError as e:
+        print(f"Invalid token: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
         print(f"Error verifying token: {str(e)}")
