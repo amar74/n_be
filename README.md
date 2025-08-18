@@ -12,6 +12,7 @@ FastAPI + SQLAlchemy (async) + Alembic + Poetry + Docker Compose.
 - Docker Compose (API + Postgres)
 - Management CLI (`manage.py`)
 - API quick test
+- Architecture & Development Guidelines
 - Troubleshooting
 
 ## Stack overview
@@ -31,13 +32,25 @@ FastAPI + SQLAlchemy (async) + Alembic + Poetry + Docker Compose.
 ```
 megapolis-api/
 ├─ app/
-│  ├─ main.py                  # FastAPI app entry
+│  ├─ main.py                  # FastAPI app entry point
+│  ├─ router.py                # Central router combining all routes
 │  ├─ db/
 │  │  ├─ base.py               # Declarative Base
 │  │  └─ session.py            # Async engine/session factory
-│  └─ models/
-│     ├─ __init__.py
-│     └─ user.py               # Example model
+│  ├─ models/
+│  │  ├─ __init__.py
+│  │  └─ user.py               # Database models (SQLAlchemy)
+│  ├─ schemas/
+│  │  ├─ __init__.py
+│  │  └─ user.py               # Pydantic models for API validation
+│  ├─ services/
+│  │  ├─ __init__.py
+│  │  └─ user.py               # Business logic layer
+│  ├─ routes/
+│  │  ├─ __init__.py
+│  │  └─ user.py               # API controllers/endpoints
+│  └─ middlewares/
+│     └─ __init__.py           # Custom middleware components
 ├─ alembic/
 │  ├─ env.py                   # Alembic config (async engine, imports models)
 │  ├─ script.py.mako           # Migration template
@@ -168,6 +181,71 @@ async def list_users():
         result = await session.execute(select(User))
         return [u for u in result.scalars().all()]
 ```
+
+## Architecture & Development Guidelines
+
+### Directory Structure & Responsibilities
+
+#### **`models/` - Database Models**
+- Contains SQLAlchemy models representing database tables
+- Each model should include basic CRUD operations as class/instance methods
+- Example: `User.create()`, `User.get_by_id()`, `User.update()`, `User.delete()`
+
+#### **`schemas/` - Pydantic Models**
+- API request/response validation and serialization
+- Separate schemas for create, update, and response operations
+- Example: `UserCreateRequest`, `UserUpdateRequest`, `UserResponse`
+
+#### **`services/` - Business Logic**
+- Contains business logic and complex operations
+- Keeps routes/controllers thin and focused
+- Handles validation, error handling, and cross-cutting concerns
+- Example: `UserService.create_user()` with email validation
+
+#### **`routes/` - Controllers/Endpoints**
+- HTTP request handlers (controllers)
+- Should be kept minimal - delegate to services
+- Each route file should export an APIRouter
+- Example pattern:
+```python
+@router.post("/", response_model=UserResponse)
+async def create_user(
+    user_data: UserCreateRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session)
+) -> UserResponse:
+    user = await UserService.create_user(session, user_data)
+    return UserResponse.model_validate(user)
+```
+
+#### **`router.py` - Central Router**
+- Combines all route modules into a single API router
+- Provides versioning (e.g., `/api/v1/`)
+- Single place to manage all API routes
+
+#### **`middlewares/` - Custom Middleware**
+- Custom middleware components (CORS, authentication, logging, etc.)
+- Reusable middleware functions
+- Applied globally or to specific route groups
+
+### Development Workflow
+
+1. **Adding New Endpoints**:
+   - Create/update model in `models/`
+   - Define schemas in `schemas/`
+   - Implement business logic in `services/`
+   - Create route handlers in `routes/`
+   - Register router in `router.py`
+
+2. **API Endpoints Structure**:
+   - All API endpoints are prefixed with `/api/v1/`
+   - User endpoints: `/api/v1/users/`
+   - Future endpoints: `/api/v1/posts/`, `/api/v1/auth/`, etc.
+
+3. **Error Handling**:
+   - Business logic validation in services layer
+   - HTTP exceptions raised from services
+   - Consistent error responses across the API
 
 ## Troubleshooting
 - Docker not found: install Docker Desktop or engine + compose plugin.
