@@ -12,7 +12,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 # User CRUD endpoints - MC Architecture (Controller directly uses Model)
-@router.post("/", status_code=201, response_model=UserResponse)
+@router.post("/", status_code=201, response_model=UserResponse, operation_id="createUser")
 async def create_user(
     user_data: UserCreateRequest,
     request: Request,
@@ -25,7 +25,7 @@ async def create_user(
     return UserResponse.model_validate(user)
 
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("/", response_model=List[UserResponse], operation_id="getUsers")
 async def get_users(
     skip: int = Query(0, ge=0, description="Number of users to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Number of users to return"),
@@ -38,7 +38,7 @@ async def get_users(
     return [UserResponse.model_validate(user) for user in users]
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserResponse, operation_id="getUserById")
 async def get_user(
     user_id: int,
     session: AsyncSession = Depends(get_session)
@@ -50,7 +50,7 @@ async def get_user(
     return UserResponse.model_validate(user)
 
 
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put("/{user_id}", response_model=UserResponse, operation_id="updateUser")
 async def update_user(
     user_id: int,
     user_data: UserUpdateRequest,
@@ -63,7 +63,7 @@ async def update_user(
     return UserResponse.model_validate(user)
 
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}", operation_id="deleteUser")
 async def delete_user(
     user_id: int,
     session: AsyncSession = Depends(get_session)

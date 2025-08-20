@@ -182,7 +182,8 @@ async def create(payload: WidgetCreateRequest) -> Widget:
 
 ### 5) Add Routes
 
-Create an `APIRouter` in `app/routes/<feature>.py`. Return Pydantic models.
+Create an `APIRouter` in `app/routes/<feature>.py`. Return Pydantic models. `operation_id` is the name of the operation. This is a unique identifier for the operation. It is used to generate the client code.
+Using this `operation_id`, you can generate the client code using the `openapi-zod-client` package.
 
 ```python
 from fastapi import APIRouter
@@ -192,7 +193,7 @@ from app.utils.logger import logger
 
 router = APIRouter(prefix="/widgets", tags=["widgets"])
 
-@router.post("/", response_model=WidgetResponse, status_code=201)
+@router.post("/", response_model=WidgetResponse, status_code=201, operation_id="createWidget")
 async def create_widget_route(payload: WidgetCreateRequest) -> WidgetResponse:
     logger.info("POST /widgets")
     widget = await create_widget(payload)
