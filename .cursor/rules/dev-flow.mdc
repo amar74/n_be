@@ -1,0 +1,347 @@
+alwaysApply: true
+description: "Megapolis API dev flow and rules for Cursor AI (FastAPI, SQLAlchemy async, Alembic, Pydantic v2, Loguru)"
+---
+
+### Overview
+
+This document is the single source of truth for how to design, implement, and maintain features in the `megapolis-api` service. It merges coding rules and development flow into one place for AI agents and developers.
+
+- **Tech stack**: FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, Loguru
+- **Entry**: `app/main.py` with `FastAPI` app and CORS, routers from `app/router.py`
+- **DB**: Async Postgres via `app/db/session.py` using `get_db` (context manager) and `get_session` (FastAPI dependency)
+- **Models**: SQLAlchemy models in `app/models/*` extending `app.db.base.Base`
+- **Schemas**: Pydantic v2 models in `app/schemas/*` with `Config.from_attributes = True`
+- **Services**: Business logic in `app/services/*` (e.g., `UserService`)
+- **Routes**: Feature routers in `app/routes/*` included by `app/router.py`
+- **Logging**: Loguru configured in `app/utils/logger.py`; never use `print`
+- **Migrations**: Alembic (async env) managed via `manage.py`
+- **Auth**: Verify Supabase token, then issue local JWT (HS256) in `app/routes/auth.py`
+
+### Development Flow
+
+#### Planning
+- Research the feature first. Choose the best approach unless a specific method/tech is mandated.
+
+#### Dependencies with Poetry
+- Manage dependencies with Poetry.
+
+```bash
+poetry install
+poetry add <package>
+poetry remove <package>
+poetry run uvicorn app.main:app --reload
+```
+
+#### Manager Script (`manage.py`)
+- `manage.py` (built with Typer) provides common commands.
+
+```bash
+python manage.py run --host 127.0.0.1 --port 8000 --reload
+python manage.py migrate -m "add widgets"
+python manage.py upgrade
+python manage.py downgrade -1
+python manage.py initdb
+```
+
+Alternative with Poetry + Alembic directly:
+
+```bash
+poetry run alembic revision --autogenerate -m "add widgets"
+poetry run alembic upgrade head
+poetry run alembic downgrade -1
+```
+
+### Architecture and Conventions
+
+- Prefer event-based architecture. When multiple parts need to react to state changes, introduce an orchestrator class that emits events.
+- Use async end-to-end for I/O (`async def`, `await`).
+- Public functions must have type hints. FastAPI endpoints should return Pydantic schemas (avoid raw dicts).
+- Error handling: raise `AppHTTPException` with proper status codes. If not available, use `fastapi.HTTPException` and plan to introduce `AppHTTPException`.
+- Logging: use `from app.utils.logger import logger` (or `get_logger("name")`).
+- No blocking calls in request handlers.
+ - Prefer functions in `app/services/*` for simple logic. Use classes only when orchestration or eventing is required.
+ - One router per feature/domain (users, orders, products, etc.) with consistent naming.
+ - In services, avoid returning raw dicts; use Pydantic models or dataclasses at boundaries.
+
+### Directory and File Layout
+
+- Routes: `app/routes/<feature>.py` included via `app/router.py`
+- Services: `app/services/<feature>.py` (business logic)
+- Models: `app/models/<feature>.py` (SQLAlchemy)
+- Schemas: `app/schemas/<feature>.py` (Pydantic v2)
+- Utilities: `app/utils/*`
+
+### FastAPI Patterns
+
+Router skeleton:
+
+```python
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import get_session
+from app.schemas.widget import WidgetCreateRequest, WidgetResponse
+from app.services.widget import WidgetService
+from app.utils.logger import logger
+
+router = APIRouter(prefix="/widgets", tags=["widgets"])
+
+@router.post("/", response_model=WidgetResponse, status_code=201)
+async def create_widget(
+    payload: WidgetCreateRequest,
+    session: AsyncSession = Depends(get_session),
+) -> WidgetResponse:
+    logger.info("Creating widget")
+    widget = await WidgetService.create(session, payload)
+    return WidgetResponse.model_validate(widget)
+```
+
+Keep endpoints thin; delegate to services. Return Pydantic v2 models via `.model_validate(...)` or list comprehensions.
+
+Authenticated route example (current user dependency):
+
+```python
+from fastapi import Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import get_session
+from app.models.user import User
+import os, jwt
+
+async def get_current_user(
+    token: str = Depends(lambda request: request.headers.get("Authorization", "").replace("Bearer ", "")),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    payload = jwt.decode(token, os.environ.get("JWT_SECRET_KEY", "change-me"), algorithms=["HS256"])
+    user = await User.get_by_id(session, int(payload.get("sub", 0)))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@router.get("/me", response_model=UserResponse)
+async def me(user: User = Depends(get_current_user)) -> UserResponse:
+    return UserResponse.model_validate(user)
+```
+
+### Database Sessions
+
+- In FastAPI dependencies, use `get_session`:
+
+```python
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import get_session
+
+async def handler(session: AsyncSession = Depends(get_session)):
+    ...
+```
+
+- Outside DI (scripts, background tasks), use `get_db` context manager:
+
+```python
+from app.db.session import get_db
+
+async def do_work():
+    async with get_db() as session:
+        ...  # await session.execute(...)
+```
+
+### SQLAlchemy (Async) Patterns
+
+Model template:
+
+```python
+from sqlalchemy import String, select
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional, List
+from app.db.base import Base
+
+class Widget(Base):
+    __tablename__ = "widgets"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+
+    @classmethod
+    async def create(cls, session: AsyncSession, name: str) -> "Widget":
+        instance = cls(name=name)
+        session.add(instance)
+        await session.commit()
+        await session.refresh(instance)
+        return instance
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, widget_id: int) -> Optional["Widget"]:
+        result = await session.execute(select(cls).where(cls.id == widget_id))
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession, skip: int = 0, limit: int = 100) -> List["Widget"]:
+        result = await session.execute(select(cls).offset(skip).limit(limit))
+        return list(result.scalars().all())
+```
+
+Guidelines:
+- Use SQLAlchemy 2.0 style queries.
+- Commit and `await session.refresh(instance)` after create/update.
+- Add convenience class/instance methods for CRUD.
+
+### Pydantic v2 Conventions
+
+Schema template:
+
+```python
+from pydantic import BaseModel
+from typing import Optional
+
+class WidgetCreateRequest(BaseModel):
+    name: str
+
+class WidgetResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+```
+
+Convert ORM to schema with `Model.model_validate(orm_obj)`.
+
+### Service Layer Pattern
+
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
+from app.models.widget import Widget
+from app.schemas.widget import WidgetCreateRequest
+from app.utils.logger import logger
+
+class WidgetService:
+    @staticmethod
+    async def create(session: AsyncSession, payload: WidgetCreateRequest) -> Widget:
+        logger.debug(f"Ensuring widget name unique: {payload.name}")
+        existing = await Widget.get_all(session, skip=0, limit=1)  # replace with a real uniqueness check
+        if any(w.name == payload.name for w in existing):
+            raise HTTPException(status_code=400, detail="Name already exists")
+        return await Widget.create(session, payload.name)
+```
+
+### Error Handling
+
+- Raise `AppHTTPException` for domain errors. If not available yet, use `fastapi.HTTPException` and log appropriately.
+
+```python
+from fastapi import HTTPException
+from app.utils.logger import logger
+
+def ensure(condition: bool, status: int, detail: str) -> None:
+    if not condition:
+        logger.warning(detail)
+        raise HTTPException(status_code=status, detail=detail)
+```
+
+Use `logger.exception` when catching and re-raising errors.
+
+### Logging (Loguru)
+
+```python
+from app.utils.logger import logger
+
+logger.info("Starting operation")
+logger.debug("Internal state without sensitive data")
+logger.warning("Recoverable anomaly")
+logger.error("Failure about to raise")
+```
+
+Never log secrets or full tokens; truncate like `token[:20]` if needed.
+
+### Auth and Security
+
+- Verify external tokens with Supabase (`app.services.supabase.verify_user_token`).
+- Issue local JWTs (HS256) using `JWT_SECRET_KEY`. Claims include `sub`, `email`, `exp`.
+
+```python
+import os, jwt
+from datetime import datetime, timedelta
+
+def issue_jwt(user_id: int, email: str) -> str:
+    exp = datetime.utcnow() + timedelta(days=30)
+    payload = {"sub": str(user_id), "email": email, "exp": exp}
+    secret = os.environ.get("JWT_SECRET_KEY", "change-me")
+    return jwt.encode(payload, secret, algorithm="HS256")
+```
+
+Reject requests without a valid `Authorization: Bearer ...` header, unless a documented alternative header is explicitly supported.
+
+### Alembic and Migrations
+
+- `alembic/env.py` loads `Base.metadata` and imports `app.models` so new models are discovered.
+- When adding models, ensure they are importable by Alembic (export via `app/models/__init__.py` if needed).
+- Use `manage.py` for creating and applying migrations (see commands above).
+
+### Environment Variables
+
+- Prefer `from app import environment` and then `environment.<VARIABLE_NAME>`.
+- If not available, use `os.getenv` as a fallback.
+
+Example:
+
+```python
+from app import environment
+from app.utils.logger import logger
+
+JWT_SECRET = environment.JWT_SECRET_KEY
+logger.debug(f"JWT secret configured? {'yes' if bool(JWT_SECRET) else 'no'}")
+```
+
+Common vars:
+- `DATABASE_URL` (asyncpg URL)
+- `JWT_SECRET_KEY`
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- `ENVIRONMENT` (set to `production` to enable file logging)
+
+### Code Style
+
+- Explicit, descriptive names; functions are verbs, classes and variables are nouns.
+- Use guard clauses and early returns; avoid deep nesting.
+- Keep lines reasonably short; match existing formatting; do not reformat unrelated code.
+- Validate inputs early; keep route bodies minimal.
+
+### Prohibited / Cautions
+
+- Do not introduce synchronous DB engines/sessions.
+- Do not use `print` for logs.
+- Do not return ORM objects directly from endpoints; always return Pydantic models or controlled dicts.
+- Do not add tests unless explicitly requested.
+
+### Feature Implementation Checklist
+
+1. Plan the feature; choose best approach and data model.
+2. Create/modify SQLAlchemy models in `app/models/*`; ensure Alembic sees them.
+3. Generate and apply Alembic migrations via `manage.py`.
+4. Add Pydantic request/response schemas in `app/schemas/*`.
+5. Implement service functions in `app/services/*` with async DB access.
+6. Add FastAPI routes in `app/routes/*`, wiring DI with `Depends(get_session)`.
+7. Add logging at info/debug levels; avoid sensitive data.
+8. Validate input, raise `AppHTTPException` (or `HTTPException`) for errors.
+9. Update `app/router.py` to include the new router.
+10. Verify environment variables and configuration.
+
+### Event-Based Orchestration (Example)
+
+```python
+import asyncio
+from typing import Callable, Awaitable, List
+
+class WidgetOrchestrator:
+    def __init__(self) -> None:
+        self._subscribers: List[Callable[[int], Awaitable[None]]] = []
+
+    def on_created(self, handler: Callable[[int], Awaitable[None]]) -> None:
+        self._subscribers.append(handler)
+
+    async def emit_created(self, widget_id: int) -> None:
+        await asyncio.gather(*(h(widget_id) for h in self._subscribers))
+```
+

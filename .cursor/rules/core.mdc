@@ -14,7 +14,7 @@ These rules always apply to the `megapolis-api` backend.
 - **Services**: Business logic in `app/services/*` (e.g., `UserService`)
 - **Routes**: Feature routers in `app/routes/*` included by `app/router.py`
 - **Logging**: Loguru configured in `app/utils/logger.py`, `from app.utils.logger import logger`; do not use `print`
-- **Migrations**: Alembic with async `alembic/env.py`; manage via `manage.py`
+- **Migrations**: Alembic with; manage via `manage.py`
 - **Auth**: Supabase token verification and then we create a local JWT (HS256) issuance in `app/routes/auth.py`
 
 ### General Guidance
