@@ -1,0 +1,90 @@
+alwaysApply: true
+description: "Cursor rules for Megapolis API (FastAPI + SQLAlchemy async + Alembic + Pydantic v2 + Loguru)"
+---
+
+### Megapolis API – Coding Rules and Conventions
+
+These rules always apply to the `megapolis-api` backend.
+
+- **Tech stack**: FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, Loguru
+- **Entry**: `app/main.py` with `FastAPI` app and CORS, routers from `app/router.py`
+- **DB**: Async Postgres via `app/db/session.py` using `get_session`.
+- **Models**: SQLAlchemy models in `app/models/*` extending `app.db.base.Base`
+- **Schemas**: Pydantic v2 models in `app/schemas/*` with `Config.from_attributes = True`
+- **Services**: Business logic in `app/services/*` (e.g., `UserService`)
+- **Routes**: Feature routers in `app/routes/*` included by `app/router.py`
+- **Logging**: Loguru configured in `app/utils/logger.py`, `from app.utils.logger import logger`; do not use `print`
+- **Migrations**: Alembic with async `alembic/env.py`; manage via `manage.py`
+- **Auth**: Supabase token verification and then we create a local JWT (HS256) issuance in `app/routes/auth.py`
+
+### General Guidance
+
+- **Do not write tests unless explicitly requested.**
+- **Prefer event-based architecture**. For interconnected features where values must be passed across layers, **use a class to orchestrate** and expose events.
+- **Use async end-to-end** for I/O: FastAPI endpoints, DB operations, and service methods should be `async def`/`await`.
+- **Type hints** are required for public functions; annotate FastAPI endpoints' return types with Pydantic schemas. Dont use normal dicts.
+- **Error handling**: raise `AppHTTPException` with proper status codes; avoid returning raw tuples `(payload, status)` from handlers.
+- **Logging**: use `from app.utils.logger import logger`; log at `info` for major events, `debug` for details, `warning` for recoverable anomalies, `error` for failures.
+- **No blocking calls** in request handlers; offload CPU-bound or blocking work to background tasks or workers.
+
+### FastAPI Patterns
+
+- Use `APIRouter(prefix="/resource", tags=["resource"])` in `app/routes/*`.
+- Use db sessions from `from app.db.session import get_session`.
+- Return Pydantic v2 models using `.model_validate(domain_obj)` or list comprehensions over them.
+- Keep endpoint bodies thin; delegate to service layer (e.g., `services/user.py`).
+
+### SQLAlchemy (Async) Patterns
+
+- Base class: `app.db.base.Base` (DeclarativeBase). All models must subclass it and set `__tablename__`.
+- Use SQLAlchemy 2.0 style queries (`select(Model)`), `AsyncSession`, and `await session.execute(...)`.
+- Commit and `await session.refresh(instance)` after create/update; keep transactions short.
+- Add model convenience methods as `@classmethod` or instance methods similar to `User` (e.g., `create`, `get_by_id`, `update`, `delete`).
+
+### Pydantic v2 Conventions
+
+- Set `class Config: from_attributes = True` on response schemas for ORM compatibility.
+- Use `Model.model_validate(orm_obj)` to convert ORM to schema.
+- Keep request schemas minimal; perform validation in the service layer where business context is available.
+
+### Logging Conventions (Loguru)
+
+- Global setup is in `app/utils/logger.py`. Default level is `INFO`; production adds file sink `logs/app.log` when `ENVIRONMENT=production`.
+- Use `logger.info(...)` at the start and successful end of operations; `logger.debug(...)` for internal state (avoid sensitive data); `logger.warning(...)` for unusual but handled cases; `logger.error(...)` when raising or catching errors.
+- Do not use `print`; never log secrets or full tokens. When logging tokens, truncate (e.g., first 20 chars) as seen in `auth.py`.
+
+### Alembic and Migrations
+
+- When adding new models or changing metadata, ensure the model modules are importable by Alembic (export from `app/models/__init__.py` if necessary).
+- Use `manage.py` as a utility script to run all helping commands like alembic migrations, server running, and anything else which is common for developers to run
+
+### Environment Variables
+- Import `from app import environment` and then use `environment.<VARIABLE_NAME>`
+
+### Directory and File Conventions
+
+- Put new routers in `app/routes/<feature>.py` and include them in `app/router.py` via `api_router.include_router(...)`.
+- Place business logic in `app/services/<feature>.py`. Keep routes thin.
+- Add new models in `app/models/<feature>.py`. Ensure Alembic sees them.
+- Add request/response schemas in `app/schemas/<feature>.py` with Pydantic v2.
+
+### Code Style
+
+- Prefer explicit, descriptive names. Functions are verbs; classes and variables are nouns.
+- Use early returns, minimal nesting, and guard clauses. Avoid catching exceptions without re-raising or handling.
+- Keep line length reasonable and match existing formatting; do not reformat unrelated code.
+
+### Examples
+
+- New endpoint shape:
+  - Router: `router = APIRouter(prefix="/widgets", tags=["widgets"])`
+  - Response: return `WidgetResponse.model_validate(widget)`
+  - Logging: `logger.info("Creating widget ...")`
+
+### Prohibited / Cautions
+
+- Do not introduce synchronous DB engines/sessions.
+- Do not use raw `print` for logs.
+- Do not return ORM objects directly from endpoints; always wrap in Pydantic models or `to_dict()` if explicitly required.
+- Do not add tests unless requested.
+
