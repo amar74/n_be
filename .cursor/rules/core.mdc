@@ -71,47 +71,21 @@ async def job():
 - **Create if missing**: If `app/environment.py` is absent, create it and export from `app/__init__.py`.
 
 ```python
-# app/environment.py (create if missing)
-import os
+from app import environment
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@db:5432/megapolis")
-JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "change-me")
-ENVIRONMENT = os.environ.get("ENVIRONMENT", "development")
-
-# app/__init__.py (ensure exports)
-from . import environment  # noqa
-__all__ = ["environment"]
+DATABASE_URL = environment.DATABASE_URL
+JWT_SECRET_KEY = environment.JWT_SECRET_KEY
+ENVIRONMENT = environment.ENVIRONMENT
 ```
 
 ## Authentication
 
-- Use a dependency `get_current_user` from `app/dependencies/user_auth.py`.
+- Use a dependency `get_current_user` from `app/dependencies/user_auth.py`. You can get the current user from the request context using `get_current_user` dependency.
 
 ```python
-# app/dependencies/user_auth.py (create if missing)
-from fastapi import Depends, HTTPException, Request
-import jwt
-from app import environment
-from app.db.session import get_db
-from app.models.user import User
-
-async def get_current_user(request: Request) -> dict:
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    token = auth.replace("Bearer ", "")
-    try:
-        payload = jwt.decode(token, environment.JWT_SECRET_KEY, algorithms=["HS256"])
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    async with get_db() as session:
-        user = await User.get_by_id(session, int(user_id))
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        return user.to_dict()
+@app.get("/me")
+async def get_me(user: User = Depends(get_current_user)):
+    return user
 ```
 
 ## Error Handling
@@ -119,15 +93,9 @@ async def get_current_user(request: Request) -> dict:
 - **Raise `AppHTTPException` in services**: Centralize client-facing errors; translate to HTTP at route boundaries.
 
 ```python
-# app/utils/exceptions.py (create if missing)
-from typing import Any, Optional
+from app.utils.exceptions import AppHTTPException
 
-class AppHTTPException(Exception):
-    def __init__(self, status_code: int, message: str, metadata: Optional[dict[str, Any]] = None) -> None:
-        self.status_code = status_code
-        self.message = message
-        self.metadata = metadata or {}
-        super().__init__(message)
+raise AppHTTPException(status_code=400, message="Name already exists", metadata={"name": payload.name})
 ```
 
 ## Logging
@@ -189,7 +157,7 @@ class WidgetResponse(BaseModel):
 
 ## Services
 
-- Keep services small and functional by default. If orchestration/multi-step flows are needed, introduce a small coordinator class.
+- Keep services small and functional by default.
 - Log major events and raise `AppHTTPException` for client-visible errors.
 
 ```python
