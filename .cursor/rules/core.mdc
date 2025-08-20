@@ -8,7 +8,7 @@ These rules always apply to the `megapolis-api` backend.
 
 - **Tech stack**: FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, Loguru
 - **Entry**: `app/main.py` with `FastAPI` app and CORS, routers from `app/router.py`
-- **DB**: Async Postgres via `app/db/session.py` using `get_session`.
+- **DB**: Async Postgres via `app/db/session.py` using `get_db`.
 - **Models**: SQLAlchemy models in `app/models/*` extending `app.db.base.Base`
 - **Schemas**: Pydantic v2 models in `app/schemas/*` with `Config.from_attributes = True`
 - **Services**: Business logic in `app/services/*` (e.g., `UserService`)
@@ -30,7 +30,7 @@ These rules always apply to the `megapolis-api` backend.
 ### FastAPI Patterns
 
 - Use `APIRouter(prefix="/resource", tags=["resource"])` in `app/routes/*`.
-- Use db sessions from `from app.db.session import get_session`.
+- Use db sessions from `from app.db.session import get_db`.
 - Return Pydantic v2 models using `.model_validate(domain_obj)` or list comprehensions over them.
 - Keep endpoint bodies thin; delegate to service layer (e.g., `services/user.py`).
 
