@@ -5,6 +5,8 @@ from typing import List, Dict, Any
 from app.db.session import get_session
 from app.services.user import UserService
 from app.schemas.user import UserCreateRequest, UserUpdateRequest, UserResponse
+from app.utils.logger import logger
+
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -17,7 +19,9 @@ async def create_user(
     session: AsyncSession = Depends(get_session)
 ) -> UserResponse:
     """Create a new user"""
+    logger.info(f"Creating new user with email: {user_data.email}")
     user = await UserService.create_user(session, user_data)
+    logger.info(f"User created successfully with ID: {user.id}")
     return UserResponse.model_validate(user)
 
 
@@ -28,7 +32,9 @@ async def get_users(
     session: AsyncSession = Depends(get_session)
 ) -> List[UserResponse]:
     """Get all users with pagination"""
+    logger.info(f"Fetching users with skip={skip}, limit={limit}")
     users = await UserService.get_all_users(session, skip=skip, limit=limit)
+    logger.info(f"Retrieved {len(users)} users")
     return [UserResponse.model_validate(user) for user in users]
 
 
@@ -38,7 +44,9 @@ async def get_user(
     session: AsyncSession = Depends(get_session)
 ) -> UserResponse:
     """Get a specific user by ID"""
+    logger.info(f"Fetching user with ID: {user_id}")
     user = await UserService.get_user_by_id(session, user_id)
+    logger.info(f"User found: {user.email}")
     return UserResponse.model_validate(user)
 
 
@@ -49,7 +57,9 @@ async def update_user(
     session: AsyncSession = Depends(get_session)
 ) -> UserResponse:
     """Update an existing user"""
+    logger.info(f"Updating user with ID: {user_id}, new email: {user_data.email}")
     user = await UserService.update_user(session, user_id, user_data)
+    logger.info(f"User updated successfully: {user.email}")
     return UserResponse.model_validate(user)
 
 
@@ -59,5 +69,7 @@ async def delete_user(
     session: AsyncSession = Depends(get_session)
 ) -> dict[str, str]:
     """Delete a user"""
+    logger.info(f"Deleting user with ID: {user_id}")
     await UserService.delete_user(session, user_id)
+    logger.info(f"User with ID {user_id} deleted successfully")
     return {"message": "User deleted successfully"}

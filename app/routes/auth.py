@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from app.db.session import get_session
 from app.models.user import User
 from app.services.supabase import verify_user_token
+from app.utils.logger import logger
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -19,10 +20,10 @@ async def onsignup(
     session: AsyncSession = Depends(get_session)
 ):
     """Handle user signup from external auth provider"""
-    print("Endpoint hit: /auth/onsignup")
+    logger.info("Endpoint hit: /auth/onsignup")
     
     body = await request.body()
-    print('Request body: ', body)
+    logger.debug(f'Request body: {body}')
     
     # Parse the JSON body
     body_data = json.loads(body)
@@ -33,15 +34,15 @@ async def onsignup(
         existing_user = await User.get_by_email(session, email)
         
         if existing_user:
-            print(f"User with email {email} already exists")
+            logger.info(f"User with email {email} already exists")
             return {"message": "User already exists", "user": existing_user.to_dict()}
         else:
             # Create new user
             new_user = await User.create(session, email)
-            print(f"New user created with email {email}")
+            logger.info(f"New user created with email {email}")
             return {"message": "User created successfully", "user": new_user.to_dict()}
     else:
-        print("No email provided in the request")
+        logger.warning("No email provided in the request")
         return {"message": "Email is required", "error": "missing_email"}, 400
 
 
@@ -51,20 +52,20 @@ async def verify_supabase_token(
     session: AsyncSession = Depends(get_session)
 ):
     """Verify token from Supabase and generate our own JWT"""
-    print("Endpoint hit: /auth/verify_supabase_token")
+    logger.info("Endpoint hit: /auth/verify_supabase_token")
     
     # Get the authorization header
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
         sb_header = request.headers.get('sb-mzdvwfoepfagypseyvfh-auth-token')
         if not sb_header:
-            print("No authentication token provided")
+            logger.warning("No authentication token provided")
             raise HTTPException(status_code=401, detail="No authentication token provided")
         auth_token = sb_header
     else:
         auth_token = auth_header.replace('Bearer ', '')
     
-    print(f"Processing auth token: {auth_token[:20]}...")
+    logger.debug(f"Processing auth token: {auth_token[:20]}...")
     
     try:
         # Verify the token with Supabase
@@ -72,7 +73,7 @@ async def verify_supabase_token(
         
         if not user_data:
             # Fallback to decoding token without verification
-            print("Token verification failed with Supabase client, trying fallback...")
+            logger.warning("Token verification failed with Supabase client, trying fallback...")
             decoded_token = jwt.decode(auth_token, options={"verify_signature": False})
             
             # Try to extract email from decoded token
@@ -84,12 +85,12 @@ async def verify_supabase_token(
                     user_email = user_metadata.get('email')
             
             if not user_email:
-                print("No email found in token or metadata")
+                logger.error("No email found in token or metadata")
                 raise HTTPException(status_code=401, detail="Invalid token - no email found")
         else:
             # Use the email from verified user data
             user_email = user_data.get('email')
-            print(f"Token verified successfully for user {user_email}")
+            logger.info(f"Token verified successfully for user {user_email}")
             
         # Check if user exists in our database or create them
         user = await User.get_by_email(session, user_email)
@@ -97,9 +98,9 @@ async def verify_supabase_token(
         if not user:
             # Create the user if they don't exist
             user = await User.create(session, user_email)
-            print(f"Created new user with email {user_email}")
+            logger.info(f"Created new user with email {user_email}")
         else:
-            print(f"Found existing user with email {user_email}")
+            logger.info(f"Found existing user with email {user_email}")
         
         # Generate our own JWT token
         token_expiry = datetime.utcnow() + timedelta(days=30)
@@ -113,7 +114,7 @@ async def verify_supabase_token(
         secret_key = os.environ.get("JWT_SECRET_KEY", "your-secret-key-here")
         token = jwt.encode(payload, secret_key, algorithm="HS256")
         
-        print(f"Generated JWT token for user {user_email}")
+        logger.info(f"Generated JWT token for user {user_email}")
         return {
             "message": "Token verified successfully",
             "token": token,
@@ -122,10 +123,10 @@ async def verify_supabase_token(
         }
         
     except jwt.DecodeError:
-        print("Invalid token format")
+        logger.error("Invalid token format")
         raise HTTPException(status_code=401, detail="Invalid token format")
     except Exception as e:
-        print(f"Error verifying token: {str(e)}")
+        logger.error(f"Error verifying token: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
 
 
@@ -135,12 +136,12 @@ async def get_current_user(
     session: AsyncSession = Depends(get_session)
 ):
     """Get current authenticated user info"""
-    print("Endpoint hit: /auth/me")
+    logger.info("Endpoint hit: /auth/me")
     
     # Get the authorization header
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        print("No valid Authorization header found")
+        logger.warning("No valid Authorization header found")
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     # Extract the token
@@ -154,24 +155,24 @@ async def get_current_user(
         # Extract user ID from token
         user_id = payload.get("sub")
         if not user_id:
-            print("No user ID found in token")
+            logger.error("No user ID found in token")
             raise HTTPException(status_code=401, detail="Invalid token")
         
         # Get user from database
         user = await User.get_by_id(session, int(user_id))
         if not user:
-            print(f"User with ID {user_id} not found in database")
+            logger.error(f"User with ID {user_id} not found in database")
             raise HTTPException(status_code=404, detail="User not found")
         
-        print(f"Found user: {user.email}")
+        logger.info(f"Found user: {user.email}")
         return {"user": user.to_dict()}
         
     except jwt.ExpiredSignatureError:
-        print("Token has expired")
+        logger.warning("Token has expired")
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError as e:
-        print(f"Invalid token: {str(e)}")
+        logger.error(f"Invalid token: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        print(f"Error verifying token: {str(e)}")
+        logger.error(f"Error verifying token: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
