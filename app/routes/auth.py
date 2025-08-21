@@ -10,6 +10,7 @@ from app.db.session import get_session
 from app.models.user import User
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger
+from app.utils.error import MegapolisHTTPException
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -56,9 +57,7 @@ async def verify_supabase_token(
         sb_header = request.headers.get("sb-mzdvwfoepfagypseyvfh-auth-token")
         if not sb_header:
             logger.warning("No authentication token provided")
-            raise HTTPException(
-                status_code=401, detail="No authentication token provided"
-            )
+            raise MegapolisHTTPException(status_code=401, detail="No authentication token provided")
         auth_token = sb_header
     else:
         auth_token = auth_header.replace("Bearer ", "")
@@ -86,7 +85,7 @@ async def verify_supabase_token(
 
             if not user_email:
                 logger.error("No email found in token or metadata")
-                raise HTTPException(
+                raise MegapolisHTTPException(
                     status_code=401, detail="Invalid token - no email found"
                 )
         else:
@@ -122,10 +121,10 @@ async def verify_supabase_token(
 
     except jwt.DecodeError:
         logger.error("Invalid token format")
-        raise HTTPException(status_code=401, detail="Invalid token format")
+        raise MegapolisHTTPException(status_code=401, detail="Invalid token format")
     except Exception as e:
         logger.error(f"Error verifying token: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
+        raise MegapolisHTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
 
 
 @router.get("/me")
@@ -139,7 +138,7 @@ async def get_current_user(
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         logger.warning("No valid Authorization header found")
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise MegapolisHTTPException(status_code=401, detail="Not authenticated")
 
     # Extract the token
     token = auth_header.replace("Bearer ", "")
@@ -153,23 +152,23 @@ async def get_current_user(
         user_id = payload.get("sub")
         if not user_id:
             logger.error("No user ID found in token")
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise MegapolisHTTPException(status_code=401, detail="Invalid token")
 
         # Get user from database
         user = await User.get_by_id(session, int(user_id))
         if not user:
             logger.error(f"User with ID {user_id} not found in database")
-            raise HTTPException(status_code=404, detail="User not found")
+            raise MegapolisHTTPException(status_code=404, detail="User not found")
 
         logger.info(f"Found user: {user.email}")
         return {"user": user.to_dict()}
 
     except jwt.ExpiredSignatureError:
         logger.warning("Token has expired")
-        raise HTTPException(status_code=401, detail="Token has expired")
+        raise MegapolisHTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError as e:
         logger.error(f"Invalid token: {str(e)}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise MegapolisHTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
         logger.error(f"Error verifying token: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
+        raise MegapolisHTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
