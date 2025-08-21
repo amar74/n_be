@@ -11,21 +11,35 @@ from app.models.user import User
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
+from app.schemas.auth import (
+    OnSignUpRequest,
+    OnSignupSuccessResponse,
+    OnSignupErrorResponse,
+    AuthUserResponse,
+    VerifySupabaseTokenResponse,
+    CurrentUserResponse,
+)
+from app.environment import environment
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/onsignup")
-async def onsignup(request: Request, session: AsyncSession = Depends(get_session)):
+@router.post(
+    "/onsignup",
+    responses={
+        200: {"model": OnSignupSuccessResponse},
+        400: {"model": OnSignupErrorResponse},
+    },
+)
+async def onsignup(
+    request: OnSignUpRequest, session: AsyncSession = Depends(get_session)
+):
     """Handle user signup from external auth provider"""
     logger.info("Endpoint hit: /auth/onsignup")
 
-    body = await request.body()
-    logger.debug(f"Request body: {body}")
-
-    # Parse the JSON body
-    body_data = json.loads(body)
-    email = body_data.get("email")
+    email = request.email
+    logger.debug(f"Received signup request for email: {email}")
 
     if email:
         # Check if user with this email already exists
@@ -33,15 +47,22 @@ async def onsignup(request: Request, session: AsyncSession = Depends(get_session
 
         if existing_user:
             logger.info(f"User with email {email} already exists")
-            return {"message": "User already exists", "user": existing_user.to_dict()}
+
+            # Return existing user response
+            return AuthUserResponse.model_validate(existing_user)
         else:
             # Create new user
             new_user = await User.create(session, email)
             logger.info(f"New user created with email {email}")
-            return {"message": "User created successfully", "user": new_user.to_dict()}
+
+            return OnSignupSuccessResponse(
+                message="User created successfully",
+                user=AuthUserResponse.model_validate(new_user),
+            )
     else:
         logger.warning("No email provided in the request")
-        return {"message": "Email is required", "error": "missing_email"}, 400
+
+        return OnSignupErrorResponse(message="Signup failed", error="Email is required")
 
 
 @router.get("/verify_supabase_token")
@@ -57,7 +78,9 @@ async def verify_supabase_token(
         sb_header = request.headers.get("sb-mzdvwfoepfagypseyvfh-auth-token")
         if not sb_header:
             logger.warning("No authentication token provided")
-            raise MegapolisHTTPException(status_code=401, detail="No authentication token provided")
+            raise MegapolisHTTPException(
+                status_code=401, detail="No authentication token provided"
+            )
         auth_token = sb_header
     else:
         auth_token = auth_header.replace("Bearer ", "")
@@ -108,23 +131,33 @@ async def verify_supabase_token(
         payload = {"sub": str(user.id), "email": user_email, "exp": token_expiry}
 
         # Use a secret key from environment or create one
-        secret_key = os.environ.get("JWT_SECRET_KEY", "your-secret-key-here")
+        # secret_key = os.environ.get("JWT_SECRET_KEY", "your-secret-key-here")
+        secret_key = environment.JWT_SECRET_KEY
+        if not secret_key:
+            logger.error("JWT_SECRET_KEY is not set in the environment")
+            raise MegapolisHTTPException(
+                status_code=500, detail="JWT secret key is not configured"
+            )
+        # Generate the JWT token
         token = jwt.encode(payload, secret_key, algorithm="HS256")
 
         logger.info(f"Generated JWT token for user {user_email}")
-        return {
-            "message": "Token verified successfully",
-            "token": token,
-            "user": user.to_dict(),
-            "expires_at": token_expiry.isoformat(),
-        }
+
+        return VerifySupabaseTokenResponse(
+            message="Token verified successfully",
+            token=token,
+            user=AuthUserResponse.model_validate(user),
+            expire_at=token_expiry.isoformat(),
+        )
 
     except jwt.DecodeError:
         logger.error("Invalid token format")
         raise MegapolisHTTPException(status_code=401, detail="Invalid token format")
     except Exception as e:
         logger.error(f"Error verifying token: {str(e)}")
-        raise MegapolisHTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
+        raise MegapolisHTTPException(
+            status_code=500, detail=f"Error verifying token: {str(e)}"
+        )
 
 
 @router.get("/me")
@@ -145,7 +178,12 @@ async def get_current_user(
 
     try:
         # Decode and verify the JWT token (our own token only)
-        secret_key = os.environ.get("JWT_SECRET_KEY", "your-secret-key-here")
+        secret_key = environment.JWT_SECRET_KEY
+        if not secret_key:
+            logger.error("JWT_SECRET_KEY is not set in the environment")
+            raise MegapolisHTTPException(
+                status_code=500, detail="JWT secret key is not configured"
+            )
         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
 
         # Extract user ID from token
@@ -161,7 +199,8 @@ async def get_current_user(
             raise MegapolisHTTPException(status_code=404, detail="User not found")
 
         logger.info(f"Found user: {user.email}")
-        return {"user": user.to_dict()}
+        # Return the user response
+        return CurrentUserResponse(user=AuthUserResponse.model_validate(user))
 
     except jwt.ExpiredSignatureError:
         logger.warning("Token has expired")
@@ -171,4 +210,6 @@ async def get_current_user(
         raise MegapolisHTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
         logger.error(f"Error verifying token: {str(e)}")
-        raise MegapolisHTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
+        raise MegapolisHTTPException(
+            status_code=500, detail=f"Error verifying token: {str(e)}"
+        )
