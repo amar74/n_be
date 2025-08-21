@@ -21,5 +21,3 @@ app.include_router(api_router)
 @app.get("/")
 async def read_root() -> dict[str, str]:
     return {"message": "Hello, world!"}
-
-
