@@ -16,7 +16,9 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
 from app.db.base import Base  # noqa: E402
-from app import models  # noqa: F401,E402  Ensure models are imported so metadata is populated
+from app import (
+    models,
+)  # noqa: F401,E402  Ensure models are imported so metadata is populated
 
 
 config = context.config
@@ -27,7 +29,9 @@ if config.config_file_name is not None:
 
 
 def get_url() -> str:
-    return os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@db:5432/megapolis")
+    return os.getenv(
+        "DATABASE_URL", "postgresql+asyncpg://postgres:postgres@db:5432/megapolis"
+    )
 
 
 target_metadata = Base.metadata
@@ -73,5 +77,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     asyncio.run(run_migrations_online())
-
-

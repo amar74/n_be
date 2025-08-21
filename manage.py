@@ -15,7 +15,10 @@ def env_with_db_url(database_url: Optional[str] = None) -> dict[str, str]:
     env = os.environ.copy()
     if database_url:
         env["DATABASE_URL"] = database_url
-    env.setdefault("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/megapolis")
+    env.setdefault(
+        "DATABASE_URL",
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/megapolis",
+    )
     return env
 
 
@@ -36,7 +39,11 @@ def run(host: str = "127.0.0.1", port: int = 8000, reload: bool = True) -> None:
 
 @app.command()
 def migrate(message: str = "auto") -> None:
-    subprocess.run(["alembic", "revision", "--autogenerate", "-m", message], check=True, env=env_with_db_url())
+    subprocess.run(
+        ["alembic", "revision", "--autogenerate", "-m", message],
+        check=True,
+        env=env_with_db_url(),
+    )
 
 
 @app.command()
@@ -46,7 +53,9 @@ def upgrade(revision: str = "head") -> None:
 
 @app.command()
 def downgrade(revision: str = "-1") -> None:
-    subprocess.run(["alembic", "downgrade", revision], check=True, env=env_with_db_url())
+    subprocess.run(
+        ["alembic", "downgrade", revision], check=True, env=env_with_db_url()
+    )
 
 
 @app.command()
@@ -56,5 +65,3 @@ def initdb() -> None:
 
 if __name__ == "__main__":
     app()
-
-
