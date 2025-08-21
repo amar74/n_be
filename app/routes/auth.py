@@ -20,6 +20,7 @@ from app.schemas.auth import (
     CurrentUserResponse,
 )
 from app.environment import environment
+from app.constant.get_current_user import current_user
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -79,7 +80,7 @@ async def verify_supabase_token(
         if not sb_header:
             logger.warning("No authentication token provided")
             raise MegapolisHTTPException(
-                status_code=401, detail="No authentication token provided"
+                status_code=401, details="No authentication token provided"
             )
         auth_token = sb_header
     else:
@@ -109,7 +110,7 @@ async def verify_supabase_token(
             if not user_email:
                 logger.error("No email found in token or metadata")
                 raise MegapolisHTTPException(
-                    status_code=401, detail="Invalid token - no email found"
+                    status_code=401, details="Invalid token - no email found"
                 )
         else:
             # Use the email from verified user data
@@ -136,7 +137,7 @@ async def verify_supabase_token(
         if not secret_key:
             logger.error("JWT_SECRET_KEY is not set in the environment")
             raise MegapolisHTTPException(
-                status_code=500, detail="JWT secret key is not configured"
+                status_code=500, details="JWT secret key is not configured"
             )
         # Generate the JWT token
         token = jwt.encode(payload, secret_key, algorithm="HS256")
@@ -152,64 +153,17 @@ async def verify_supabase_token(
 
     except jwt.DecodeError:
         logger.error("Invalid token format")
-        raise MegapolisHTTPException(status_code=401, detail="Invalid token format")
+        raise MegapolisHTTPException(status_code=401, details="Invalid token format")
     except Exception as e:
         logger.error(f"Error verifying token: {str(e)}")
         raise MegapolisHTTPException(
-            status_code=500, detail=f"Error verifying token: {str(e)}"
+            status_code=500, details=f"Error verifying token: {str(e)}"
         )
 
 
-@router.get("/me")
-async def get_current_user(
-    request: Request, session: AsyncSession = Depends(get_session)
-):
+@router.get("/me", response_model=CurrentUserResponse, operation_id="getCurrentUser")
+async def get_current_user(current_user: User = Depends(current_user)):
     """Get current authenticated user info"""
     logger.info("Endpoint hit: /auth/me")
 
-    # Get the authorization header
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        logger.warning("No valid Authorization header found")
-        raise MegapolisHTTPException(status_code=401, detail="Not authenticated")
-
-    # Extract the token
-    token = auth_header.replace("Bearer ", "")
-
-    try:
-        # Decode and verify the JWT token (our own token only)
-        secret_key = environment.JWT_SECRET_KEY
-        if not secret_key:
-            logger.error("JWT_SECRET_KEY is not set in the environment")
-            raise MegapolisHTTPException(
-                status_code=500, detail="JWT secret key is not configured"
-            )
-        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-
-        # Extract user ID from token
-        user_id = payload.get("sub")
-        if not user_id:
-            logger.error("No user ID found in token")
-            raise MegapolisHTTPException(status_code=401, detail="Invalid token")
-
-        # Get user from database
-        user = await User.get_by_id(session, int(user_id))
-        if not user:
-            logger.error(f"User with ID {user_id} not found in database")
-            raise MegapolisHTTPException(status_code=404, detail="User not found")
-
-        logger.info(f"Found user: {user.email}")
-        # Return the user response
-        return CurrentUserResponse(user=AuthUserResponse.model_validate(user))
-
-    except jwt.ExpiredSignatureError:
-        logger.warning("Token has expired")
-        raise MegapolisHTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidTokenError as e:
-        logger.error(f"Invalid token: {str(e)}")
-        raise MegapolisHTTPException(status_code=401, detail="Invalid token")
-    except Exception as e:
-        logger.error(f"Error verifying token: {str(e)}")
-        raise MegapolisHTTPException(
-            status_code=500, detail=f"Error verifying token: {str(e)}"
-        )
+    return CurrentUserResponse(user=AuthUserResponse.model_validate(current_user))

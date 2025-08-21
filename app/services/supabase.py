@@ -51,6 +51,8 @@ def verify_user_token(token: str) -> Optional[dict]:
             "email": response.user.email,
             "user_metadata": response.user.user_metadata,
         }
+        
+        logger.info(f"Token verified successfully for user {user_data.get('email')}")
         return user_data
     except Exception as e:
         logger.error(f"Invalid or expired token: {str(e)}")
