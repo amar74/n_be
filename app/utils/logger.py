@@ -10,7 +10,7 @@ logger.add(
     sys.stdout,
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
     level="INFO",
-    colorize=True
+    colorize=True,
 )
 
 # Add file logging for production
@@ -21,8 +21,9 @@ if os.environ.get("ENVIRONMENT") == "production":
         retention="7 days",
         compression="zip",
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="INFO"
+        level="INFO",
     )
+
 
 # Create a custom logger instance
 def get_logger(name: str = None):
@@ -30,6 +31,7 @@ def get_logger(name: str = None):
     if name:
         return logger.bind(name=name)
     return logger
+
 
 # Export the main logger
 __all__ = ["logger", "get_logger"]

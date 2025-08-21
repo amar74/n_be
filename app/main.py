@@ -23,9 +23,8 @@ app.include_router(api_router)
 
 logger.info("API router included successfully")
 
+
 @app.get("/")
 async def read_root() -> dict[str, str]:
     logger.info("Root endpoint accessed")
     return {"message": "Hello, world!"}
-
-
