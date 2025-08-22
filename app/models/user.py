@@ -6,7 +6,7 @@ import secrets
 import hashlib
 
 from app.db.base import Base
-from app.db.session import session
+from app.db.session import get_session, get_transaction
 
 
 class User(Base):
@@ -30,7 +30,9 @@ class User(Base):
 
 
     @classmethod
-    async def create(cls, email: str, password: Optional[str] = None) -> "User":
+    async def create(
+        cls, email: str, password: Optional[str] = None
+    ) -> "User":
         """Create a new user"""
         # If no password is provided (OAuth login), generate a secure random one
         password_hash = (
@@ -38,29 +40,35 @@ class User(Base):
             if password is None
             else hashlib.sha256(password.encode()).hexdigest()
         )
-        user = cls(email=email, password_hash=password_hash)
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-        return user
+        async with get_transaction() as db:
+            user = cls(email=email, password_hash=password_hash)
+            db.add(user)
+            await db.flush()
+            await db.refresh(user)
+            return user
 
     @classmethod
     async def get_by_id(cls, user_id: int) -> Optional["User"]:
         """Get user by ID"""
-        result = await session.execute(select(cls).where(cls.id == user_id))
-        return result.scalar_one_or_none()
+        async with get_session() as db:
+            result = await db.execute(select(cls).where(cls.id == user_id))
+            return result.scalar_one_or_none()
 
     @classmethod
     async def get_by_email(cls, email: str) -> Optional["User"]:
         """Get user by email"""
-        result = await session.execute(select(cls).where(cls.email == email))
-        return result.scalar_one_or_none()
+        async with get_session() as db:
+            result = await db.execute(select(cls).where(cls.email == email))
+            return result.scalar_one_or_none()
 
     @classmethod
-    async def get_all(cls, skip: int = 0, limit: int = 100) -> List["User"]:
+    async def get_all(
+        cls, skip: int = 0, limit: int = 100
+    ) -> List["User"]:
         """Get all users with pagination"""
-        result = await session.execute(select(cls).offset(skip).limit(limit))
-        return list(result.scalars().all())
+        async with get_session() as db:
+            result = await db.execute(select(cls).offset(skip).limit(limit))
+            return list(result.scalars().all())
 
     async def update(
         self,
@@ -73,12 +81,12 @@ class User(Base):
 
         if password is not None:
             self.password_hash = hashlib.sha256(password.encode()).hexdigest()
+        async with get_transaction() as db:
+            await db.flush()
+            await db.refresh(self)
+            return self
 
-        await session.commit()
-        await session.refresh(self)
-        return self
-
-    async def delete(self, session: AsyncSession) -> None:
+    async def delete(self) -> None:
         """Delete user"""
-        await session.delete(self)
-        await session.commit()
+        async with get_transaction() as db:
+            await db.delete(self)
