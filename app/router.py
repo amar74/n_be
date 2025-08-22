@@ -12,4 +12,3 @@ api_router.include_router(auth_router)
 
 # Add more routers here as you create them
 # api_router.include_router(post_router)
-# api_router.include_router(auth_router)

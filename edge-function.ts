@@ -18,7 +18,7 @@ Deno.serve(async (req)=>{
     }
     // Specify the URL to send the new user data to
     // const webhookUrl = "https://enough-llama-optimal.ngrok-free.app/auth/onsignup";
-    const webhookUrl = " https://0626d200eb0f.ngrok-free.app/auth/onsignup";
+    const webhookUrl = "https://13a3717dffb2.ngrok-free.app/auth/onsignup";
     // Forward the user data to your external API/webhook
     const webhookRes = await fetch(webhookUrl, {
       method: "POST",
