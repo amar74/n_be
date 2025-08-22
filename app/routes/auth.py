@@ -6,7 +6,6 @@ import os
 import httpx
 from datetime import datetime, timedelta
 
-from app.db.session import get_session
 from app.models.user import User
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger
@@ -34,7 +33,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     },
 )
 async def onsignup(
-    request: OnSignUpRequest, session: AsyncSession = Depends(get_session)
+    request: OnSignUpRequest,
 ):
     """Handle user signup from external auth provider"""
     logger.info("Endpoint hit: /auth/onsignup")
@@ -44,7 +43,7 @@ async def onsignup(
 
     if email:
         # Check if user with this email already exists
-        existing_user = await User.get_by_email(session, email)
+        existing_user = await User.get_by_email(email)
 
         if existing_user:
             logger.info(f"User with email {email} already exists")
@@ -53,7 +52,7 @@ async def onsignup(
             return AuthUserResponse.model_validate(existing_user)
         else:
             # Create new user
-            new_user = await User.create(session, email)
+            new_user = await User.create(email)
             logger.info(f"New user created with email {email}")
 
             return OnSignupSuccessResponse(
@@ -67,9 +66,7 @@ async def onsignup(
 
 
 @router.get("/verify_supabase_token")
-async def verify_supabase_token(
-    request: Request, session: AsyncSession = Depends(get_session)
-):
+async def verify_supabase_token(request: Request):
     """Verify token from Supabase and generate our own JWT"""
     logger.info("Endpoint hit: /auth/verify_supabase_token")
 
@@ -118,11 +115,11 @@ async def verify_supabase_token(
             logger.info(f"Token verified successfully for user {user_email}")
 
         # Check if user exists in our database or create them
-        user = await User.get_by_email(session, user_email)
+        user = await User.get_by_email(user_email)
 
         if not user:
             # Create the user if they don't exist
-            user = await User.create(session, user_email)
+            user = await User.create(user_email)
             logger.info(f"Created new user with email {user_email}")
         else:
             logger.info(f"Found existing user with email {user_email}")
