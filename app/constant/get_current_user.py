@@ -1,6 +1,5 @@
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import get_session
 from app.models.user import User
 from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
@@ -9,9 +8,7 @@ from app.environment import environment
 import jwt
 
 
-async def current_user(
-    request: Request, session: AsyncSession = Depends(get_session)
-) -> User:
+async def current_user(request: Request) -> User:
 
     bearer_token = request.headers.get("Authorization")
     if not bearer_token or not bearer_token.startswith("Bearer "):
@@ -37,7 +34,7 @@ async def current_user(
             logger.error("No user ID found in token")
             raise MegapolisHTTPException(status_code=401, details="Invalid token")
         # Get user from database
-        user = await User.get_by_id(session, int(user_id))
+        user = await User.get_by_id(int(user_id))
         if not user:
             logger.error(f"User with ID {user_id} not found in database")
             raise MegapolisHTTPException(status_code=404, details="User not found")
