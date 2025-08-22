@@ -37,7 +37,6 @@ class User(Base):
             if password is None
             else hashlib.sha256(password.encode()).hexdigest()
         )
-
         user = cls(email=email, password_hash=password_hash)
         session.add(user)
         await session.commit()
