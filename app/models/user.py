@@ -28,6 +28,7 @@ class User(Base):
         # Hash it for storage
         return hashlib.sha256(random_token.encode()).hexdigest()
 
+
     @classmethod
     async def create(cls, email: str, password: Optional[str] = None) -> "User":
         """Create a new user"""
