@@ -1,7 +1,9 @@
 from sqlalchemy import String, select
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
 import secrets
 import hashlib
 
@@ -13,33 +15,30 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
+
+    # create a gid column that is a UUID, indexed, not nullable, default to a new uuid4
+    gid: Mapped[str] = mapped_column(
+        UUID(as_uuid=True), default=uuid.uuid4, index=True, nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(50), default="admin", nullable=False)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert User model to dictionary for API responses"""
-        return {"id": self.id, "email": self.email}
-
-    @staticmethod
-    def _generate_random_password_hash() -> str:
-        """Generate a random password hash for users created via OAuth"""
-        # Create a random token as a placeholder password for OAuth users
-        random_token = secrets.token_hex(16)
-        # Hash it for storage
-        return hashlib.sha256(random_token.encode()).hexdigest()
+        return {
+            "id": self.id,
+            "email": self.email,
+            "gid": str(self.gid),
+            "role": self.role,
+        }
 
     @classmethod
-    async def create(
-        cls, session: AsyncSession, email: str, password: Optional[str] = None
-    ) -> "User":
+    async def create(cls, session: AsyncSession, email: str) -> "User":
         """Create a new user"""
-        # If no password is provided (OAuth login), generate a secure random one
-        password_hash = (
-            cls._generate_random_password_hash()
-            if password is None
-            else hashlib.sha256(password.encode()).hexdigest()
+        user = cls(
+            email=email,
+            gid=str(uuid.uuid4()),
+            role="admin",
         )
-
-        user = cls(email=email, password_hash=password_hash)
         session.add(user)
         await session.commit()
         await session.refresh(user)
@@ -69,14 +68,10 @@ class User(Base):
         self,
         session: AsyncSession,
         email: Optional[str] = None,
-        password: Optional[str] = None,
     ) -> "User":
         """Update user"""
         if email is not None:
             self.email = email
-
-        if password is not None:
-            self.password_hash = hashlib.sha256(password.encode()).hexdigest()
 
         await session.commit()
         await session.refresh(self)
