@@ -1,8 +1,8 @@
-"""create organization table
+"""create orgs table
 
-Revision ID: a8c77cc72804
-Revises: fb52119575ae
-Create Date: 2025-08-22 11:00:37.423020
+Revision ID: 3fb179632ef5
+Revises: c9c13f89943b
+Create Date: 2025-08-22 18:43:03.328672
 
 """
 from __future__ import annotations
@@ -13,8 +13,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = 'a8c77cc72804'
-down_revision: Union[str, None] = 'fb52119575ae'
+revision: str = '3fb179632ef5'
+down_revision: Union[str, None] = 'c9c13f89943b'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
