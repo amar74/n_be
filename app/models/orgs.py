@@ -1,15 +1,16 @@
 from sqlalchemy import String, select, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID as UUID_Type
 import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from app.models.user import User
 from app.db.base import Base
 from app.db.session import session
-from app.schemas.orgs import OrgCreateRequest, OrgUpdateRequest
+from app.schemas.orgs import OrgCreateRequest, OrgUpdateRequest, AddUserInOrgRequest
 from app.utils.logger import logger
+from uuid import UUID
 
 
 class Orgs(Base):
@@ -19,7 +20,11 @@ class Orgs(Base):
         Integer, primary_key=True, autoincrement=True, index=True
     )
     gid: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), default=uuid.uuid4, index=True, nullable=False, unique=True
+        UUID_Type(as_uuid=True),
+        default=uuid.uuid4,
+        index=True,
+        nullable=False,
+        unique=True,
     )
 
     owner_id: Mapped[int] = mapped_column(
@@ -31,7 +36,7 @@ class Orgs(Base):
     )
     address: Mapped[Optional[str]] = mapped_column(String(255))
     website: Mapped[Optional[str]] = mapped_column(String(255))
-    contact: Mapped[Optional[str]] = mapped_column(String(50))
+    contact: Mapped[Optional[str]] = mapped_column(String(20))
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
@@ -41,7 +46,7 @@ class Orgs(Base):
         """Convert Org model to dictionary for API responses"""
         return {
             "org_id": self.org_id,
-            "gid": str(self.gid),
+            "gid": self.gid,
             "owner_id": self.owner_id,
             "name": self.name,
             "address": self.address,
@@ -58,7 +63,7 @@ class Orgs(Base):
     ) -> "Orgs":
         """Create a new organization"""
         org = cls(
-            gid=str(current_user.gid),
+            gid=current_user.gid,
             owner_id=current_user.id,
             name=request.name,
             website=request.website,
@@ -72,7 +77,7 @@ class Orgs(Base):
         return org
 
     @classmethod
-    async def get_by_gid(cls, gid: str) -> Optional["Orgs"]:
+    async def get_by_gid(cls, gid: UUID) -> Optional["Orgs"]:
         """Get organization by ID"""
         result = await session.execute(select(cls).where(cls.gid == gid))
 
@@ -89,13 +94,13 @@ class Orgs(Base):
     async def update(
         cls,
         request: OrgUpdateRequest,
-        gid: str,
+        org_id: int,
     ) -> Optional["Orgs"]:
         """Update organization details"""
-        org = await cls.get_by_gid(gid)
-        
+        org = await cls.get_by_id(org_id)
+
         # Update fields as necessary, e.g., org.name = new_name
-        
+
         if not org:
             return None
         if request.name is not None:
@@ -107,15 +112,22 @@ class Orgs(Base):
         if request.contact is not None:
             org.contact = request.contact
         # For now, just updating the updated_at timestamp
-        
+
         await session.commit()
         await session.refresh(org)
         return org
 
-    # @classmethod
-    # async def get_all(
-    #     cls, session: AsyncSession, skip: int = 0, limit: int = 100
-    # ) -> List["Orgs"]:
-    #     """Get all organizations with pagination"""
-    #     result = await session.execute(select(cls).offset(skip).limit(limit))
-    #     return result.scalars().all()
+    @classmethod
+    async def add_user_in_org(cls, request: AddUserInOrgRequest) -> Optional["User"]:
+        """Add user to organization"""
+
+        new_user = User(
+            gid=request.gid,
+            email=request.email,
+            role=request.role,
+            account=request.account,
+        )
+        session.add(new_user)
+        await session.commit()
+        await session.refresh(new_user)
+        return new_user

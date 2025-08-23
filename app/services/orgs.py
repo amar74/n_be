@@ -11,14 +11,14 @@ from app.models.user import User
 async def create_organization(current_user: User, request: OrgCreateRequest) -> Orgs:
     """Create a new organization"""
     # Ensure the user is associated with an organization
-    existing_org = await Orgs.get_by_id(current_user.gid)
+    existing_org = await Orgs.get_by_gid(current_user.gid)
     if existing_org:
         logger.error(
             f"User {current_user.email} is already associated with an organization"
         )
         # return existing_org
         raise MegapolisHTTPException(
-            status_code=400, details="User is already associated with an organization"
+            status_code=400, details="Organization already exists for user"
         )
 
     logger.debug(f"Creating new organization with name: {request.name}")
@@ -48,11 +48,24 @@ async def get_organization_by_id(org_id: int) -> Orgs | None:
     return org
 
 
-async def update_organization(gid: str, request: OrgUpdateRequest) -> Orgs:
+async def update_organization(org_id: int, request: OrgUpdateRequest) -> Orgs:
     """Update an organization's details"""
-    logger.debug(f"Updating organization with ID: {gid}")
-    org = await Orgs.get_by_gid(gid)
+    logger.debug(f"Updating organization with ID: {org_id}")
+    org = await Orgs.get_by_id(org_id)
     if not org:
-        logger.error(f"Organization with ID {gid} not found for update")
+        logger.error(f"Organization with ID {org_id} not found for update")
         raise MegapolisHTTPException(status_code=404, details="Organization not found")
-    return Orgs.update(gid,request)
+    return await Orgs.update(org_id, request)
+
+
+
+async def add_user(request) -> User:
+    """Add a user to an organization"""
+    logger.debug(f"Adding user with email: {request.email} to organization with GID: {request.gid}")
+    user = await User.get_by_email(request.email)
+    
+    if user:
+        logger.error(f"User with email {request.email} already exists")
+        raise MegapolisHTTPException(status_code=400, details="User already exists")
+    
+    return await Orgs.add_user_in_org(request)

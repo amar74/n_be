@@ -18,7 +18,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
 
     # create a gid column that is a UUID, indexed, not nullable, default to a new uuid4
-    gid: Mapped[str] = mapped_column(
+    gid: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), default=uuid.uuid4, index=True, nullable=False
     )
     account: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -30,7 +30,7 @@ class User(Base):
         return {
             "id": self.id,
             "email": self.email,
-            "gid": str(self.gid),
+            "gid": self.gid,
             "account": self.account,
             "role": self.role,
         }
@@ -40,7 +40,7 @@ class User(Base):
         """Create a new user"""
         user = cls(
             email=email,
-            gid=str(uuid.uuid4()),
+            gid=uuid.uuid4(),
             account=True,
             role="admin",
         )

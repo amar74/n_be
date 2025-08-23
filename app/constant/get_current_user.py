@@ -45,21 +45,14 @@ async def current_user(request: Request) -> User:
         org = await Orgs.get_by_gid(user.gid)
 
         if org:
-            org_id = str(org.gid)
+            org_id = org.org_id
         else:
             org_id = None
 
         # logger.info(f"Current user found: {org.org_id}")
         # Return the user response
         return AuthUserResponse.model_validate(
-            {
-                "id": user.id,
-                # "email": user.email,
-                "gid": str(user.gid),
-                "org_id": 
-                    str(org_id) if org_id else None
-                  # Include org_id in the response
-            }
+            {"id": user.id, "gid": user.gid, "org_id": org_id}
         )
 
     except Exception as ex:

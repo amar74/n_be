@@ -7,6 +7,10 @@ from app.schemas.orgs import (
     OrgResponse,
     OrgCreatedResponse,
     OrgUpdateRequest,
+    OrgUpdateResponse,
+    AddUserInOrgResponse,
+    AddUserInOrgRequest,
+
 )
 from datetime import datetime
 from app.constant.get_current_user import current_user
@@ -16,6 +20,7 @@ from app.services.orgs import (
     get_my_organization,
     get_organization_by_id,
     update_organization,
+    add_user,
 )
 from app.rbac.permissions import require_role
 
@@ -45,18 +50,10 @@ async def create_org(
     org = await create_organization(current_user, request)
 
     logger.info(f"Organization created successfully with ID {org.org_id}")
-    # Convert UUID to string for the response
-    org_dict = org.to_dict()
-    org_dict["org_id"] = str(org_dict["org_id"])
-    org_dict["gid"] = str(org_dict["gid"])
-    del org_dict["owner_id"]
-    del org_dict["address"]
-    del org_dict["website"]
-    del org_dict["contact"]
     # return OrgCreateResponse.model_validate(org_dict)
     return OrgCreatedResponse(
         message="Organization created success",
-        org=OrgCreateResponse.model_validate(org_dict),
+        org=OrgCreateResponse.model_validate(org),
     )
 
 
@@ -68,10 +65,7 @@ async def get_my_org(current_user: User = Depends(current_user)):
 
     org = await get_my_organization(current_user.gid)
 
-    org_dict = org.to_dict()
-    org_dict["org_id"] = str(org_dict["org_id"])
-    org_dict["owner_id"] = str(org_dict["owner_id"])
-    return OrgResponse.model_validate(org_dict)
+    return OrgResponse.model_validate(org)
 
 
 @router.get("/{org_id}", response_model=OrgResponse, operation_id="getOrgById")
@@ -79,23 +73,43 @@ async def get_org(org_id: int):
     """Get a specific organization by ID"""
     logger.info(f"Fetching organization with ID: {org_id}")
     org = await get_organization_by_id(org_id)
-    org_dict = org.to_dict()
-    org_dict["org_id"] = str(org_dict["org_id"])
-    org_dict["owner_id"] = str(org_dict["owner_id"])
-    return OrgResponse.model_validate(org_dict)
+
+    return OrgResponse.model_validate(org)
 
 
-@router.put("/update/{gid}", response_model=OrgResponse, operation_id="updateOrg")
+@router.put(
+    "/update/{org_id}", response_model=OrgUpdateResponse, operation_id="updateOrg"
+)
 async def update_org(
-    gid: str,
+    org_id: int,
     request: OrgUpdateRequest,
     current_user: User = Depends(require_role(["admin"])),
 ):
     """Update an existing organization"""
-    org = await update_organization(gid, request)
+    org = await update_organization(org_id, request)
     logger.info(f"Organization updated successfully: {org.name}")
-    org_dict = org.to_dict()
-    org_dict["org_id"] = str(org_dict["org_id"])
-    org_dict["owner_id"] = str(org_dict["owner_id"])
-    return OrgResponse.model_validate(org_dict)
+
+    # return OrgResponse.model_validate(org)
+    return OrgUpdateResponse(
+        message="Organization updated successfully",
+        org=OrgCreateResponse.model_validate(org),
+    )
+
+
+@router.post("/add-user-in-Org", operation_id="addUserInOrg")
+async def add_user_in_org(
+    request: AddUserInOrgRequest,
+    current_user: User = Depends(require_role(["admin"])),
+):
+    """Add a user to an organization"""
     # Placeholder for actual implementation
+    logger.info(f"Adding user ID {request.email} to organization ID {request.gid}")
+    user = await add_user(request)
+    if not user:
+        logger.error(
+            f"Failed to add user {request.email} to organization {request.gid}"
+        )
+        raise Exception("Failed to add user to organization")
+    return AddUserInOrgResponse(
+        message="User added to organization successfully",
+    )
