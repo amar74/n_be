@@ -58,7 +58,7 @@ poetry run python manage.py initdb
 from app.db.session import get_db
 
 async def job():
-    async with get_db() as session:
+    async with get_session() as session:
         ...
 ```
 
@@ -120,7 +120,7 @@ class Widget(Base):
 
     @classmethod
     async def create(cls, name: str) -> "Widget":
-        async with get_db() as session:
+        async with get_session() as session:
             inst = cls(name=name)
             session.add(inst)
             await session.commit()
@@ -129,7 +129,7 @@ class Widget(Base):
 
     @classmethod
     async def get_by_id(cls, widget_id: int) -> Optional["Widget"]:
-        async with get_db() as session:
+        async with get_session() as session:
             res = await session.execute(select(cls).where(cls.id == widget_id))
             return res.scalar_one_or_none()
 ```
