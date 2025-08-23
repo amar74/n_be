@@ -3,7 +3,6 @@ name = "megapolis-api"
 version = "0.1.0"
 description = ""
 authors = [
- 
     {name = "Rishabh",email = "rishabhgautam727@gmail.com"}
 ]
 readme = "README.md"

@@ -1,4 +1,4 @@
-from sqlalchemy import String, select
+from sqlalchemy import String, select,Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
@@ -8,6 +8,7 @@ import secrets
 import hashlib
 
 from app.db.base import Base
+from app.db.session import session
 
 
 class User(Base):
@@ -20,6 +21,8 @@ class User(Base):
     gid: Mapped[str] = mapped_column(
         UUID(as_uuid=True), default=uuid.uuid4, index=True, nullable=False
     )
+    account: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    
     role: Mapped[str] = mapped_column(String(50), default="admin", nullable=False)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -28,15 +31,17 @@ class User(Base):
             "id": self.id,
             "email": self.email,
             "gid": str(self.gid),
+            "account": self.account,
             "role": self.role,
         }
 
     @classmethod
-    async def create(cls, session: AsyncSession, email: str) -> "User":
+    async def create(cls, email: str) -> "User":
         """Create a new user"""
         user = cls(
             email=email,
             gid=str(uuid.uuid4()),
+            account=True,
             role="admin",
         )
         session.add(user)
@@ -45,28 +50,25 @@ class User(Base):
         return user
 
     @classmethod
-    async def get_by_id(cls, session: AsyncSession, user_id: int) -> Optional["User"]:
+    async def get_by_id(cls, user_id: int) -> Optional["User"]:
         """Get user by ID"""
         result = await session.execute(select(cls).where(cls.id == user_id))
         return result.scalar_one_or_none()
 
     @classmethod
-    async def get_by_email(cls, session: AsyncSession, email: str) -> Optional["User"]:
+    async def get_by_email(cls, email: str) -> Optional["User"]:
         """Get user by email"""
         result = await session.execute(select(cls).where(cls.email == email))
         return result.scalar_one_or_none()
 
     @classmethod
-    async def get_all(
-        cls, session: AsyncSession, skip: int = 0, limit: int = 100
-    ) -> List["User"]:
+    async def get_all(cls, skip: int = 0, limit: int = 100) -> List["User"]:
         """Get all users with pagination"""
         result = await session.execute(select(cls).offset(skip).limit(limit))
         return list(result.scalars().all())
 
     async def update(
         self,
-        session: AsyncSession,
         email: Optional[str] = None,
     ) -> "User":
         """Update user"""

@@ -1,5 +1,5 @@
 import os
-from contextlib import asynccontextmanager
+import contextvars
 from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import (
@@ -9,13 +9,16 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-
 DEFAULT_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@db:5432/megapolis"
+
+# Context variable to store the current session
+_session_ctx: contextvars.ContextVar[AsyncSession] = contextvars.ContextVar(
+    "db_session"
+)
 
 
 def get_database_url() -> str:
-    database_url = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
-    return database_url
+    return os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 
 def create_engine() -> AsyncEngine:
@@ -28,26 +31,27 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-# Global session factory - can be imported and used anywhere
-@asynccontextmanager
-async def get_db() -> AsyncIterator[AsyncSession]:
-    """
-    Global database session factory.
-    Can be imported and used anywhere in the app like:
-
-    from app.db.session import get_db
-
-    async with get_db() as db:
-        # use db session here
-    """
-    session: AsyncSession = AsyncSessionLocal()
-    try:
-        yield session
-    finally:
-        await session.close()
+# Middleware helpers
+def set_session(session: AsyncSession):
+    """Set session in context (used by middleware)."""
+    return _session_ctx.set(session)
 
 
-# Legacy dependency function for FastAPI (kept for backward compatibility)
-async def get_session() -> AsyncIterator[AsyncSession]:
-    async with get_db() as session:
-        yield session
+def reset_session(token):
+    """Reset session after request ends."""
+    _session_ctx.reset(token)
+
+
+def get_current_session() -> AsyncSession:
+    """Get the current active session for this request."""
+    return _session_ctx.get()
+
+
+# Exported like a global variable
+class _SessionProxy:
+    def __getattr__(self, name):
+        return getattr(get_current_session(), name)
+
+
+# Import this everywhere instead of passing sessions manually
+session = _SessionProxy()

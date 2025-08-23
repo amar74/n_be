@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Optional
 
 
 # sign up using supabase
@@ -14,7 +15,9 @@ class AuthUserResponse(BaseModel):
     """User data return"""
 
     id: int
-    email: str
+    # email: str
+    gid: str
+    org_id: Optional[str] = None
 
     class Config:
         from_attributes = True
