@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.middlewares.db_session import DBSessionMiddleware
+# from app.middlewares.db_session import DBSessionMiddleware
 from app.router import api_router
 from app.utils.logger import logger
 
@@ -20,7 +20,7 @@ app.add_middleware(
 
 
 # Add DB session middleware 👇
-app.add_middleware(DBSessionMiddleware)
+# app.add_middleware(DBSessionMiddleware)
 # Include API router
 app.include_router(api_router)
 

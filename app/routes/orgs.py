@@ -10,7 +10,6 @@ from app.schemas.orgs import (
     OrgUpdateResponse,
     AddUserInOrgResponse,
     AddUserInOrgRequest,
-
 )
 from datetime import datetime
 from app.constant.get_current_user import current_user
@@ -68,7 +67,7 @@ async def get_my_org(current_user: User = Depends(current_user)):
     return OrgResponse.model_validate(org)
 
 
-@router.get("/{org_id}", response_model=OrgResponse, operation_id="getOrgById")
+@router.get("/{org_id}",status_code=200, response_model=OrgResponse, operation_id="getOrgById")
 async def get_org(org_id: int):
     """Get a specific organization by ID"""
     logger.info(f"Fetching organization with ID: {org_id}")
@@ -78,7 +77,7 @@ async def get_org(org_id: int):
 
 
 @router.put(
-    "/update/{org_id}", response_model=OrgUpdateResponse, operation_id="updateOrg"
+    "/update/{org_id}",status_code=200, response_model=OrgUpdateResponse, operation_id="updateOrg"
 )
 async def update_org(
     org_id: int,
@@ -86,17 +85,18 @@ async def update_org(
     current_user: User = Depends(require_role(["admin"])),
 ):
     """Update an existing organization"""
+    logger.info(f"Updating organization with ID: {org_id}")
     org = await update_organization(org_id, request)
     logger.info(f"Organization updated successfully: {org.name}")
 
     # return OrgResponse.model_validate(org)
     return OrgUpdateResponse(
         message="Organization updated successfully",
-        org=OrgCreateResponse.model_validate(org),
+        org=OrgResponse.model_validate(org),
     )
 
 
-@router.post("/add-user-in-Org", operation_id="addUserInOrg")
+@router.post("/add-user-in-Org",status_code=200, operation_id="addUserInOrg")
 async def add_user_in_org(
     request: AddUserInOrgRequest,
     current_user: User = Depends(require_role(["admin"])),
@@ -105,11 +105,4 @@ async def add_user_in_org(
     # Placeholder for actual implementation
     logger.info(f"Adding user ID {request.email} to organization ID {request.gid}")
     user = await add_user(request)
-    if not user:
-        logger.error(
-            f"Failed to add user {request.email} to organization {request.gid}"
-        )
-        raise Exception("Failed to add user to organization")
-    return AddUserInOrgResponse(
-        message="User added to organization successfully",
-    )
+    return AddUserInOrgResponse(message="User added to organization successfully")

@@ -17,9 +17,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 # User CRUD endpoints - MC Architecture (Controller directly uses Model)
-@router.post(
-    "/", status_code=201, response_model=UserResponse, operation_id="createUser"
-)
+@router.post("/", response_model=UserResponse, operation_id="createUser")
 async def create_user(
     user_data: UserCreateRequest,
     request: Request,
