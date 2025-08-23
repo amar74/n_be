@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 from pydantic import BaseModel
+from dotenv import load_dotenv
 
 
 class Environment(BaseModel):
@@ -12,33 +13,29 @@ class Environment(BaseModel):
     SUPABASE_SERVICE_ROLE_KEY: str
     NGROK_AUTHTOKEN: str
 
+class Constants():
+    """Constants for the application."""
+    SUPER_ADMIN_EMAILS: list[str] = ["rishabhgautam727@gmail.com"]
+
 def load_doppler_secret() -> Optional[str]:
     """Load the Doppler secret from the environment."""
     return os.getenv("DOPPLER_SECRET")
 
 
 def load_environment() -> Environment:
-    """Load environment variables and return an Environment instance."""
+    """Load environment variables (from .env and OS) and return Environment instance."""
 
-    doppler_secret = load_doppler_secret()
-
-    def get_env_variable(key: str, default: Optional[str] = None) -> Optional[str]:
-        return os.getenv(key, default) if doppler_secret else default
+    # Load from .env if present
+    load_dotenv()
 
     env = {
         "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY", "-your-secret-key-here"),
         "DATABASE_URL": os.getenv(
             "DATABASE_URL", "postgresql://user:password@localhost/dbname"
         ),
-        "SUPABASE_URL": os.getenv(
-            "SUPABASE_URL", "https://your-supabase-url.supabase.co"
-        ),
-        "SUPABASE_SERVICE_ROLE_KEY": os.getenv(
-            "SUPABASE_SERVICE_ROLE_KEY", "-your-service-role-key-here"
-        ),
-        "NGROK_AUTHTOKEN": os.getenv(
-            "NGROK_AUTHTOKEN", "your-ngrok-authtoken"
-        ),
+        "SUPABASE_URL": os.getenv("SUPABASE_URL", ""),
+        "SUPABASE_SERVICE_ROLE_KEY": os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""),
+        "NGROK_AUTHTOKEN": os.getenv("NGROK_AUTHTOKEN", ""),
     }
 
     return Environment.model_validate(env)
