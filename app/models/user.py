@@ -1,14 +1,12 @@
-from sqlalchemy import String, select,Boolean
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, select, Boolean
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-import secrets
-import hashlib
 
 from app.db.base import Base
-from app.db.session import get_session, get_transaction
+from app.db.session import get_session
 
 
 class User(Base):
@@ -22,7 +20,7 @@ class User(Base):
         UUID(as_uuid=True), default=uuid.uuid4, index=True, nullable=False
     )
     account: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    
+
     role: Mapped[str] = mapped_column(String(50), default="admin", nullable=False)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,16 +36,15 @@ class User(Base):
     @classmethod
     async def create(cls, email: str) -> "User":
         """Create a new user"""
-        user = cls(
-            email=email,
-            gid=uuid.uuid4(),
-            account=True,
-            role="admin",
-        )
-        async with get_transaction() as db:
-            user = cls(email=email)
+        async with get_session() as db:
+            user = cls(
+                email=email,
+                gid=uuid.uuid4(),
+                account=True,
+                role="admin",
+            )
             db.add(user)
-            await db.flush()
+            await db.commit()
             await db.refresh(user)
             return user
 
@@ -79,14 +76,16 @@ class User(Base):
         email: Optional[str] = None,
     ) -> "User":
         """Update user"""
-        if email is not None:
-            self.email = email
-        async with get_transaction() as db:
-            await db.flush()
+        async with get_session() as db:
+            if email is not None:
+                self.email = email
+
+            await db.commit()
             await db.refresh(self)
             return self
 
-    async def delete(self) -> None:
+    async def delete(self, session: AsyncSession) -> None:
         """Delete user"""
-        async with get_transaction() as db:
+        async with get_session() as db:
             await db.delete(self)
+            await db.commit()

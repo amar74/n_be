@@ -53,7 +53,7 @@ async def current_user(request: Request) -> User:
         # logger.info(f"Current user found: {org.org_id}")
         # Return the user response
         return AuthUserResponse.model_validate(
-            {"id": user.id, "gid": user.gid, "org_id": org_id}
+            {"id": user.id, "gid": user.gid, "org_id": org_id, "role": user.role}
         )
 
     except Exception as ex:

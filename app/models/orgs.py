@@ -1,15 +1,13 @@
 from sqlalchemy import String, select, Integer, ForeignKey, DateTime
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID as UUID_Type
 import uuid
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from app.models.user import User
 from app.db.base import Base
-from app.db.session import session
+from app.db.session import get_session
 from app.schemas.orgs import OrgCreateRequest, OrgUpdateRequest, AddUserInOrgRequest
-from app.utils.logger import logger
 from uuid import UUID
 
 
@@ -62,72 +60,78 @@ class Orgs(Base):
         request: OrgCreateRequest,
     ) -> "Orgs":
         """Create a new organization"""
-        org = cls(
-            gid=current_user.gid,
-            owner_id=current_user.id,
-            name=request.name,
-            website=request.website,
-            contact=request.contact,
-            address=request.address,
-            created_at=datetime.utcnow(),
-        )
-        session.add(org)
-        await session.commit()
-        await session.refresh(org)
-        return org
+        async with get_session() as db:
+            org = cls(
+                gid=current_user.gid,
+                owner_id=current_user.id,
+                name=request.name,
+                website=request.website,
+                contact=request.contact,
+                address=request.address,
+                created_at=datetime.utcnow(),
+            )
+            db.add(org)
+            await db.commit()
+            await db.refresh(org)
+            return org
 
     @classmethod
     async def get_by_gid(cls, gid: UUID) -> Optional["Orgs"]:
         """Get organization by ID"""
-        result = await session.execute(select(cls).where(cls.gid == gid))
+        async with get_session() as db:
+            result = await db.execute(select(cls).where(cls.gid == gid))
 
-        return result.scalar_one_or_none()
+            return result.scalar_one_or_none()
 
     @classmethod
     async def get_by_id(cls, org_id: int) -> Optional["Orgs"]:
         """Get organization by ID"""
-        result = await session.execute(select(cls).where(cls.org_id == org_id))
+        async with get_session() as db:
+            result = await db.execute(select(cls).where(cls.org_id == org_id))
 
-        return result.scalar_one_or_none()
+            return result.scalar_one_or_none()
 
     @classmethod
     async def update(
         cls,
-        request: OrgUpdateRequest,
         org_id: int,
+        request: OrgUpdateRequest,
     ) -> Optional["Orgs"]:
         """Update organization details"""
-        org = await cls.get_by_id(org_id)
+        async with get_session() as db:
+            result = await db.execute(select(cls).where(cls.org_id == org_id))
+            org = result.scalar_one_or_none()
 
-        # Update fields as necessary, e.g., org.name = new_name
+            # Update fields as necessary, e.g., org.name = new_name
 
-        if not org:
-            return None
-        if request.name is not None:
-            org.name = request.name
-        if request.address is not None:
-            org.address = request.address
-        if request.website is not None:
-            org.website = request.website
-        if request.contact is not None:
-            org.contact = request.contact
-        # For now, just updating the updated_at timestamp
+            if not org:
+                return None
+            if request.name is not None:
+                org.name = request.name
+            if request.address is not None:
+                org.address = request.address
+            if request.website is not None:
+                org.website = request.website
+            if request.contact is not None:
+                org.contact = request.contact
+            # For now, just updating the updated_at timestamp
 
-        await session.commit()
-        await session.refresh(org)
-        return org
+            await db.commit()
+            await db.refresh(org)
+            return org
 
     @classmethod
     async def add_user_in_org(cls, request: AddUserInOrgRequest) -> Optional["User"]:
         """Add user to organization"""
+        async with get_session() as db:
 
-        new_user = User(
-            gid=request.gid,
-            email=request.email,
-            role=request.role,
-            account=request.account,
-        )
-        session.add(new_user)
-        await session.commit()
-        await session.refresh(new_user)
-        return new_user
+            new_user = User(
+                gid=request.gid,
+                email=request.email,
+                role=request.role,
+                account=request.account,
+            )
+            db.add(new_user)
+            await db.commit()
+            await db.refresh(new_user)
+            return new_user
