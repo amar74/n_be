@@ -8,7 +8,7 @@ import secrets
 import hashlib
 
 from app.db.base import Base
-from app.db.session import session
+from app.db.session import get_session, get_transaction
 
 
 class User(Base):
@@ -44,28 +44,35 @@ class User(Base):
             account=True,
             role="admin",
         )
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-        return user
+        async with get_transaction() as db:
+            user = cls(email=email)
+            db.add(user)
+            await db.flush()
+            await db.refresh(user)
+            return user
 
     @classmethod
     async def get_by_id(cls, user_id: int) -> Optional["User"]:
         """Get user by ID"""
-        result = await session.execute(select(cls).where(cls.id == user_id))
-        return result.scalar_one_or_none()
+        async with get_session() as db:
+            result = await db.execute(select(cls).where(cls.id == user_id))
+            return result.scalar_one_or_none()
 
     @classmethod
     async def get_by_email(cls, email: str) -> Optional["User"]:
         """Get user by email"""
-        result = await session.execute(select(cls).where(cls.email == email))
-        return result.scalar_one_or_none()
+        async with get_session() as db:
+            result = await db.execute(select(cls).where(cls.email == email))
+            return result.scalar_one_or_none()
 
     @classmethod
-    async def get_all(cls, skip: int = 0, limit: int = 100) -> List["User"]:
+    async def get_all(
+        cls, skip: int = 0, limit: int = 100
+    ) -> List["User"]:
         """Get all users with pagination"""
-        result = await session.execute(select(cls).offset(skip).limit(limit))
-        return list(result.scalars().all())
+        async with get_session() as db:
+            result = await db.execute(select(cls).offset(skip).limit(limit))
+            return list(result.scalars().all())
 
     async def update(
         self,
@@ -74,12 +81,12 @@ class User(Base):
         """Update user"""
         if email is not None:
             self.email = email
+        async with get_transaction() as db:
+            await db.flush()
+            await db.refresh(self)
+            return self
 
-        await session.commit()
-        await session.refresh(self)
-        return self
-
-    async def delete(self, session: AsyncSession) -> None:
+    async def delete(self) -> None:
         """Delete user"""
-        await session.delete(self)
-        await session.commit()
+        async with get_transaction() as db:
+            await db.delete(self)

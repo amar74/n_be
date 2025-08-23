@@ -5,6 +5,7 @@ from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
 from app.services.supabase import verify_user_token
 from app.environment import environment
+from app.db.session import get_session
 import jwt
 from app.models.orgs import Orgs
 from app.schemas.auth import AuthUserResponse
