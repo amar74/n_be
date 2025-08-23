@@ -1,13 +1,8 @@
-from fastapi import APIRouter, Request, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-import json
+from fastapi import APIRouter, Request, Depends
 import jwt
-import os
-import httpx
 from datetime import datetime, timedelta
 
 from app.models.user import User
-from app.db.session import get_session, get_transaction
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
