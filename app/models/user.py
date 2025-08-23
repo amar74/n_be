@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
 from app.db.base import Base
-from app.db.session import get_session
+from app.db.session import get_session, get_transaction
 
 
 class User(Base):
@@ -63,7 +63,9 @@ class User(Base):
             return result.scalar_one_or_none()
 
     @classmethod
-    async def get_all(cls, skip: int = 0, limit: int = 100) -> List["User"]:
+    async def get_all(
+        cls, skip: int = 0, limit: int = 100
+    ) -> List["User"]:
         """Get all users with pagination"""
         async with get_session() as db:
             result = await db.execute(select(cls).offset(skip).limit(limit))

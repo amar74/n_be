@@ -1,6 +1,3 @@
----
-alwaysApply: true
----
 ## Scope
 
 These rules always apply to the `megapolis-api` backend. They encode the conventions from `Development.md` so AI edits follow the project's standards.

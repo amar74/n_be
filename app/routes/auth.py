@@ -7,6 +7,7 @@ import httpx
 from datetime import datetime, timedelta
 
 from app.models.user import User
+from app.db.session import get_session, get_transaction
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
@@ -42,13 +43,9 @@ async def onsignup(
     logger.debug(f"Received signup request for email: {email}")
 
     if email:
-        # Check if user with this email already exists
         existing_user = await User.get_by_email(email)
-
         if existing_user:
             logger.info(f"User with email {email} already exists")
-
-            # Return existing user response
             return AuthUserResponse.model_validate(existing_user)
         else:
             # Create new user
@@ -114,11 +111,8 @@ async def verify_supabase_token(request: Request):
             user_email = user_data.get("email")
             logger.info(f"Token verified successfully for user {user_email}")
 
-        # Check if user exists in our database or create them
         user = await User.get_by_email(user_email)
-
         if not user:
-            # Create the user if they don't exist
             user = await User.create(user_email)
             logger.info(f"Created new user with email {user_email}")
         else:
