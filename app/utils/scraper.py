@@ -6,7 +6,7 @@ import json
 from app.environment import environment
 
 # Configure Gemini
-genai.configure(api_key="AIzaSyBvLqYU5OogN2CPiqP-QEKmdic_HDrujPU")
+genai.configure(api_key=environment.GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 
 
