@@ -63,9 +63,7 @@ class User(Base):
             return result.scalar_one_or_none()
 
     @classmethod
-    async def get_all(
-        cls, skip: int = 0, limit: int = 100
-    ) -> List["User"]:
+    async def get_all(cls, skip: int = 0, limit: int = 100) -> List["User"]:
         """Get all users with pagination"""
         async with get_session() as db:
             result = await db.execute(select(cls).offset(skip).limit(limit))
@@ -84,7 +82,7 @@ class User(Base):
             await db.refresh(self)
             return self
 
-    async def delete(self, session: AsyncSession) -> None:
+    async def delete(self) -> None:
         """Delete user"""
         async with get_session() as db:
             await db.delete(self)

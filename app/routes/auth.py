@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Request, Depends
 import jwt
 from datetime import datetime, timedelta
-
 from app.models.user import User
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger

@@ -1,4 +1,3 @@
-from typing import List
 from app.schemas.scraper import ScrapeRequest, ScrapeResponse, ScrapeResult, ScrapedInfo, ScrapedAddress
 from app.utils.scraper import process_urls
 from app.utils.logger import logger

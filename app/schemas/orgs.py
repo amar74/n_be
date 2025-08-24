@@ -57,6 +57,8 @@ class OrgUpdateResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
 class OrgResponse(BaseModel):
     """Schema for Organization API responses"""
 
@@ -75,20 +77,22 @@ class OrgResponse(BaseModel):
         from_attributes = True
 
 
-
 class AddUserInOrgRequest(BaseModel):
     """Schema for adding a user to an organization"""
+
     gid: UUID
     role: str
-    email:str
-    account:bool = False
+    email: str
+    account: bool = False
 
     class Config:
         from_attributes = True
+
 
 class AddUserInOrgResponse(BaseModel):
     """Schema for adding a user to an organization"""
 
     message: str
+
     class Config:
         from_attributes = True

@@ -1,11 +1,8 @@
-from fastapi import Depends, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Request
 from app.models.user import User
 from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
-from app.services.supabase import verify_user_token
 from app.environment import environment
-from app.db.session import get_session
 import jwt
 from app.models.orgs import Orgs
 from app.schemas.auth import AuthUserResponse
@@ -33,7 +30,8 @@ async def current_user(request: Request) -> User:
 
         # Extract user ID from token
         user_id = payload.get("sub")
-        logger.warning(f"Decoded JWT payload: {payload}")
+        # logger.warning(f"Decoded JWT payload: {payload}")
+
         if not user_id:
             logger.error("No user ID found in token")
             raise MegapolisHTTPException(status_code=401, details="Invalid token")
@@ -50,14 +48,23 @@ async def current_user(request: Request) -> User:
         else:
             org_id = None
 
-        # logger.info(f"Current user found: {org.org_id}")
         # Return the user response
+        # return user
         return AuthUserResponse.model_validate(
             {"id": user.id, "gid": user.gid, "org_id": org_id, "role": user.role}
         )
 
-    except Exception as ex:
-        logger.error(f"Error verifying token: {str(ex)}")
+    except jwt.ExpiredSignatureError:
+        logger.warning("Token has expired")
+        raise MegapolisHTTPException(status_code=401, details="Token has expired")
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid token: {str(e)}")
+        raise MegapolisHTTPException(status_code=401, details="Invalid token")
+    except ValueError:
+        logger.warning("Invalid user ID in token")
         raise MegapolisHTTPException(
-            status_code=500, details=f"Error verifying token: {str(ex)}"
+            status_code=401, details="Invalid user ID in token"
         )
+    except Exception as e:
+        logger.error(f"Error verifying token: {str(e)}")
+        raise MegapolisHTTPException(status_code=500, details="Error verifying token")
