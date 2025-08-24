@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends
 from app.schemas.scraper import ScrapeRequest, ScrapeResponse
 from app.services.scraper import scrape_urls
 from app.models.user import User
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
-from app.environment import environment
 import jwt
 from app.dependencies.user_auth import get_current_user
 router = APIRouter(prefix="/scraper", tags=["scraper"])
