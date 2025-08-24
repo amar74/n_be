@@ -14,8 +14,7 @@ from app.schemas.auth import (
     CurrentUserResponse,
 )
 from app.environment import environment
-from app.constant.get_current_user import current_user
-
+from app.dependencies.user_auth import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -147,7 +146,7 @@ async def verify_supabase_token(request: Request):
 
 
 @router.get("/me", response_model=CurrentUserResponse, operation_id="getCurrentUser")
-async def get_current_user(current_user: User = Depends(current_user)):
+async def get_current_user(current_user: User = Depends(get_current_user)):
     """Get current authenticated user info"""
     logger.info("Endpoint hit: /auth/me")
 
