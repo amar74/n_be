@@ -1,7 +1,7 @@
 from typing import Optional, Tuple, List
 
 from sqlalchemy import select, func
-
+import supabase
 from app.db.session import get_session
 from app.models.user import User
 from app.services.supabase import get_supabase_client
@@ -48,7 +48,7 @@ async def admin_create_user(email: str, password: str) -> User:
     client = get_supabase_client()
     if not client:
         logger.error("Supabase client not initialized")
-        raise MegapolisHTTPException(status_code=500, details="Supabase not configured")
+        raise MegapolisHTTPException(status_code=500, message="Supabase not configured")
 
     try:
         # Create user in Supabase Auth (Admin)
@@ -60,9 +60,10 @@ async def admin_create_user(email: str, password: str) -> User:
         })
         # Some SDK versions return an object; we don't strictly depend on it here
         logger.info(f"Supabase admin user created for {email}")
+    
     except Exception as ex:
-        logger.error(f"Supabase create user failed for {email}: {str(ex)}")
-        raise MegapolisHTTPException(status_code=400, details="Supabase signup failed")
+        logger.exception(f"Supabase create user failed for {email}: {str(ex)}", exc_info=True)
+        raise MegapolisHTTPException(status_code=400, message=str(ex))
 
     # Ensure local DB record exists
     existing = await User.get_by_email(email)

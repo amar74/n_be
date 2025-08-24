@@ -57,7 +57,7 @@ async def current_user(request: Request) -> User:
         )
 
     except Exception as ex:
-        logger.error(f"Error verifying token: {str(ex)}")
+        logger.exception(f"Error verifying token: {str(ex)}", exc_info=True)
         raise MegapolisHTTPException(
-            status_code=500, details=f"Error verifying token: {str(ex)}"
+            status_code=500, message="We are unable to verify your token, Please try again"
         )

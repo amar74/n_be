@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from app.rbac.permissions import require_role, require_super_admin
+from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
 from app.schemas.admin import (
     AdminCreateUserRequest,
@@ -44,5 +45,4 @@ async def admin_create_new_user(
         message="User created successfully",
         user=AuthUserResponse.model_validate(user),
     )
-
 
