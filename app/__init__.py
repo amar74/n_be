@@ -1,3 +1,5 @@
-from .environment import environment  # re-export for easy access
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=".env")
+
 
 __all__ = ["environment"]

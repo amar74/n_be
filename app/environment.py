@@ -1,7 +1,6 @@
 import os
 from typing import Optional
 from pydantic import BaseModel
-from dotenv import load_dotenv
 
 
 class Environment(BaseModel):
@@ -12,6 +11,8 @@ class Environment(BaseModel):
     SUPABASE_URL: str
     SUPABASE_SERVICE_ROLE_KEY: str
     NGROK_AUTHTOKEN: str
+    GEMINI_API_KEY: str
+
 
 class Constants():
     """Constants for the application."""
@@ -26,7 +27,6 @@ def load_environment() -> Environment:
     """Load environment variables (from .env and OS) and return Environment instance."""
 
     # Load from .env if present
-    load_dotenv()
 
     def normalize_asyncpg(url: str) -> str:
         """Ensure the SQLAlchemy URL uses asyncpg for PostgreSQL.
@@ -56,6 +56,7 @@ def load_environment() -> Environment:
         "SUPABASE_URL": os.getenv("SUPABASE_URL"),
         "SUPABASE_SERVICE_ROLE_KEY": os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
         "NGROK_AUTHTOKEN": os.getenv("NGROK_AUTHTOKEN"),
+        "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
     }
 
     return Environment.model_validate(env)

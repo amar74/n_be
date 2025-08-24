@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
 from app.db.base import Base
-from app.db.session import get_session
+from app.db.session import get_session, get_transaction
 
 
 class User(Base):

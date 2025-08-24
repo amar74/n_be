@@ -21,8 +21,6 @@ app.add_middleware(
 )
 
 
-# Add DB session middleware 👇
-# app.add_middleware(DBSessionMiddleware)
 # Include API router
 app.include_router(api_router)
 

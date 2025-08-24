@@ -1,13 +1,8 @@
-from fastapi import APIRouter, Request, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-import json
+from fastapi import APIRouter, Request, Depends
 import jwt
-import os
-import httpx
 from datetime import datetime, timedelta
 
 from app.models.user import User
-from app.db.session import get_session, get_transaction
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
@@ -146,9 +141,9 @@ async def verify_supabase_token(request: Request):
         logger.error("Invalid token format")
         raise MegapolisHTTPException(status_code=401, details="Invalid token format")
     except Exception as e:
-        logger.error(f"Error verifying token: {str(e)}")
+        logger.exception(f"Error verifying token: {str(e)}", exc_info=True)
         raise MegapolisHTTPException(
-            status_code=500, details=f"Error verifying token: {str(e)}"
+            status_code=500, message=f"Error verifying token: {str(e)}"
         )
 
 

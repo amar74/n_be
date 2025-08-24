@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from app import environment
+from app.environment import environment
 
 def get_database_url() -> str:
     # Use value loaded by our environment loader (dotenv-aware); no fallback
