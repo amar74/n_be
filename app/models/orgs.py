@@ -71,7 +71,7 @@ class Orgs(Base):
                 created_at=datetime.utcnow(),
             )
             db.add(org)
-            await db.commit()
+            await db.flush()
             await db.refresh(org)
             return org
 
@@ -116,7 +116,7 @@ class Orgs(Base):
                 org.contact = request.contact
             # For now, just updating the updated_at timestamp
 
-            await db.commit()
+            await db.flush()
             await db.refresh(org)
             return org
 
@@ -132,6 +132,6 @@ class Orgs(Base):
                 account=request.account,
             )
             db.add(new_user)
-            await db.commit()
+            await db.flush()
             await db.refresh(new_user)
             return new_user

@@ -44,7 +44,7 @@ class User(Base):
                 role="admin",
             )
             db.add(user)
-            await db.commit()
+            await db.flush()
             await db.refresh(user)
             return user
 
@@ -78,7 +78,7 @@ class User(Base):
             if email is not None:
                 self.email = email
 
-            await db.commit()
+            await db.flush()
             await db.refresh(self)
             return self
 
@@ -86,4 +86,4 @@ class User(Base):
         """Delete user"""
         async with get_transaction() as db:
             await db.delete(self)
-            await db.commit()
+            await db.flush()
