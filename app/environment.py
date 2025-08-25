@@ -30,7 +30,7 @@ def load_environment() -> Environment:
     env = {
         "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY", "-your-secret-key-here"),
         "DATABASE_URL": os.getenv(
-            "DATABASE_URL", "postgresql://user:password@localhost/dbname"
+            "DATABASE_URL", "postgresql+asyncpg://user:password@localhost/dbname"
         ),
         "SUPABASE_URL": os.getenv(
             "SUPABASE_URL", "https://your-supabase-url.supabase.co"

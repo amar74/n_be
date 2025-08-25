@@ -36,7 +36,7 @@ class User(Base):
     @classmethod
     async def create(cls, email: str) -> "User":
         """Create a new user"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             user = cls(
                 email=email,
                 gid=uuid.uuid4(),

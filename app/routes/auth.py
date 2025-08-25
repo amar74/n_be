@@ -39,7 +39,10 @@ async def onsignup(
         existing_user = await User.get_by_email(email)
         if existing_user:
             logger.info(f"User with email {email} already exists")
-            return AuthUserResponse.model_validate(existing_user)
+            return OnSignupSuccessResponse(
+                message="User already exists",
+                user=AuthUserResponse.model_validate(existing_user),
+            )
         else:
             # Create new user
             new_user = await User.create(email)

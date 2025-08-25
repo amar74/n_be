@@ -79,7 +79,7 @@ class OrgResponse(BaseModel):
 
 class AddUserInOrgRequest(BaseModel):
     """Schema for adding a user to an organization"""
-
+    org_id: int
     gid: UUID
     role: str
     email: str

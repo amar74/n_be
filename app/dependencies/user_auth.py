@@ -11,7 +11,7 @@ from app.environment import environment
 
 async def get_current_user(
     request: Request,
-) -> User:
+) -> AuthUserResponse:
     """
     Dependency to get the current authenticated user from JWT token.
 
@@ -33,7 +33,7 @@ async def get_current_user(
     if not auth_header or not auth_header.startswith("Bearer "):
         logger.warning("Authorization header missing or invalid format")
         raise MegapolisHTTPException(
-            status_code=401, detail="Authorization header missing or invalid format"
+            status_code=401, details="Authorization header missing or invalid format"
         )
 
     # Extract the token

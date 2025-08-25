@@ -53,7 +53,6 @@ async def update_organization(org_id: int, request: OrgUpdateRequest) -> Orgs:
     """Update an organization's details"""
     logger.debug(f"Updating organization with ID: {org_id}")
     org = await Orgs.get_by_id(org_id)
-    logger.info(f"Organization before update: {org.org_id}")
     if not org:
         logger.error(f"Organization with ID {org_id} not found for update")
         raise MegapolisHTTPException(status_code=404, details="Organization not found")
@@ -63,7 +62,7 @@ async def update_organization(org_id: int, request: OrgUpdateRequest) -> Orgs:
 async def add_user(request: AddUserInOrgRequest) -> User:
     """Add a user to an organization"""
     logger.debug(
-        f"Adding user with email: {request.email} to organization with GID: {request.gid}"
+        f"Adding user with email: {request.email} to organization ID: {request.org_id}"
     )
     user = await User.get_by_email(request.email)
 

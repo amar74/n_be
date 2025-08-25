@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl,Field
 from typing import List, Optional
 
 
@@ -13,8 +13,8 @@ class ScrapedAddress(BaseModel):
 
 class ScrapedInfo(BaseModel):
     name: Optional[str] = None
-    email: List[str] = []
-    phone: List[str] = []
+    email: List[str] = Field(default_factory=list)
+    phone: List[str] = Field(default_factory=list)
     address: Optional[ScrapedAddress] = None
 
 

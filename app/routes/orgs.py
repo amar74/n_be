@@ -19,7 +19,7 @@ from app.services.orgs import (
     update_organization,
     add_user,
 )
-from app.rbac.permissions import require_role
+from app.dependencies.permissions import require_role
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
@@ -40,22 +40,21 @@ async def hello_orgs():
 async def create_org(
     request: OrgCreateRequest,
     current_user: User = Depends(get_current_user),
-) -> OrgResponse:
+) -> OrgCreatedResponse:
     """Create a new organization"""
     logger.info(f"Creating new organization : {request.name}")
 
     org = await create_organization(current_user, request)
 
     logger.info(f"Organization created successfully with ID {org.org_id}")
-    # return OrgCreateResponse.model_validate(org)
     return OrgCreatedResponse(
         message="Organization created success",
         org=OrgCreateResponse.model_validate(org),
     )
 
 
-@router.get("/me", status_code=200, response_model=OrgResponse, operation_id="getMyOrg")
-async def get_my_org(current_user: User = Depends(get_current_user)):
+@router.get("/me", status_code=200, response_model=OrgResponse, operation_id="me")
+async def get_my_org(current_user: User = Depends(get_current_user)) -> OrgResponse:
     """Get the organization of the current user"""
 
     logger.info(f"Fetching organization for user ID ")
@@ -86,7 +85,7 @@ async def update_org(
     org_id: int,
     request: OrgUpdateRequest,
     current_user: User = Depends(require_role(["admin"])),
-):
+) -> OrgUpdateResponse:
     """Update an existing organization"""
     logger.info(f"Updating organization with ID: {org_id}")
     org = await update_organization(org_id, request)
@@ -99,7 +98,7 @@ async def update_org(
 
 
 @router.post(
-    "/add-user-in-Org",
+    "/add-user-in-org",
     status_code=200,
     response_model=AddUserInOrgResponse,
     operation_id="addUserInOrg",
@@ -107,9 +106,9 @@ async def update_org(
 async def add_user_in_org(
     request: AddUserInOrgRequest,
     current_user: User = Depends(require_role(["admin"])),
-):
+) -> AddUserInOrgResponse:
     """Add a user to an organization"""
     # Placeholder for actual implementation
-    logger.info(f"Adding user ID {request.email} to organization ID {request.gid}")
+    logger.info(f"Adding user ID {request.email} to organization ID {request.org_id}")
     user = await add_user(request)
     return AddUserInOrgResponse(message="User added to organization successfully")
