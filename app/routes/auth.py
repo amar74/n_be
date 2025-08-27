@@ -1,13 +1,7 @@
-from fastapi import APIRouter, Request, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-import json
+from fastapi import APIRouter, Request, Depends
 import jwt
-import os
-import httpx
 from datetime import datetime, timedelta
-
 from app.models.user import User
-from app.db.session import get_session, get_transaction
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
@@ -20,8 +14,7 @@ from app.schemas.auth import (
     CurrentUserResponse,
 )
 from app.environment import environment
-from app.constant.get_current_user import current_user
-
+from app.dependencies.user_auth import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -46,7 +39,10 @@ async def onsignup(
         existing_user = await User.get_by_email(email)
         if existing_user:
             logger.info(f"User with email {email} already exists")
-            return AuthUserResponse.model_validate(existing_user)
+            return OnSignupSuccessResponse(
+                message="User already exists",
+                user=AuthUserResponse.model_validate(existing_user),
+            )
         else:
             # Create new user
             new_user = await User.create(email)
@@ -146,15 +142,15 @@ async def verify_supabase_token(request: Request):
         logger.error("Invalid token format")
         raise MegapolisHTTPException(status_code=401, details="Invalid token format")
     except Exception as e:
-        logger.error(f"Error verifying token: {str(e)}")
+        logger.exception(f"Error verifying token: {str(e)}", exc_info=True)
         raise MegapolisHTTPException(
-            status_code=500, details=f"Error verifying token: {str(e)}"
+            status_code=500, message=f"Error verifying token: {str(e)}"
         )
 
 
 @router.get("/me", response_model=CurrentUserResponse, operation_id="getCurrentUser")
-async def get_current_user(current_user: User = Depends(current_user)):
+async def get_current_user(current_user: User = Depends(get_current_user)):
     """Get current authenticated user info"""
     logger.info("Endpoint hit: /auth/me")
 
-    return CurrentUserResponse(user=AuthUserResponse.model_validate(current_user))
+    return CurrentUserResponse(user=current_user)

@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
+from uuid import UUID
+from typing import Optional
 
 
 # sign up using supabase
@@ -14,7 +16,9 @@ class AuthUserResponse(BaseModel):
     """User data return"""
 
     id: int
-    email: str
+    gid: UUID
+    org_id: Optional[int] = None
+    role: Optional[str]
 
     class Config:
         from_attributes = True
@@ -43,7 +47,7 @@ class VerifySupabaseTokenResponse(BaseModel):
     message: str
     token: str
     user: AuthUserResponse
-    expire_at: str
+    expire_at: datetime
 
 
 # Current User Response

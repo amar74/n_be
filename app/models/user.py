@@ -1,9 +1,9 @@
-from sqlalchemy import String, select
+from sqlalchemy import String, select, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
-import secrets
-import hashlib
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
 
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
@@ -14,34 +14,35 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
+
+    # create a gid column that is a UUID, indexed, not nullable, default to a new uuid4
+    gid: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), default=uuid.uuid4, index=True, nullable=False
+    )
+    account: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    role: Mapped[str] = mapped_column(String(50), default="admin", nullable=False)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert User model to dictionary for API responses"""
-        return {"id": self.id, "email": self.email}
-
-    @staticmethod
-    def _generate_random_password_hash() -> str:
-        """Generate a random password hash for users created via OAuth"""
-        # Create a random token as a placeholder password for OAuth users
-        random_token = secrets.token_hex(16)
-        # Hash it for storage
-        return hashlib.sha256(random_token.encode()).hexdigest()
-
+        return {
+            "id": self.id,
+            "email": self.email,
+            "gid": self.gid,
+            "account": self.account,
+            "role": self.role,
+        }
 
     @classmethod
-    async def create(
-        cls, email: str, password: Optional[str] = None
-    ) -> "User":
+    async def create(cls, email: str) -> "User":
         """Create a new user"""
-        # If no password is provided (OAuth login), generate a secure random one
-        password_hash = (
-            cls._generate_random_password_hash()
-            if password is None
-            else hashlib.sha256(password.encode()).hexdigest()
-        )
         async with get_transaction() as db:
-            user = cls(email=email, password_hash=password_hash)
+            user = cls(
+                email=email,
+                gid=uuid.uuid4(),
+                account=True,
+                role="admin",
+            )
             db.add(user)
             await db.flush()
             await db.refresh(user)
@@ -50,38 +51,33 @@ class User(Base):
     @classmethod
     async def get_by_id(cls, user_id: int) -> Optional["User"]:
         """Get user by ID"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.id == user_id))
             return result.scalar_one_or_none()
 
     @classmethod
     async def get_by_email(cls, email: str) -> Optional["User"]:
         """Get user by email"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.email == email))
             return result.scalar_one_or_none()
 
     @classmethod
-    async def get_all(
-        cls, skip: int = 0, limit: int = 100
-    ) -> List["User"]:
+    async def get_all(cls, skip: int = 0, limit: int = 100) -> List["User"]:
         """Get all users with pagination"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             result = await db.execute(select(cls).offset(skip).limit(limit))
             return list(result.scalars().all())
 
     async def update(
         self,
         email: Optional[str] = None,
-        password: Optional[str] = None,
     ) -> "User":
         """Update user"""
-        if email is not None:
-            self.email = email
-
-        if password is not None:
-            self.password_hash = hashlib.sha256(password.encode()).hexdigest()
         async with get_transaction() as db:
+            if email is not None:
+                self.email = email
+
             await db.flush()
             await db.refresh(self)
             return self
@@ -90,3 +86,4 @@ class User(Base):
         """Delete user"""
         async with get_transaction() as db:
             await db.delete(self)
+            await db.flush()

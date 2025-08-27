@@ -2,13 +2,14 @@ from supabase import create_client, Client
 import os
 from typing import Optional
 from app.utils.logger import get_logger
+from app.environment import environment
 
 # Get logger for this module
 logger = get_logger("supabase")
 
 # Get Supabase configuration from environment variables
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = environment.SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY = environment.SUPABASE_SERVICE_ROLE_KEY
 
 
 def get_supabase_client() -> Optional[Client]:
