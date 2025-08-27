@@ -36,7 +36,7 @@ class User(Base):
     @classmethod
     async def create(cls, email: str) -> "User":
         """Create a new user"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             user = cls(
                 email=email,
                 gid=uuid.uuid4(),
@@ -44,30 +44,28 @@ class User(Base):
                 role="admin",
             )
             db.add(user)
-            await db.commit()
+            await db.flush()
             await db.refresh(user)
             return user
 
     @classmethod
     async def get_by_id(cls, user_id: int) -> Optional["User"]:
         """Get user by ID"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.id == user_id))
             return result.scalar_one_or_none()
 
     @classmethod
     async def get_by_email(cls, email: str) -> Optional["User"]:
         """Get user by email"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.email == email))
             return result.scalar_one_or_none()
 
     @classmethod
-    async def get_all(
-        cls, skip: int = 0, limit: int = 100
-    ) -> List["User"]:
+    async def get_all(cls, skip: int = 0, limit: int = 100) -> List["User"]:
         """Get all users with pagination"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             result = await db.execute(select(cls).offset(skip).limit(limit))
             return list(result.scalars().all())
 
@@ -76,16 +74,16 @@ class User(Base):
         email: Optional[str] = None,
     ) -> "User":
         """Update user"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             if email is not None:
                 self.email = email
 
-            await db.commit()
+            await db.flush()
             await db.refresh(self)
             return self
 
-    async def delete(self, session: AsyncSession) -> None:
+    async def delete(self) -> None:
         """Delete user"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             await db.delete(self)
-            await db.commit()
+            await db.flush()

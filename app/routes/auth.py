@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Request, Depends
 import jwt
 from datetime import datetime, timedelta
-
 from app.models.user import User
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger
@@ -15,8 +14,7 @@ from app.schemas.auth import (
     CurrentUserResponse,
 )
 from app.environment import environment
-from app.constant.get_current_user import current_user
-
+from app.dependencies.user_auth import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -41,7 +39,10 @@ async def onsignup(
         existing_user = await User.get_by_email(email)
         if existing_user:
             logger.info(f"User with email {email} already exists")
-            return AuthUserResponse.model_validate(existing_user)
+            return OnSignupSuccessResponse(
+                message="User already exists",
+                user=AuthUserResponse.model_validate(existing_user),
+            )
         else:
             # Create new user
             new_user = await User.create(email)
@@ -148,7 +149,7 @@ async def verify_supabase_token(request: Request):
 
 
 @router.get("/me", response_model=CurrentUserResponse, operation_id="getCurrentUser")
-async def get_current_user(current_user: User = Depends(current_user)):
+async def get_current_user(current_user: User = Depends(get_current_user)):
     """Get current authenticated user info"""
     logger.info("Endpoint hit: /auth/me")
 

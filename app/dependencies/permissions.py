@@ -1,5 +1,5 @@
-from fastapi import Depends, HTTPException, status
-from app.constant.get_current_user import current_user
+from fastapi import Depends
+from app.dependencies.user_auth import get_current_user
 from app.environment import Constants
 from app.utils.error import MegapolisHTTPException
 from app.models.user import User
@@ -7,7 +7,7 @@ from app.schemas.auth import AuthUserResponse
 
 
 def require_role(allowed_roles: list[str]):
-    def role_checker(current_user: User = Depends(current_user)):
+    def role_checker(current_user: User = Depends(get_current_user)):
         if current_user.role not in allowed_roles:
             raise MegapolisHTTPException(
                 status_code=403,
@@ -28,7 +28,7 @@ def require_super_admin():
     - Otherwise, raises 403
     """
 
-    async def super_admin_checker(current: AuthUserResponse = Depends(current_user)) -> AuthUserResponse:
+    async def super_admin_checker(current: AuthUserResponse = Depends(get_current_user)) -> AuthUserResponse:
         # Fetch full user to access email and latest role
         db_user = await User.get_by_id(int(current.id))
         if not db_user:

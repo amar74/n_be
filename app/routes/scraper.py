@@ -1,13 +1,11 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends
 from app.schemas.scraper import ScrapeRequest, ScrapeResponse
 from app.services.scraper import scrape_urls
 from app.models.user import User
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
-from app.environment import environment
 import jwt
-from app.constant.get_current_user import current_user
-
+from app.dependencies.user_auth import get_current_user
 router = APIRouter(prefix="/scraper", tags=["scraper"])
 
 
@@ -15,7 +13,7 @@ router = APIRouter(prefix="/scraper", tags=["scraper"])
     "/scrape", response_model=ScrapeResponse, status_code=200, operation_id="scrapeUrls"
 )
 async def scrape_urls_endpoint(
-    payload: ScrapeRequest, current_user: User = Depends(current_user)
+    payload: ScrapeRequest, current_user: User = Depends(get_current_user)
 ) -> ScrapeResponse:
     """
     Scrape multiple URLs and extract contact information.

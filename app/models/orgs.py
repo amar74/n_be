@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from app.models.user import User
 from app.db.base import Base
-from app.db.session import get_session
+from app.db.session import get_session, get_transaction
 from app.schemas.orgs import OrgCreateRequest, OrgUpdateRequest, AddUserInOrgRequest
 from uuid import UUID
 
@@ -60,7 +60,7 @@ class Orgs(Base):
         request: OrgCreateRequest,
     ) -> "Orgs":
         """Create a new organization"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             org = cls(
                 gid=current_user.gid,
                 owner_id=current_user.id,
@@ -71,14 +71,14 @@ class Orgs(Base):
                 created_at=datetime.utcnow(),
             )
             db.add(org)
-            await db.commit()
+            await db.flush()
             await db.refresh(org)
             return org
 
     @classmethod
     async def get_by_gid(cls, gid: UUID) -> Optional["Orgs"]:
         """Get organization by ID"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.gid == gid))
 
             return result.scalar_one_or_none()
@@ -86,7 +86,7 @@ class Orgs(Base):
     @classmethod
     async def get_by_id(cls, org_id: int) -> Optional["Orgs"]:
         """Get organization by ID"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.org_id == org_id))
 
             return result.scalar_one_or_none()
@@ -98,7 +98,7 @@ class Orgs(Base):
         request: OrgUpdateRequest,
     ) -> Optional["Orgs"]:
         """Update organization details"""
-        async with get_session() as db:
+        async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.org_id == org_id))
             org = result.scalar_one_or_none()
 
@@ -116,14 +116,14 @@ class Orgs(Base):
                 org.contact = request.contact
             # For now, just updating the updated_at timestamp
 
-            await db.commit()
+            await db.flush()
             await db.refresh(org)
             return org
 
     @classmethod
     async def add_user_in_org(cls, request: AddUserInOrgRequest) -> Optional["User"]:
         """Add user to organization"""
-        async with get_session() as db:
+        async with get_transaction() as db:
 
             new_user = User(
                 gid=request.gid,
@@ -132,6 +132,6 @@ class Orgs(Base):
                 account=request.account,
             )
             db.add(new_user)
-            await db.commit()
+            await db.flush()
             await db.refresh(new_user)
             return new_user

@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends
 from app.utils.logger import logger
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.orgs import (
     OrgCreateRequest,
     OrgCreateResponse,
@@ -11,8 +10,7 @@ from app.schemas.orgs import (
     AddUserInOrgResponse,
     AddUserInOrgRequest,
 )
-from datetime import datetime
-from app.constant.get_current_user import current_user
+from app.dependencies.user_auth import get_current_user
 from app.models.user import User
 from app.services.orgs import (
     create_organization,
@@ -21,7 +19,7 @@ from app.services.orgs import (
     update_organization,
     add_user,
 )
-from app.rbac.permissions import require_role
+from app.dependencies.permissions import require_role
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
@@ -41,23 +39,22 @@ async def hello_orgs():
 )
 async def create_org(
     request: OrgCreateRequest,
-    current_user: User = Depends(current_user),
-) -> OrgResponse:
+    current_user: User = Depends(get_current_user),
+) -> OrgCreatedResponse:
     """Create a new organization"""
     logger.info(f"Creating new organization : {request.name}")
 
     org = await create_organization(current_user, request)
 
     logger.info(f"Organization created successfully with ID {org.org_id}")
-    # return OrgCreateResponse.model_validate(org_dict)
     return OrgCreatedResponse(
         message="Organization created success",
         org=OrgCreateResponse.model_validate(org),
     )
 
 
-@router.get("/me", operation_id="getMyOrg")
-async def get_my_org(current_user: User = Depends(current_user)):
+@router.get("/me", status_code=200, response_model=OrgResponse, operation_id="me")
+async def get_my_org(current_user: User = Depends(get_current_user)) -> OrgResponse:
     """Get the organization of the current user"""
 
     logger.info(f"Fetching organization for user ID ")
@@ -67,8 +64,10 @@ async def get_my_org(current_user: User = Depends(current_user)):
     return OrgResponse.model_validate(org)
 
 
-@router.get("/{org_id}",status_code=200, response_model=OrgResponse, operation_id="getOrgById")
-async def get_org(org_id: int):
+@router.get(
+    "/{org_id}", status_code=200, response_model=OrgResponse, operation_id="getOrgById"
+)
+async def get_org(org_id: int) -> OrgResponse:
     """Get a specific organization by ID"""
     logger.info(f"Fetching organization with ID: {org_id}")
     org = await get_organization_by_id(org_id)
@@ -77,32 +76,39 @@ async def get_org(org_id: int):
 
 
 @router.put(
-    "/update/{org_id}",status_code=200, response_model=OrgUpdateResponse, operation_id="updateOrg"
+    "/update/{org_id}",
+    status_code=200,
+    response_model=OrgUpdateResponse,
+    operation_id="updateOrg",
 )
 async def update_org(
     org_id: int,
     request: OrgUpdateRequest,
     current_user: User = Depends(require_role(["admin"])),
-):
+) -> OrgUpdateResponse:
     """Update an existing organization"""
     logger.info(f"Updating organization with ID: {org_id}")
     org = await update_organization(org_id, request)
     logger.info(f"Organization updated successfully: {org.name}")
 
-    # return OrgResponse.model_validate(org)
     return OrgUpdateResponse(
         message="Organization updated successfully",
         org=OrgResponse.model_validate(org),
     )
 
 
-@router.post("/add-user-in-Org",status_code=200, operation_id="addUserInOrg")
+@router.post(
+    "/add-user-in-org",
+    status_code=200,
+    response_model=AddUserInOrgResponse,
+    operation_id="addUserInOrg",
+)
 async def add_user_in_org(
     request: AddUserInOrgRequest,
     current_user: User = Depends(require_role(["admin"])),
-):
+) -> AddUserInOrgResponse:
     """Add a user to an organization"""
     # Placeholder for actual implementation
-    logger.info(f"Adding user ID {request.email} to organization ID {request.gid}")
+    logger.info(f"Adding user ID {request.email} to organization ID {request.org_id}")
     user = await add_user(request)
     return AddUserInOrgResponse(message="User added to organization successfully")

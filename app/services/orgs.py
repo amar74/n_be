@@ -1,8 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orgs import Orgs
+from uuid import UUID
 
 # from app.models.user import User
-from app.schemas.orgs import OrgCreateRequest, OrgUpdateRequest
+from app.schemas.orgs import OrgCreateRequest, OrgUpdateRequest, AddUserInOrgRequest
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
 from app.models.user import User
@@ -14,7 +15,7 @@ async def create_organization(current_user: User, request: OrgCreateRequest) -> 
     existing_org = await Orgs.get_by_gid(current_user.gid)
     if existing_org:
         logger.error(
-            f"User {current_user.email} is already associated with an organization"
+            f"User {current_user.id} is already associated with an organization"
         )
         # return existing_org
         raise MegapolisHTTPException(
@@ -26,7 +27,7 @@ async def create_organization(current_user: User, request: OrgCreateRequest) -> 
     return await Orgs.create(current_user, request)
 
 
-async def get_my_organization(gid: str) -> Orgs | None:
+async def get_my_organization(gid: UUID) -> Orgs | None:
     """Fetch the organization associated with the current user"""
     logger.info("Fetching organization for the current user")
     # Assuming current_user is available in the context
@@ -52,17 +53,16 @@ async def update_organization(org_id: int, request: OrgUpdateRequest) -> Orgs:
     """Update an organization's details"""
     logger.debug(f"Updating organization with ID: {org_id}")
     org = await Orgs.get_by_id(org_id)
-    logger.info(f"Organization before update: {org.org_id}")
     if not org:
         logger.error(f"Organization with ID {org_id} not found for update")
         raise MegapolisHTTPException(status_code=404, details="Organization not found")
     return await Orgs.update(org_id, request)
 
 
-async def add_user(request) -> User:
+async def add_user(request: AddUserInOrgRequest) -> User:
     """Add a user to an organization"""
     logger.debug(
-        f"Adding user with email: {request.email} to organization with GID: {request.gid}"
+        f"Adding user with email: {request.email} to organization ID: {request.org_id}"
     )
     user = await User.get_by_email(request.email)
 
