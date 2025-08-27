@@ -1,4 +1,4 @@
-from sqlalchemy import String, select, Boolean
+from sqlalchemy import String, select, Boolean, Column, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
@@ -12,14 +12,19 @@ from app.db.session import get_session, get_transaction
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        default=uuid.uuid4,
+        primary_key=True,
+        nullable=False,
+        index=True,
+    )
+
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
 
-    # create a gid column that is a UUID, indexed, not nullable, default to a new uuid4
-    gid: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), default=uuid.uuid4, index=True, nullable=False
+    org_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
     )
-    account: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     role: Mapped[str] = mapped_column(String(50), default="admin", nullable=False)
 
@@ -28,10 +33,11 @@ class User(Base):
         return {
             "id": self.id,
             "email": self.email,
-            "gid": self.gid,
-            "account": self.account,
+            "org_id": self.org_id,
             "role": self.role,
         }
+
+
 
     @classmethod
     async def create(cls, email: str) -> "User":
@@ -39,8 +45,7 @@ class User(Base):
         async with get_transaction() as db:
             user = cls(
                 email=email,
-                gid=uuid.uuid4(),
-                account=True,
+                org_id=None,
                 role="admin",
             )
             db.add(user)
@@ -68,7 +73,14 @@ class User(Base):
         async with get_transaction() as db:
             result = await db.execute(select(cls).offset(skip).limit(limit))
             return list(result.scalars().all())
+    @classmethod
+    async def get_all_org_users(cls,org_id:UUID, skip: int = 0, limit: int = 100) -> List["User"]:
+        """Get all users with pagination"""
+        async with get_transaction() as db:
+            result = await db.execute(select(cls).where(cls.org_id == org_id).offset(skip).limit(limit))
+            return list(result.scalars().all())
 
+    
     async def update(
         self,
         email: Optional[str] = None,

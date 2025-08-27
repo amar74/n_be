@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.routes.auth import router as auth_router
-from app.routes.orgs import router as orgs_router
+from app.routes.organization import router as orgs_router
 from app.routes.scraper import router as scraper_router
 
 # Main API router that combines all route modules

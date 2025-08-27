@@ -2,15 +2,17 @@ from pydantic import BaseModel
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
+from app.schemas.address import AddressCreateResquest, AddressCreateResponse
+from app.schemas.contact import ContactCreateRequest, CreateContactResponse
 
 
 class OrgCreateRequest(BaseModel):
     """Schema for creating a new organization"""
 
     name: str
-    address: Optional[str] = None
+    address: Optional[AddressCreateResquest] = None
     website: Optional[str] = None
-    contact: Optional[str] = None
+    contact: Optional[ContactCreateRequest] = None
 
     class Config:
         from_attributes = True
@@ -20,8 +22,7 @@ class OrgCreateResponse(BaseModel):
     """Schema for creating a new organization"""
 
     name: str
-    org_id: int
-    gid: UUID
+    id: UUID
 
     class Config:
         from_attributes = True
@@ -40,10 +41,10 @@ class OrgCreatedResponse(BaseModel):
 class OrgUpdateRequest(BaseModel):
     """Schema for updating an existing organization"""
 
-    name: Optional[str] = None
-    address: Optional[str] = None
+    name: str
+    address: Optional[AddressCreateResquest] = None
     website: Optional[str] = None
-    contact: Optional[str] = None
+    contact: Optional[ContactCreateRequest] = None
 
     class Config:
         from_attributes = True
@@ -60,18 +61,13 @@ class OrgUpdateResponse(BaseModel):
 
 
 class OrgResponse(BaseModel):
-    """Schema for Organization API responses"""
-
+    id: UUID
+    owner_id: UUID
     name: str
-    org_id: int
-    gid: UUID
-    owner_id: int
-    """ID of the user who owns the organization"""
-    address: Optional[str] = None
+    address: Optional[AddressCreateResponse] = None
     website: Optional[str] = None
-    contact: Optional[str] = None
+    contact: Optional[CreateContactResponse] = None
     created_at: datetime
-    """ISO 8601 formatted datetime string"""
 
     class Config:
         from_attributes = True
@@ -79,11 +75,10 @@ class OrgResponse(BaseModel):
 
 class AddUserInOrgRequest(BaseModel):
     """Schema for adding a user to an organization"""
-    org_id: int
-    gid: UUID
+
+    org_id: UUID
     role: str
     email: str
-    account: bool = False
 
     class Config:
         from_attributes = True
@@ -92,7 +87,18 @@ class AddUserInOrgRequest(BaseModel):
 class AddUserInOrgResponse(BaseModel):
     """Schema for adding a user to an organization"""
 
+    id: UUID
     message: str
+
+    class Config:
+        from_attributes = True
+
+
+class OrgAllUserResponse(BaseModel):
+    id: UUID
+    org_id: UUID
+    role: Optional[str]
+    email: str
 
     class Config:
         from_attributes = True

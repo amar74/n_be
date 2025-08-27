@@ -4,13 +4,15 @@ import google.generativeai as genai
 import re
 import json
 from app.environment import environment
+from typing import List, Dict, Union, Optional, Any
 
 # Configure Gemini
-genai.configure(api_key=environment.GEMINI_API_KEY)
+# genai.configure(api_key=environment.GEMINI_API_KEY)
+genai.configure(api_key="AIzaSyBvLqYU5OogN2CPiqP-QEKmdic_HDrujPU")
 gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 
 
-def scrape_text_with_bs4(url):
+def scrape_text_with_bs4(url: str) -> Dict[str, Union[str, Dict[str, str]]]:
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
@@ -29,7 +31,7 @@ def scrape_text_with_bs4(url):
         return {"url": url, "error": f"Failed to scrape: {str(e)}"}
 
 
-def extract_info(text):
+def extract_info(text: str) -> Dict[str, Any]:
     prompt = (
         "You are an AI assistant for a payment processing system that needs to extract and structure contact information from business websites for secure database storage. Extract complete and accurate information:\n\n"
         "Required Information:\n"
@@ -74,7 +76,7 @@ def extract_info(text):
         return {"error": f"Gemini failed: {e}"}
 
 
-def process_urls(urls):
+def process_urls(urls: List[str]) -> List[Dict[str, Any]]:
     results = []
 
     for url in urls:
