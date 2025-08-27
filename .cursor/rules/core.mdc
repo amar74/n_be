@@ -9,7 +9,7 @@ These rules always apply to the `megapolis-api` backend. They encode the convent
 
 - **Stack**: FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, Loguru
 - **Entry**: `app/main.py` with CORS; routers included from `app/router.py`
-- **DB**: Async Postgres via `app/db/session.py` using `get_db` (async context manager)
+- **DB**: Async Postgres via `app/db/session.py` using `get_session` (async context manager)
 - **Models**: `app/models/*` extending `app.db.base.Base`
 - **Schemas**: `app/schemas/*` with `Config.from_attributes = True`
 - **Services**: `app/services/*` with async functions (or a small coordinator class if orchestration is required)
@@ -25,7 +25,7 @@ These rules always apply to the `megapolis-api` backend. They encode the convent
 - **app/services/**: Business logic; async functions that orchestrate model calls and domain workflows.
 - **app/models/**: SQLAlchemy ORM models; define tables and add convenience class/instance methods.
 - **app/schemas/**: Pydantic v2 request/response models; responses set `from_attributes = True`.
-- **app/db/**: Database base (`base.py`) and session factory (`session.py` with `get_db`).
+- **app/db/**: Database base (`base.py`) and session factory (`session.py` with `get_session` and `get_transaction`).
 - **app/utils/**: Shared utilities such as Loguru `logger` and small helpers.
 - **app/dependencies/**: FastAPI dependencies (e.g., `user_auth.py#get_current_user`).
 - **alembic/**: Database migration environment and versions.
@@ -55,10 +55,10 @@ poetry run python manage.py initdb
 
 ## Database Sessions
 
-- **Always use `get_db`**: Open sessions via the async context manager; do not introduce alternative patterns.
+- **Always use `get_session`**: Open sessions via the async context manager; do not introduce alternative patterns.
 
 ```python
-from app.db.session import get_db
+from app.db.session import get_session
 
 async def job():
     async with get_session() as session:
@@ -105,7 +105,7 @@ raise AppHTTPException(status_code=400, message="Name already exists", metadata=
 ## Models
 
 - Place models in `app/models/<feature>.py` extending `Base`.
-- Provide class/instance methods. You may open sessions inside model methods using `get_db`.
+- Provide class/instance methods. You may open sessions inside model methods using `get_session`.
 
 ```python
 from sqlalchemy import String, select
@@ -113,7 +113,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from app.db.base import Base
-from app.db.session import get_db
+from app.db.session import get_session
 
 class Widget(Base):
     __tablename__ = "widgets"

@@ -57,6 +57,12 @@ def downgrade(revision: str = "-1") -> None:
         ["alembic", "downgrade", revision], check=True, env=env_with_db_url()
     )
 
+@app.command()
+def stamp_head() -> None:
+    subprocess.run(
+        ["alembic", "stamp", "head"], check=True, env=env_with_db_url()
+    )
+
 
 @app.command()
 def initdb() -> None:

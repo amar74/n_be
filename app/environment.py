@@ -14,32 +14,49 @@ class Environment(BaseModel):
     GEMINI_API_KEY: str
 
 
+class Constants():
+    """Constants for the application."""
+    SUPER_ADMIN_EMAILS: list[str] = ["rishabhgautam727@gmail.com"]
+
 def load_doppler_secret() -> Optional[str]:
     """Load the Doppler secret from the environment."""
     return os.getenv("DOPPLER_SECRET")
 
 
 def load_environment() -> Environment:
-    """Load environment variables and return an Environment instance."""
+    """Load environment variables (from .env and OS) and return Environment instance."""
 
-    doppler_secret = load_doppler_secret()
+    # Load from .env if present
 
-    def get_env_variable(key: str, default: Optional[str] = None) -> Optional[str]:
-        return os.getenv(key, default) if doppler_secret else default
+    def normalize_asyncpg(url: str) -> str:
+        """Ensure the SQLAlchemy URL uses asyncpg for PostgreSQL.
 
+        Accepts common forms like postgresql:// or postgres:// and upgrades them
+        to postgresql+asyncpg://. Leaves non-postgres URLs untouched.
+        """
+        if not url:
+            return url
+        if url.startswith("postgresql+asyncpg://"):
+            return url
+        if url.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + url[len("postgresql://"):]
+        if url.startswith("postgres://"):
+            return "postgresql+asyncpg://" + url[len("postgres://"):]
+        return url
+
+    # Require all values from environment without defaults
     env = {
         "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY", "-your-secret-key-here"),
-        "DATABASE_URL": os.getenv(
-            "DATABASE_URL", "postgresql+asyncpg://user:password@localhost/dbname"
+        # Prefer .env/OS value, normalize driver for async engine
+        "DATABASE_URL": normalize_asyncpg(
+            os.getenv(
+                "DATABASE_URL"
+            )
         ),
-        "SUPABASE_URL": os.getenv(
-            "SUPABASE_URL", "https://your-supabase-url.supabase.co"
-        ),
-        "SUPABASE_SERVICE_ROLE_KEY": os.getenv(
-            "SUPABASE_SERVICE_ROLE_KEY", "-your-service-role-key-here"
-        ),
-        "NGROK_AUTHTOKEN": os.getenv("NGROK_AUTHTOKEN", "your-ngrok-authtoken"),
-        "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", "-your-gemini-api-key-here"),
+        "SUPABASE_URL": os.getenv("SUPABASE_URL"),
+        "SUPABASE_SERVICE_ROLE_KEY": os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
+        "NGROK_AUTHTOKEN": os.getenv("NGROK_AUTHTOKEN"),
+        "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
     }
 
     return Environment.model_validate(env)
