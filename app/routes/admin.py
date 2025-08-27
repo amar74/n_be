@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from app.rbac.permissions import require_role, require_super_admin
-from app.utils.error import MegapolisHTTPException
-from app.utils.logger import logger
+from app.dependencies.permissions import require_role, require_super_admin
 from app.schemas.admin import (
     AdminCreateUserRequest,
     AdminCreateUserResponse,
