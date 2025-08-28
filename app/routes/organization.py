@@ -156,7 +156,7 @@ async def create_invite(
 async def accept_invite(token: str = Query(..., description="Invite Token")):
     logger.info(f"Verify token")
     user = await accept_user_invite(token)
-    return AcceptInviteResponse.model_validate(
+    return AcceptInviteResponse(
         message="Invite accepted", org_id=user.org_id
     )
 
