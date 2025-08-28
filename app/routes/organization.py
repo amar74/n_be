@@ -21,9 +21,15 @@ from app.services.organization import (
     add_user,
     delete_user_from_org,
     get_organization_users,
+    create_user_invite,
+    accept_user_invite,
 )
-from app.schemas.invite import InviteCreateRequest, InviteResponse
-from app.services.organization import create_user_invite
+from app.schemas.invite import (
+    InviteCreateRequest,
+    InviteResponse,
+    AcceptInviteRequest,
+    AcceptInviteResponse,
+)
 from app.schemas.user import UserDeleteResponse
 from uuid import UUID
 from app.dependencies.permissions import require_role
@@ -134,9 +140,20 @@ async def create_invite(
     current_user: User = Depends(require_role(["admin"])),
 ) -> InviteResponse:
     """Create an invite for a user"""
-    logger.info(f"Creating invite for user {request.email} for org {request.org_id}")
-    invite = await create_user_invite(request)
+    logger.info(
+        f"Creating invite for user {request.email} for org {current_user.org_id}"
+    )
+    invite = await create_user_invite(request, current_user)
     return InviteResponse.model_validate(invite)
+
+
+@router.post("/invite/accept", status_code=200)
+async def accept_invite(token: str = Query(..., description="Invite Token")):
+    logger.info(f"Verify token")
+    user = await accept_user_invite(token)
+    return AcceptInviteResponse.model_validate(
+        message="Invite accepted", org_id=user.org_id
+    )
 
 
 @router.post(
