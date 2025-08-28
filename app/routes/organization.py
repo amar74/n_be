@@ -147,7 +147,12 @@ async def create_invite(
     return InviteResponse.model_validate(invite)
 
 
-@router.post("/invite/accept", status_code=200)
+@router.post(
+    "/invite/accept",
+    status_code=200,
+    response_model=AcceptInviteResponse,
+    operation_id="inviteAccept",
+)
 async def accept_invite(token: str = Query(..., description="Invite Token")):
     logger.info(f"Verify token")
     user = await accept_user_invite(token)
