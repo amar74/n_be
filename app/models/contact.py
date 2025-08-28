@@ -20,12 +20,12 @@ class Contact(Base):
         index=True,
     )
 
-    phone: Mapped[str] = mapped_column(String(50), nullable=True)
-    email: Mapped[str] = mapped_column(String(100), nullable=True)
-    org_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
-    )
-
+    account_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.account_id"), nullable=True)
+    org_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True)
+    name: Mapped[Optional[str]] = mapped_column(String(255))
+    email: Mapped[Optional[str]] = mapped_column(String(255))
+    phone: Mapped[Optional[str]] = mapped_column(String(50))
+    title: Mapped[Optional[str]] = mapped_column(String(64))
     def to_dict(self) -> Dict[str, Any]:
         """Convert Contact model to dictionary for API responsed"""
 
