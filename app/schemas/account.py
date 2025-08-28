@@ -5,17 +5,14 @@ from datetime import datetime
 from enum import Enum
 
 class ClientType(str, Enum):
-    tier_1 = "Tier 1"
-    tier_2 = "Tier 2"
-    tier_3 = "Tier 3"
+    tier_1 = "tier_1"
+    tier_2 = "tier_2"
+    tier_3 = "tier_3"
 
 class AddressCreate(BaseModel):
     line1: str
     line2: Optional[str] = None
-    post_code: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    country: Optional[str] = None
+    pincode: Optional[int] = None
 
 class AddressResponse(AddressCreate):
     address_id: UUID

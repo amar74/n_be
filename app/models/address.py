@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, Dict, Any
 from sqlalchemy import String, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
@@ -27,6 +27,9 @@ class Address(Base):
     org_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
     )
+
+    # Relationships
+    account: Mapped[Optional["Account"]] = relationship("Account", back_populates="client_address")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert address model to dictionary for API responses"""

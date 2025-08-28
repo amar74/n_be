@@ -1,6 +1,6 @@
 from app.db.base import Base
 from sqlalchemy import String, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Dict, Any, Optional
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
@@ -26,6 +26,10 @@ class Contact(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255))
     phone: Mapped[Optional[str]] = mapped_column(String(50))
     title: Mapped[Optional[str]] = mapped_column(String(64))
+
+    # Relationships
+    account: Mapped[Optional["Account"]] = relationship("Account", back_populates="contacts", foreign_keys="Contact.account_id")
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert Contact model to dictionary for API responsed"""
 

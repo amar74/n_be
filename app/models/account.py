@@ -10,9 +10,9 @@ from app.db.base import Base
 
 
 class ClientType(enum.Enum):
-    tier_1 = "Tier 1"
-    tier_2 = "Tier 2"
-    tier_3 = "Tier 3"
+    tier_1 = "tier_1"
+    tier_2 = "tier_2"
+    tier_3 = "tier_3"
 
 
 class Account(Base):
@@ -34,13 +34,13 @@ class Account(Base):
     updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, onupdate=func.now())
 
     # Foreign keys
-    client_address_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("addresses.address_id"))
-    primary_contact_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("contacts.contact_id"))
+    client_address_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("address.id"))
+    primary_contact_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("contacts.id"))
 
     # Relationships
     client_address: Mapped[Optional["Address"]] = relationship("Address", back_populates="account", uselist=False)
     primary_contact: Mapped[Optional["Contact"]] = relationship("Contact", foreign_keys=[primary_contact_id])
-    contacts: Mapped[List["Contact"]] = relationship("Contact", back_populates="account", cascade="all, delete-orphan")
+    contacts: Mapped[List["Contact"]] = relationship("Contact", back_populates="account", foreign_keys="Contact.account_id", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -59,18 +59,3 @@ class Account(Base):
             "client_address_id": str(self.client_address_id) if self.client_address_id else None,
             "primary_contact_id": str(self.primary_contact_id) if self.primary_contact_id else None,
         }
-
-
-
-class Address(Base):
-    __tablename__ = "addresses"
-
-    address_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    line1: Mapped[str] = mapped_column(String(255))
-    line2: Mapped[Optional[str]] = mapped_column(String(255))
-    post_code: Mapped[Optional[str]] = mapped_column(String(32))
-    city: Mapped[Optional[str]] = mapped_column(String(64))
-    state: Mapped[Optional[str]] = mapped_column(String(64))
-    country: Mapped[Optional[str]] = mapped_column(String(64))
-
-    account: Mapped[Optional["Account"]] = relationship("Account", back_populates="client_address", uselist=False)
