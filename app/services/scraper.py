@@ -1,10 +1,5 @@
-from app.schemas.scraper import (
-    ScrapeRequest,
-    ScrapeResponse,
-    ScrapeResult,
-    ScrapedInfo,
-    ScrapedAddress,
-)
+import asyncio
+from app.schemas.scraper import ScrapeRequest, ScrapeResponse, ScrapeResult, ScrapedInfo, ScrapedAddress
 from app.utils.scraper import process_urls
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
@@ -35,8 +30,9 @@ async def scrape_urls(payload: ScrapeRequest) -> ScrapeResponse:
 
     try:
         # Process URLs using the existing scraper utility
-        raw_results = process_urls(url_strings)
+        raw_results = await process_urls(url_strings)  # ✅
 
+        
         # Transform results into structured response
         results = []
         successful_scrapes = 0
