@@ -132,3 +132,77 @@ async def add_contact(account_id: UUID, payload: ContactCreate) -> Contact:
         await session.refresh(contact)
         logger.info(f"Added contact {contact.id} to account {account_id}")
         return contact
+
+async def get_account_contacts(account_id: UUID) -> List[Contact]:
+    """Get all contacts for a specific account"""
+    async with get_transaction() as session:
+        # First verify account exists
+        account_stmt = select(Account).where(Account.account_id == account_id)
+        account_result = await session.execute(account_stmt)
+        account = account_result.scalar_one_or_none()
+        
+        if not account:
+            raise MegapolisHTTPException(status_code=404, message="Account not found")
+        
+        # Get contacts
+        stmt = select(Contact).where(Contact.account_id == account_id)
+        result = await session.execute(stmt)
+        contacts = result.scalars().all()
+        logger.info(f"Retrieved {len(contacts)} contacts for account {account_id}")
+        return list(contacts)
+
+async def update_contact(account_id: UUID, contact_id: UUID, payload: ContactCreate) -> Contact:
+    """Update a specific contact for an account"""
+    async with get_transaction() as session:
+        # Verify account exists
+        account_stmt = select(Account).where(Account.account_id == account_id)
+        account_result = await session.execute(account_stmt)
+        account = account_result.scalar_one_or_none()
+        
+        if not account:
+            raise MegapolisHTTPException(status_code=404, message="Account not found")
+        
+        # Get contact
+        contact_stmt = select(Contact).where(
+            Contact.id == contact_id,
+            Contact.account_id == account_id
+        )
+        contact_result = await session.execute(contact_stmt)
+        contact = contact_result.scalar_one_or_none()
+        
+        if not contact:
+            raise MegapolisHTTPException(status_code=404, message="Contact not found")
+        
+        # Update contact fields
+        for field, value in payload.dict(exclude_unset=True).items():
+            setattr(contact, field, value)
+        
+        await session.flush()
+        await session.refresh(contact)
+        logger.info(f"Updated contact {contact_id} for account {account_id}")
+        return contact
+
+async def delete_contact(account_id: UUID, contact_id: UUID) -> None:
+    """Delete a specific contact from an account"""
+    async with get_transaction() as session:
+        # Verify account exists
+        account_stmt = select(Account).where(Account.account_id == account_id)
+        account_result = await session.execute(account_stmt)
+        account = account_result.scalar_one_or_none()
+        
+        if not account:
+            raise MegapolisHTTPException(status_code=404, message="Account not found")
+        
+        # Get contact
+        contact_stmt = select(Contact).where(
+            Contact.id == contact_id,
+            Contact.account_id == account_id
+        )
+        contact_result = await session.execute(contact_stmt)
+        contact = contact_result.scalar_one_or_none()
+        
+        if not contact:
+            raise MegapolisHTTPException(status_code=404, message="Contact not found")
+        
+        await session.delete(contact)
+        logger.info(f"Deleted contact {contact_id} from account {account_id}")

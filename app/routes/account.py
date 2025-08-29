@@ -3,10 +3,12 @@ from typing import Optional
 from uuid import UUID
 
 from app.schemas.account import (
-    AccountCreate, AccountListResponse, AccountListItem, AccountDetailResponse, AccountUpdate, ContactCreate, ContactResponse
+    AccountCreate, AccountListResponse, AccountListItem, AccountDetailResponse, AccountUpdate, 
+    ContactCreate, ContactResponse, ContactListResponse
 )
 from app.services.account import (
-    create_account, list_accounts, get_account, update_account, delete_account, add_contact
+    create_account, list_accounts, get_account, update_account, delete_account, 
+    add_contact, get_account_contacts, update_contact, delete_contact
 )
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
@@ -142,4 +144,56 @@ async def add_contact_route(
         "status": "success",
         "contact_id": str(contact.id),
         "message": "Contact added successfully"
+    }
+
+@router.get("/{account_id}/contacts", response_model=ContactListResponse)
+async def get_account_contacts_route(
+    account_id: UUID = Path(...),
+    user: User = Depends(get_current_user)
+):
+    logger.info(f"Get contacts request for account ID: {account_id}")
+    contacts = await get_account_contacts(account_id)
+    logger.info(f"Retrieved {len(contacts)} contacts for account ID: {account_id}")
+    
+    # Convert Contact objects to ContactResponse
+    contact_responses = [
+        ContactResponse(
+            contact_id=contact.id,
+            name=contact.name,
+            email=contact.email,
+            phone=contact.phone,
+            title=contact.title
+        ) for contact in contacts
+    ]
+    
+    return ContactListResponse(contacts=contact_responses)
+
+@router.put("/{account_id}/contacts/{contact_id}", response_model=dict)
+async def update_contact_route(
+    payload: ContactCreate,
+    account_id: UUID = Path(...),
+    contact_id: UUID = Path(...),
+    user: User = Depends(get_current_user)
+):
+    logger.info(f"Update contact request for account ID: {account_id}, contact ID: {contact_id}")
+    contact = await update_contact(account_id, contact_id, payload)
+    logger.info(f"Contact updated successfully for account ID: {account_id}, contact ID: {contact_id}")
+    return {
+        "status": "success",
+        "contact_id": str(contact.id),
+        "message": "Contact updated successfully"
+    }
+
+@router.delete("/{account_id}/contacts/{contact_id}", response_model=dict)
+async def delete_contact_route(
+    account_id: UUID = Path(...),
+    contact_id: UUID = Path(...),
+    user: User = Depends(get_current_user)
+):
+    logger.info(f"Delete contact request for account ID: {account_id}, contact ID: {contact_id}")
+    await delete_contact(account_id, contact_id)
+    logger.info(f"Contact deleted successfully for account ID: {account_id}, contact ID: {contact_id}")
+    return {
+        "status": "success",
+        "message": "Contact deleted successfully"
     }

@@ -32,6 +32,12 @@ class ContactResponse(ContactCreate):
     class Config:
         from_attributes = True
 
+class ContactListResponse(BaseModel):
+    contacts: List[ContactResponse]
+
+    class Config:
+        from_attributes = True
+
 class AccountCreate(BaseModel):
     company_website: Optional[HttpUrl] = None
     client_name: str
