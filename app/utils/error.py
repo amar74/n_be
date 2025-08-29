@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from typing import Dict, Any, Optional
 
 class MegapolisHTTPException(HTTPException):
-    """Custom HTTP exception for Pipecat API with structured error responses."""
+    """Custom HTTP exception for Megapolis API with structured error responses."""
 
     def __init__(
         self,
@@ -21,7 +21,7 @@ class MegapolisHTTPException(HTTPException):
         """
         self.status_code = status_code
         self.message = message or self._get_default_message(status_code)
-        self.details = details
+        self.details = details or {}
         self.metadata = metadata or {}
 
         content = {

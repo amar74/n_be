@@ -8,11 +8,11 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-
-DEFAULT_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@db:5432/megapolis"
+from app.environment import environment
 
 def get_database_url() -> str:
-    return os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
+    # Use value loaded by our environment loader (dotenv-aware); no fallback
+    return environment.DATABASE_URL
 
 # Create engine & session factory
 engine: AsyncEngine = create_async_engine(get_database_url(), echo=False, future=True)

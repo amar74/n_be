@@ -142,9 +142,9 @@ async def verify_supabase_token(request: Request):
         logger.error("Invalid token format")
         raise MegapolisHTTPException(status_code=401, details="Invalid token format")
     except Exception as e:
-        logger.error(f"Error verifying token: {str(e)}")
+        logger.exception(f"Error verifying token: {str(e)}", exc_info=True)
         raise MegapolisHTTPException(
-            status_code=500, details=f"Error verifying token: {str(e)}"
+            status_code=500, message=f"Error verifying token: {str(e)}"
         )
 
 

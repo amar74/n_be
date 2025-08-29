@@ -4,7 +4,8 @@ This is the go-to document for contributing to `megapolis-api`. It explains how 
 
 - Tech stack: FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, Loguru
 - Entry: `app/main.py` with `FastAPI` app and CORS; routers included in `app/router.py`
-- DB: Async Postgres via `app/db/session.py` (`get_session` for DI, `get_db` context manager for non-route code)
+- DB: Async Postgres via `app/db/session.py` (`get_session` for DI, `get_session` context manager for non-route code)
+- DB: Transactional Postgres via `app/db/session.py` (`get_transaction` for DI, `get_transaction` context manager for non-route code)
 - Models: SQLAlchemy models in `app/models/*` extending `app.db.base.Base`
 - Schemas: Pydantic v2 models in `app/schemas/*` with `Config.from_attributes = True`
 - Services: Business logic in `app/services/*`
@@ -31,7 +32,7 @@ Understand where code lives and what belongs where.
 - `app/services/*`: Business logic (async)
 - `app/models/*`: SQLAlchemy models (DeclarativeBase)
 - `app/schemas/*`: Pydantic v2 schemas (`from_attributes = True`)
-- `app/db/session.py`: Async engine, `get_db`
+- `app/db/session.py`: Async engine, `get_session`
 - `app/utils/logger.py`: Loguru configuration
 - `alembic/*`: Migrations
 - `manage.py`: Typer CLI for running and migrating
@@ -61,10 +62,10 @@ poetry run python manage.py initdb
 
 ### Database Sessions
 
-Everywhere in FastAPI, use `get_db` as an async context manager.
+Everywhere in FastAPI, use `get_session` as an async context manager.
 
 ```python
-from app.db.session import get_db
+from app.db.session import get_session
 
 async def job():
     async with get_session() as session:
