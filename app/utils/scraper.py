@@ -77,9 +77,10 @@ def extract_info(text: str) -> Dict[str, Any]:
         contents = [
             types.Content(
                 parts=[
-                    {"text": "You are a contact information extraction assistant."},
-                    {"text": "Extract business or individual contact info using the extract_contact_info function tool."},
-                    {"text": f"Here is the website content:\n\n{text[:5000]}"}
+                    {"text": "You are a contact information extraction assistant. You MUST use the extract_contact_info function tool to extract and structure the contact information."},
+                    {"text": "IMPORTANT: Always call the extract_contact_info function with the extracted data. Do not provide a text response."},
+                    {"text": "If any required field is missing (especially pincode), make a reasonable estimate or use 'Unknown' for the missing field, but still call the function."},
+                    {"text": f"Extract business or individual contact information from this website content:\n\n{text[:5000]}"}
                 ]
             )
         ]
@@ -93,24 +94,36 @@ def extract_info(text: str) -> Dict[str, Any]:
         candidate = response.candidates[0]
         print(f"[DEBUG] Gemini candidate parts: {candidate.content.parts}")
 
-        if candidate.content.parts and hasattr(candidate.content.parts[0], "function_call"):
-            function_call = candidate.content.parts[0].function_call
-            print(f"[DEBUG] Gemini function call output: {function_call.args}")
+        # Check if we have parts and if any part has a function call
+        if candidate.content.parts:
+            for part in candidate.content.parts:
+                if hasattr(part, "function_call") and part.function_call:
+                    function_call = part.function_call
+                    print(f"[DEBUG] Gemini function call output: {function_call.args}")
 
-            return {
-                "name": function_call.args.get("name"),
-                "email": function_call.args.get("email"),
-                "phone": function_call.args.get("phone"),
-                "address": function_call.args.get("address"),
-            }
-
-        else:
-            raw_text = candidate.content.parts[0].text if candidate.content.parts else "No content"
+                    return {
+                        "name": function_call.args.get("name"),
+                        "email": function_call.args.get("email"),
+                        "phone": function_call.args.get("phone"),
+                        "address": function_call.args.get("address"),
+                    }
+            
+            # If no function call found, get the text response
+            raw_text = ""
+            for part in candidate.content.parts:
+                if hasattr(part, "text") and part.text:
+                    raw_text += part.text
+            
             print(f"[DEBUG] Gemini returned non-function text:\n{raw_text[:500]}")
-
             return {
                 "error": "No function call returned by Gemini.",
                 "raw_response": raw_text
+            }
+        else:
+            print("[DEBUG] No content parts in Gemini response")
+            return {
+                "error": "No content returned by Gemini.",
+                "raw_response": ""
             }
 
     except Exception as e:

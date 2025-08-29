@@ -50,8 +50,8 @@ class AccountCreate(BaseModel):
 class AccountListItem(BaseModel):
     account_id: UUID
     client_name: str
-    client_address: Optional[str]
-    primary_contact: Optional[str]
+    client_address_id: Optional[UUID] = None
+    primary_contact_id: Optional[UUID] = None
     contact_email: Optional[str]
     client_type: ClientType
     market_sector: Optional[str]
@@ -70,8 +70,8 @@ class AccountDetailResponse(BaseModel):
     account_id: UUID
     company_website: Optional[str]
     client_name: str
-    client_address: Optional[str]
-    primary_contact: Optional[str]
+    client_address_id: Optional[UUID] = None
+    primary_contact_id: Optional[UUID] = None
     contact_email: Optional[str]
     client_type: ClientType
     market_sector: Optional[str]
@@ -89,8 +89,8 @@ class AccountDetailResponse(BaseModel):
 class AccountUpdate(BaseModel):
     company_website: Optional[HttpUrl] = None
     client_name: Optional[str] = None
-    client_address: Optional[str] = None
-    primary_contact: Optional[str] = None
+    client_address_id: Optional[UUID] = None  # UUID reference to address
+    primary_contact_id: Optional[UUID] = None  # UUID reference to contact
     contact_email: Optional[str] = None
     client_type: Optional[ClientType] = None
     market_sector: Optional[str] = None
