@@ -10,6 +10,7 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     services:
       db:
@@ -27,8 +28,8 @@ jobs:
           --health-retries=20
 
     env:
-      # Use service hostname `db` so the app connects inside the job network
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/megapolis
+      # Connect via localhost since job runs on the VM, not inside the Docker network
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/megapolis
       # Infisical SDK creds from repository/environment secrets
       INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
       INFISICAL_SERVICE_TOKEN: ${{ secrets.INFISICAL_SERVICE_TOKEN }}
@@ -72,7 +73,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           for i in {1..60}; do
-            pg_isready -h db -p 5432 -U postgres -d megapolis && break
+            pg_isready -h localhost -p 5432 -U postgres -d megapolis && break
             echo "Postgres is unavailable - sleeping" && sleep 2
           done
 
