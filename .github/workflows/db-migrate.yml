@@ -1,0 +1,83 @@
+name: DB Migrate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: megapolis
+        options: >-
+          --health-cmd="pg_isready -U postgres -d megapolis" 
+          --health-interval=5s 
+          --health-timeout=3s 
+          --health-retries=20
+
+    env:
+      # Use service hostname `db` so the app connects inside the job network
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/megapolis
+      # Infisical SDK creds from repository/environment secrets
+      INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+      INFISICAL_SERVICE_TOKEN: ${{ secrets.INFISICAL_SERVICE_TOKEN }}
+      # Optional defaults (override via secrets if needed)
+      INFISICAL_ENV: dev
+      INFISICAL_HOST: https://app.infisical.com
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: |
+          pipx install poetry
+
+      - name: Configure Poetry
+        run: |
+          poetry config virtualenvs.create true
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+            ~/.local/share/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Install dependencies
+        run: |
+          poetry install --no-interaction --no-ansi
+
+      - name: Wait for Postgres to be ready
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          for i in {1..60}; do
+            pg_isready -h db -p 5432 -U postgres -d megapolis && break
+            echo "Postgres is unavailable - sleeping" && sleep 2
+          done
+
+      - name: Run Alembic upgrade (via manage.py)
+        run: |
+          poetry run python manage.py upgrade
+
+
