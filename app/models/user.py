@@ -74,7 +74,7 @@ class User(Base):
             result = await db.execute(select(cls).offset(skip).limit(limit))
             return list(result.scalars().all())
     @classmethod
-    async def get_all_org_users(cls,org_id:UUID, skip: int = 0, limit: int = 100) -> List["User"]:
+    async def get_all_org_users(cls,org_id:uuid.UUID, skip: int = 0, limit: int = 100) -> List["User"]:
         """Get all users with pagination"""
         async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.org_id == org_id).offset(skip).limit(limit))

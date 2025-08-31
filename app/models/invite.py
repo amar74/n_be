@@ -132,3 +132,12 @@ class Invite(Base):
             await db.refresh(new_user)
 
             return new_user
+
+    @classmethod
+    async def get_org_invites(cls, org_id: uuid.UUID) -> list["Invite"]:
+        """Get all invites for an organization"""
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(cls).where(cls.org_id == org_id)
+            )
+            return list(result.scalars().all())

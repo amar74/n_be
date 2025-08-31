@@ -12,9 +12,12 @@ from app.schemas.organization import (
     AddUserInOrgResponse,
     AddUserInOrgRequest,
     OrgAllUserResponse,
+    OrgMemberResponse,
+    OrgMembersListResponse,
 )
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
+from app.schemas.auth import AuthUserResponse
 from app.services.organization import (
     create_organization,
     get_organization_by_id,
@@ -24,6 +27,7 @@ from app.services.organization import (
     get_organization_users,
     create_user_invite,
     accept_user_invite,
+    get_organization_members,
 )
 from app.schemas.invite import (
     InviteCreateRequest,
@@ -110,4 +114,48 @@ async def update_org(
     return OrgUpdateResponse(
         message="Organization updated successfully",
         org=OrgResponse.model_validate(org),
+    )
+
+
+@router.get(
+    "/members",
+    status_code=200,
+    response_model=OrgMembersListResponse,
+    operation_id="getOrgMembers",
+)
+async def get_org_members(
+    current_user: AuthUserResponse = Depends(get_current_user),
+) -> OrgMembersListResponse:
+    """Get all members of the current user's organization with their email and role"""
+    logger.info(f"Fetching organization members for user {current_user.id}")
+    
+    data = await get_organization_members(current_user)
+    
+    member_responses = []
+    
+    # Add existing users with "Active" status
+    for user in data["users"]:
+        member_responses.append(
+            OrgMemberResponse(
+                email=user.email,
+                role=user.role,
+                status="Active"
+            )
+        )
+    
+    # Add pending invites with their actual status
+    for invite in data["invites"]:
+        # Only add invites that are not accepted (since accepted invites become users)
+        if invite.status != "accepted":
+            member_responses.append(
+                OrgMemberResponse(
+                    email=invite.email,
+                    role=invite.role,
+                    status=invite.status.title()  # Convert to title case (e.g., "pending" -> "Pending")
+                )
+            )
+    
+    return OrgMembersListResponse(
+        members=member_responses,
+        total_count=len(member_responses)
     )

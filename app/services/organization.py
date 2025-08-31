@@ -6,6 +6,7 @@ from app.schemas.organization import (
     OrgUpdateRequest,
     AddUserInOrgRequest,
 )
+from app.schemas.auth import AuthUserResponse
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
 from app.models.user import User
@@ -177,3 +178,28 @@ async def delete_user_from_org(user_id: UUID) -> User:
         raise MegapolisHTTPException(status_code=404, details="User not found")
 
     return await Organization.delete(user_id)
+
+
+async def get_organization_members(current_user_auth: "AuthUserResponse") -> dict:
+    """Get all members and pending invites of the current user's organization"""
+    logger.info(f"Fetching organization members and invites for user {current_user_auth.id}")
+    
+    if not current_user_auth.org_id:
+        logger.error(f"User {current_user_auth.id} is not associated with any organization")
+        raise MegapolisHTTPException(
+            status_code=400, 
+            details="User is not associated with any organization"
+        )
+    
+    # Get all users in the organization
+    users = await User.get_all_org_users(current_user_auth.org_id, skip=0, limit=1000)
+    
+    # Get all pending invites for the organization
+    invites = await Invite.get_org_invites(current_user_auth.org_id)
+    
+    logger.info(f"Found {len(users)} users and {len(invites)} invites for organization {current_user_auth.org_id}")
+    
+    return {
+        "users": users,
+        "invites": invites
+    }
