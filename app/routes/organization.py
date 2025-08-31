@@ -38,13 +38,6 @@ from app.dependencies.permissions import require_role
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
 
-@router.get("/hello")
-async def hello_orgs():
-    """Get all organizations"""
-    # Placeholder for actual implementation
-    return {"message": "Hello from our organizations"}
-
-
 @router.post(
     "/create",
     status_code=201,
@@ -95,18 +88,6 @@ async def get_org_users(
     logger.info(f"Fetching users for org_id: {org_id}, skip: {skip}, limit: {limit}")
     users = await get_organization_users(org_id, skip=skip, limit=limit)
     return [OrgAllUserResponse.model_validate(user) for user in users]
-
-
-@router.get(
-    "/{org_id}", status_code=200, response_model=OrgResponse, operation_id="getOrgById"
-)
-async def get_org(org_id: UUID) -> OrgResponse:
-    """Get a specific organization by ID"""
-    logger.info(f"Fetching organization with ID: {org_id}")
-    org = await get_organization_by_id(org_id)
-
-    return OrgResponse.model_validate(org)
-
 
 @router.put(
     "/update/{org_id}",
