@@ -2,7 +2,7 @@ from fastapi import Request
 import jwt
 import os
 from app.utils.error import MegapolisHTTPException
-from app.models.orgs import Orgs
+from app.models.organization import Organization
 from app.models.user import User
 from app.utils.logger import logger
 from app.schemas.auth import AuthUserResponse
@@ -51,6 +51,8 @@ async def get_current_user(
 
         # Extract user ID from token
         user_id = payload.get("sub")
+
+        logger.warning({user_id})
         if not user_id:
             logger.warning("Invalid token: no user ID found")
             raise MegapolisHTTPException(
@@ -58,25 +60,31 @@ async def get_current_user(
             )
 
         # Get user from database
-        user = await User.get_by_id(int(user_id))
+        user = await User.get_by_id(user_id)
         if not user:
             logger.warning(f"User with ID {user_id} not found")
             raise MegapolisHTTPException(
                 status_code=404, details=f"User with ID {user_id} not found"
             )
+            
+        org_id = None
+        
+        if user.org_id:
+            org_id=user.org_id
+            logger.info(f"Authenticated user: {user.org_id}")
+        # else:
+            
+        # updated code without gid
+        
 
-        logger.debug(f"Authenticated user: {user.email}")
-        org = await Orgs.get_by_gid(user.gid)
+        # if user.org_id:
+        #     org = await Organization.get_by_id(user.org_id)
+        #     if org:
+        #         org_id = org.id
 
-        if org:
-            org_id = org.org_id
-        else:
-            org_id = None
-
-        # Return the user response
         # return user
         return AuthUserResponse.model_validate(
-            {"id": user.id, "gid": user.gid, "org_id": org_id, "role": user.role}
+            {"id": user.id, "org_id": org_id, "role": user.role}
         )
 
     except jwt.ExpiredSignatureError:

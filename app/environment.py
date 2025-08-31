@@ -83,12 +83,21 @@ def load_environment() -> Environment:
     """Load environment variables (from .env and OS) and return Environment instance."""
 
     env = {
-        "JWT_SECRET_KEY": pick("JWT_SECRET_KEY") or "-your-secret-key-here",
-        "DATABASE_URL": normalize_asyncpg(pick("DATABASE_URL", default="postgresql+asyncpg://postgres:postgres@localhost:5432/megapolis")),
-        "SUPABASE_URL": pick("SUPABASE_URL"),
-        "SUPABASE_SERVICE_ROLE_KEY": pick("SUPABASE_SERVICE_ROLE_KEY"),
-        "NGROK_AUTHTOKEN": pick("NGROK_AUTHTOKEN"),
-        "GEMINI_API_KEY": pick("GEMINI_API_KEY"),
+        "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY", "-your-secret-key-here"),
+        # Prefer .env/OS value, normalize driver for async engine
+        "DATABASE_URL": normalize_asyncpg(
+            os.getenv(
+                "DATABASE_URL"
+            )
+        ),
+        "SUPABASE_URL": os.getenv(
+            "SUPABASE_URL", "https://your-supabase-url.supabase.co"
+        ),
+        "SUPABASE_SERVICE_ROLE_KEY": os.getenv(
+            "SUPABASE_SERVICE_ROLE_KEY", "-your-service-role-key-here"
+        ),
+        "NGROK_AUTHTOKEN": os.getenv("NGROK_AUTHTOKEN", "your-ngrok-authtoken"),
+        "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", "-your-gemini-api-key-here"),
         "ENVIRONMENT": pick("ENVIRONMENT", default="dev"),
     }
 

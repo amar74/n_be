@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
-from app.schemas.orgs import (
+from typing import List
+from app.schemas.organization import (
     OrgCreateRequest,
     OrgCreateResponse,
     OrgResponse,
@@ -9,16 +11,28 @@ from app.schemas.orgs import (
     OrgUpdateResponse,
     AddUserInOrgResponse,
     AddUserInOrgRequest,
+    OrgAllUserResponse,
 )
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
-from app.services.orgs import (
+from app.services.organization import (
     create_organization,
-    get_my_organization,
     get_organization_by_id,
     update_organization,
     add_user,
+    delete_user_from_org,
+    get_organization_users,
+    create_user_invite,
+    accept_user_invite,
 )
+from app.schemas.invite import (
+    InviteCreateRequest,
+    InviteResponse,
+    AcceptInviteRequest,
+    AcceptInviteResponse,
+)
+from app.schemas.user import UserDeleteResponse
+from uuid import UUID
 from app.dependencies.permissions import require_role
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
@@ -46,7 +60,7 @@ async def create_org(
 
     org = await create_organization(current_user, request)
 
-    logger.info(f"Organization created successfully with ID {org.org_id}")
+    logger.info(f"Organization created successfully with ID {org.id}")
     return OrgCreatedResponse(
         message="Organization created success",
         org=OrgCreateResponse.model_validate(org),
@@ -59,15 +73,34 @@ async def get_my_org(current_user: User = Depends(get_current_user)) -> OrgRespo
 
     logger.info(f"Fetching organization for user ID ")
 
-    org = await get_my_organization(current_user.gid)
+    org = await get_organization_by_id(current_user.org_id)
 
     return OrgResponse.model_validate(org)
 
 
 @router.get(
+    "/user/get-all",
+    status_code=200,
+    response_model=List[OrgAllUserResponse],
+    operation_id="getOrgUsers",
+)
+async def get_org_users(
+    org_id: UUID = Query(..., description="Organization ID"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(
+        100, ge=1, le=100, description="Maximum number of records to fetch"
+    ),
+) -> List[User]:
+    """Get all users associated with this organization"""
+    logger.info(f"Fetching users for org_id: {org_id}, skip: {skip}, limit: {limit}")
+    users = await get_organization_users(org_id, skip=skip, limit=limit)
+    return [OrgAllUserResponse.model_validate(user) for user in users]
+
+
+@router.get(
     "/{org_id}", status_code=200, response_model=OrgResponse, operation_id="getOrgById"
 )
-async def get_org(org_id: int) -> OrgResponse:
+async def get_org(org_id: UUID) -> OrgResponse:
     """Get a specific organization by ID"""
     logger.info(f"Fetching organization with ID: {org_id}")
     org = await get_organization_by_id(org_id)
@@ -82,11 +115,13 @@ async def get_org(org_id: int) -> OrgResponse:
     operation_id="updateOrg",
 )
 async def update_org(
-    org_id: int,
+    org_id: UUID,
     request: OrgUpdateRequest,
     current_user: User = Depends(require_role(["admin"])),
 ) -> OrgUpdateResponse:
     """Update an existing organization"""
+    if current_user.org_id != org_id:
+        raise MegapolisHTTPException(status_code=403, details="You are not authorized to update this organization")
     logger.info(f"Updating organization with ID: {org_id}")
     org = await update_organization(org_id, request)
     logger.info(f"Organization updated successfully: {org.name}")
@@ -95,20 +130,3 @@ async def update_org(
         message="Organization updated successfully",
         org=OrgResponse.model_validate(org),
     )
-
-
-@router.post(
-    "/add-user-in-org",
-    status_code=200,
-    response_model=AddUserInOrgResponse,
-    operation_id="addUserInOrg",
-)
-async def add_user_in_org(
-    request: AddUserInOrgRequest,
-    current_user: User = Depends(require_role(["admin"])),
-) -> AddUserInOrgResponse:
-    """Add a user to an organization"""
-    # Placeholder for actual implementation
-    logger.info(f"Adding user ID {request.email} to organization ID {request.org_id}")
-    user = await add_user(request)
-    return AddUserInOrgResponse(message="User added to organization successfully")

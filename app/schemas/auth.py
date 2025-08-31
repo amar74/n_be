@@ -15,9 +15,8 @@ class OnSignUpRequest(BaseModel):
 class AuthUserResponse(BaseModel):
     """User data return"""
 
-    id: int
-    gid: UUID
-    org_id: Optional[int] = None
+    id: UUID
+    org_id: Optional[UUID] = None
     role: Optional[str]
 
     class Config:

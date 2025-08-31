@@ -14,7 +14,12 @@ logger.info("Starting Megapolis API")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Allow your frontend
+    allow_origins=[
+        "http://localhost:5173",      # Frontend development server
+        "http://127.0.0.1:5173",     # Frontend with 127.0.0.1
+        "http://localhost:8000",      # API server (for testing)
+        "http://127.0.0.1:8000",     # API server with 127.0.0.1
+    ],
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers
