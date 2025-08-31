@@ -37,7 +37,7 @@ from app.schemas.invite import (
 )
 from app.schemas.user import UserDeleteResponse
 from uuid import UUID
-from app.dependencies.permissions import require_role
+from app.dependencies.permissions import require_role, require_admin
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
@@ -169,10 +169,10 @@ async def get_org_members(
 )
 async def create_invite(
     request: InviteCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin()),
 ) -> InviteResponse:
-    """Create an invite for a user to join the organization"""
-    logger.info(f"Creating invite for {request.email}")
+    """Create an invite for a user to join the organization (Admin only)"""
+    logger.info(f"Admin {current_user.email} creating invite for {request.email}")
 
     invite = await create_user_invite(request, current_user)
 
@@ -192,10 +192,12 @@ async def accept_invite(
     """Accept an invitation to join an organization"""
     logger.info(f"Processing invite acceptance with token")
 
-    user = await accept_user_invite(request.token)
+    result = await accept_user_invite(request.token)
 
-    logger.info(f"Invite accepted successfully for user {user.email}")
+    logger.info(f"Invite accepted successfully for user {result['email']}")
     return AcceptInviteResponse(
         message="Invite accepted successfully",
-        org_id=user.org_id,
+        email=result["email"],
+        role=result["role"],
+        org_id=result["org_id"],
     )

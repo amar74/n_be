@@ -80,6 +80,15 @@ class User(Base):
             result = await db.execute(select(cls).where(cls.org_id == org_id).offset(skip).limit(limit))
             return list(result.scalars().all())
 
+    @classmethod
+    async def get_org_admin(cls, org_id: uuid.UUID) -> Optional["User"]:
+        """Get the admin user for a specific organization"""
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(cls).where(cls.org_id == org_id, cls.role == "admin")
+            )
+            return result.scalar_one_or_none()
+
     
     async def update(
         self,

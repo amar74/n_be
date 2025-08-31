@@ -141,3 +141,37 @@ class Invite(Base):
                 select(cls).where(cls.org_id == org_id)
             )
             return list(result.scalars().all())
+
+    @classmethod
+    async def get_pending_invite_by_email(cls, email: str, org_id: uuid.UUID) -> Optional["Invite"]:
+        """Get pending invite by email for a specific organization"""
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(cls).where(
+                    cls.email == email, 
+                    cls.org_id == org_id,
+                    cls.status == "PENDING"
+                ).order_by(cls.created_at.desc())  # Get the most recent one
+            )
+            return result.scalars().first()  # Get first result or None
+
+    @classmethod
+    async def expire_pending_invites_by_email(cls, email: str, org_id: uuid.UUID) -> None:
+        """Mark all pending invites for an email as expired"""
+        async with get_transaction() as db:
+            await db.execute(
+                update(cls).where(
+                    cls.email == email,
+                    cls.org_id == org_id,
+                    cls.status == "PENDING"
+                ).values(status="EXPIRED")
+            )
+
+    @classmethod
+    async def get_invite_by_token(cls, token: str) -> Optional["Invite"]:
+        """Get invite by token"""
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(cls).where(cls.token == token)
+            )
+            return result.scalars().first()

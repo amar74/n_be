@@ -76,6 +76,29 @@ async def create_user_invite(
         f"Creating invite for user {request.email} for org {current_user.org_id}"
     )
 
+    # Validate that only admins can invite users
+    if current_user.role != "admin":
+        logger.error(f"User {current_user.email} with role {current_user.role} attempted to create invite")
+        raise MegapolisHTTPException(
+            status_code=403,
+            details="Only organization admins can invite new users"
+        )
+
+    # Validate that new invites cannot have admin role if org already has an admin
+    if request.role.lower() == "admin":
+        # Check if organization already has an admin
+        existing_admin = await User.get_org_admin(current_user.org_id)
+        if existing_admin:
+            logger.error(f"Attempt to invite user {request.email} with admin role when organization already has admin {existing_admin.email}")
+            raise MegapolisHTTPException(
+                status_code=400,
+                details="Cannot invite users with admin role. This organization already has an admin."
+            )
+        logger.info(f"Allowing admin invite for {request.email} as organization has no existing admin")
+
+    # All other roles are allowed without restriction
+    logger.info(f"Inviting user {request.email} with role {request.role}")
+
     # Check if user already exists
     existing_user = await User.get_by_email(request.email)
     if existing_user:
@@ -91,6 +114,14 @@ async def create_user_invite(
                 status_code=400, 
                 details="User already exists. Please contact the user to join the organization directly."
             )
+
+    # Check if there's already a pending invite for this email
+    existing_invite = await Invite.get_pending_invite_by_email(request.email, current_user.org_id)
+    if existing_invite:
+        logger.info(f"Found existing pending invite for {request.email}. Expiring old invite and creating new one.")
+        # Mark all pending invites for this email as expired
+        await Invite.expire_pending_invites_by_email(request.email, current_user.org_id)
+        logger.info(f"Expired previous pending invites for {request.email}")
 
     # When we receive role and email as a request, we need to:
     # 1. Create a token and status
@@ -135,21 +166,39 @@ async def create_user_invite(
     return invite
 
 
-async def accept_user_invite(token:str) -> User:
+async def accept_user_invite(token: str) -> dict:
     # 4. When the user accepts the invitation via the URL, verify the token
     # 5. Mark the status as accepted and add the user to the organization
 
-    logger.debug(
-        f"Verify user with token {token}",
-    )
-    payload = jwt.decode(
-        token, environment.JWT_SECRET_KEY, algorithms=["HS256"]
-    )
+    logger.debug(f"Verify user with token {token}")
+    
+    try:
+        payload = jwt.decode(
+            token, environment.JWT_SECRET_KEY, algorithms=["HS256"]
+        )
+    except jwt.ExpiredSignatureError:
+        raise MegapolisHTTPException(status_code=403, details="Token has expired")
+    except jwt.InvalidTokenError:
+        raise MegapolisHTTPException(status_code=403, details="Invalid token")
 
     if not payload:
         raise MegapolisHTTPException(status_code=403, details="Token is expired")
     
-    return await Invite.accept_invite(token)    
+    # Get the invite details before accepting it
+    invite = await Invite.get_invite_by_token(token)
+    if not invite:
+        raise MegapolisHTTPException(status_code=404, details="Invite not found")
+    
+    # Accept the invite (creates user and marks invite as accepted)
+    user = await Invite.accept_invite(token)
+    
+    # Return user info along with invite details
+    return {
+        "user": user,
+        "email": invite.email,
+        "role": invite.role,
+        "org_id": invite.org_id
+    }    
 
 
 async def add_user(request: AddUserInOrgRequest) -> User:
