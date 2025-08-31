@@ -75,6 +75,22 @@ async def create_user_invite(
         f"Creating invite for user {request.email} for org {current_user.org_id}"
     )
 
+    # Check if user already exists
+    existing_user = await User.get_by_email(request.email)
+    if existing_user:
+        if existing_user.org_id:
+            logger.error(f"User with email {request.email} already exists and is associated with organization {existing_user.org_id}")
+            raise MegapolisHTTPException(
+                status_code=400, 
+                details="User already exists and is associated with an organization"
+            )
+        else:
+            logger.error(f"User with email {request.email} already exists but has no organization")
+            raise MegapolisHTTPException(
+                status_code=400, 
+                details="User already exists. Please contact the user to join the organization directly."
+            )
+
     # When we receive role and email as a request, we need to:
     # 1. Create a token and status
     # 2. Generate a URL to send via email
