@@ -4,7 +4,7 @@ from uuid import UUID
 
 from app.schemas.account import (
     AccountCreate, AccountListResponse, AccountListItem, AccountDetailResponse, AccountUpdate, 
-    ContactCreate, ContactResponse, ContactListResponse
+    ContactCreate, ContactResponse, ContactListResponse, AddressResponse
 )
 from app.services.account import (
     create_account, list_accounts, get_account, update_account, delete_account, 
@@ -45,10 +45,19 @@ async def list_accounts_route(
     # Convert Account objects to AccountListItem manually
     account_items = []
     for acc in accounts:
+        client_address = None
+        if acc.client_address:
+            client_address = AddressResponse(
+                address_id=acc.client_address.id,
+                line1=acc.client_address.line1,
+                line2=acc.client_address.line2,
+                pincode=acc.client_address.pincode
+            )
+        
         item = AccountListItem(
             account_id=acc.account_id,
             client_name=acc.client_name,
-            client_address=f"{acc.client_address.line1} {acc.client_address.line2 or ''}".strip() if acc.client_address else None,
+            client_address=client_address,
             primary_contact=acc.primary_contact.name if acc.primary_contact else None,
             contact_email=acc.primary_contact.email if acc.primary_contact else None,
             client_type=acc.client_type,
@@ -77,11 +86,20 @@ async def get_account_route(
     logger.info(f"Account found: {account_id}")
     
     # Convert Account to AccountDetailResponse manually
+    client_address = None
+    if account.client_address:
+        client_address = AddressResponse(
+            address_id=account.client_address.id,
+            line1=account.client_address.line1,
+            line2=account.client_address.line2,
+            pincode=account.client_address.pincode
+        )
+    
     return AccountDetailResponse(
         account_id=account.account_id,
         company_website=account.company_website,
         client_name=account.client_name,
-        client_address=f"{account.client_address.line1} {account.client_address.line2 or ''}".strip() if account.client_address else None,
+        client_address=client_address,
         primary_contact=account.primary_contact.name if account.primary_contact else None,
         contact_email=account.primary_contact.email if account.primary_contact else None,
         client_type=account.client_type,

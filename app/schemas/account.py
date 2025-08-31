@@ -50,14 +50,14 @@ class AccountCreate(BaseModel):
 class AccountListItem(BaseModel):
     account_id: UUID
     client_name: str
-    client_address_id: Optional[UUID] = None
-    primary_contact_id: Optional[UUID] = None
-    contact_email: Optional[str]
+    client_address: Optional[AddressResponse] = None
+    primary_contact: Optional[str] = None
+    contact_email: Optional[str] = None
     client_type: ClientType
-    market_sector: Optional[str]
-    total_value: Optional[float]
-    ai_health_score: Optional[float]
-    last_contact: Optional[datetime]
+    market_sector: Optional[str] = None
+    total_value: Optional[float] = None
+    ai_health_score: Optional[float] = None
+    last_contact: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -68,20 +68,20 @@ class AccountListResponse(BaseModel):
 
 class AccountDetailResponse(BaseModel):
     account_id: UUID
-    company_website: Optional[str]
+    company_website: Optional[str] = None
     client_name: str
-    client_address_id: Optional[UUID] = None
-    primary_contact_id: Optional[UUID] = None
-    contact_email: Optional[str]
+    client_address: Optional[AddressResponse] = None
+    primary_contact: Optional[str] = None
+    contact_email: Optional[str] = None
     client_type: ClientType
-    market_sector: Optional[str]
-    notes: Optional[str]
-    total_value: Optional[float]
-    opportunities: Optional[int]
-    last_contact: Optional[datetime]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
-    contacts: List[ContactResponse]
+    market_sector: Optional[str] = None
+    notes: Optional[str] = None
+    total_value: Optional[float] = None
+    opportunities: Optional[int] = None
+    last_contact: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    contacts: List[ContactResponse] = []
 
     class Config:
         from_attributes = True
