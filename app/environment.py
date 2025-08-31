@@ -72,6 +72,17 @@ class Environment(BaseModel):
     NGROK_AUTHTOKEN: str
     GEMINI_API_KEY: str
     ENVIRONMENT: Literal["dev", "prod", "stag"] = Field(default="dev")
+    
+    # SMTP Configuration
+    SMTP_HOST: str = Field(default="smtp.gmail.com")
+    SMTP_PORT: int = Field(default=587)
+    SMTP_USER: str
+    SMTP_PASSWORD: str
+    SMTP_FROM_NAME: str = Field(default="SHAKTI-AI Support")
+    SMTP_FROM_EMAIL: str
+    
+    # Frontend URL for invite links
+    FRONTEND_URL: str = Field(default="http://localhost:5173")
 
 
 class Constants():
@@ -99,6 +110,17 @@ def load_environment() -> Environment:
         "NGROK_AUTHTOKEN": os.getenv("NGROK_AUTHTOKEN", "your-ngrok-authtoken"),
         "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", "-your-gemini-api-key-here"),
         "ENVIRONMENT": pick("ENVIRONMENT", default="dev"),
+        
+        # SMTP Configuration
+        "SMTP_HOST": os.getenv("SMTP_HOST", "smtp.gmail.com"),
+        "SMTP_PORT": int(os.getenv("SMTP_PORT", "587")),
+        "SMTP_USER": os.getenv("SMTP_USER", ""),
+        "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD", ""),
+        "SMTP_FROM_NAME": os.getenv("SMTP_FROM_NAME", "SHAKTI-AI Support"),
+        "SMTP_FROM_EMAIL": os.getenv("SMTP_FROM_EMAIL", ""),
+        
+        # Frontend URL
+        "FRONTEND_URL": os.getenv("FRONTEND_URL", "http://localhost:5173"),
     }
 
     return Environment.model_validate(env)

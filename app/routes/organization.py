@@ -159,3 +159,43 @@ async def get_org_members(
         members=member_responses,
         total_count=len(member_responses)
     )
+
+
+@router.post(
+    "/invite",
+    status_code=201,
+    response_model=InviteResponse,
+    operation_id="createInvite",
+)
+async def create_invite(
+    request: InviteCreateRequest,
+    current_user: User = Depends(get_current_user),
+) -> InviteResponse:
+    """Create an invite for a user to join the organization"""
+    logger.info(f"Creating invite for {request.email}")
+
+    invite = await create_user_invite(request, current_user)
+
+    logger.info(f"Invite created successfully for {request.email}")
+    return InviteResponse.model_validate(invite)
+
+
+@router.post(
+    "/invite/accept",
+    status_code=200,
+    response_model=AcceptInviteResponse,
+    operation_id="acceptInvite",
+)
+async def accept_invite(
+    request: AcceptInviteRequest,
+) -> AcceptInviteResponse:
+    """Accept an invitation to join an organization"""
+    logger.info(f"Processing invite acceptance with token")
+
+    user = await accept_user_invite(request.token)
+
+    logger.info(f"Invite accepted successfully for user {user.email}")
+    return AcceptInviteResponse(
+        message="Invite accepted successfully",
+        org_id=user.org_id,
+    )
