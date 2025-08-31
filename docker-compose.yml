@@ -64,12 +64,6 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-service-role-key-here}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-here}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-your-gemini-api-key-here}
-      SMTP_HOST: ${SMTP_HOST:-localhost}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      EMAIL_FROM: ${EMAIL_FROM:-no-reply@megapolis.example.com}
-      FRONTEND_URL: ${FRONTEND_URL:-https://megapolis.example.com}
     ports:
       - "8000:8000"
     depends_on:

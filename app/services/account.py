@@ -95,7 +95,7 @@ async def update_account(account_id: UUID, payload: AccountUpdate) -> Account:
             raise MegapolisHTTPException(status_code=404, message="Account not found")
         
         # Update fields
-        for field, value in payload.dict(exclude_unset=True).items():
+        for field, value in payload.model_dump(exclude_unset=True).items():
             if field == 'company_website' and value:
                 # Convert HttpUrl to string
                 setattr(account, field, str(value))
