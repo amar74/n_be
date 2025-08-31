@@ -3,7 +3,7 @@ import requests
 
 BASE_URL = "http://localhost:3000"  # change me
 ADMIN_SECRET = "password"           # set to your ADMIN_OPS_SECRET
-ORG_ID = "cmey3wcax0015ihytodpgsla2"            # change me
+ORG_ID = "cmeyu40dc0000ihl6lbo1yyrv"            # change me
 
 def main():
 	url = f"{BASE_URL.rstrip('/')}/api/v2/admin/organizations/{ORG_ID}/users"
