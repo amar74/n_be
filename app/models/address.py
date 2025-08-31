@@ -7,6 +7,10 @@ import uuid
 # from uuid import UUID
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.account import Account
 from app.schemas.address import AddressCreateResquest, AddressCreateResponse
 
 

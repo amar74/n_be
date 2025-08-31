@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
 from typing import List
 from app.schemas.organization import (
@@ -35,13 +36,6 @@ from uuid import UUID
 from app.dependencies.permissions import require_role
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
-
-
-@router.get("/hello")
-async def hello_orgs():
-    """Get all organizations"""
-    # Placeholder for actual implementation
-    return {"message": "Hello from our organizations"}
 
 
 @router.post(
@@ -95,18 +89,6 @@ async def get_org_users(
     users = await get_organization_users(org_id, skip=skip, limit=limit)
     return [OrgAllUserResponse.model_validate(user) for user in users]
 
-
-@router.get(
-    "/{org_id}", status_code=200, response_model=OrgResponse, operation_id="getOrgById"
-)
-async def get_org(org_id: UUID) -> OrgResponse:
-    """Get a specific organization by ID"""
-    logger.info(f"Fetching organization with ID: {org_id}")
-    org = await get_organization_by_id(org_id)
-
-    return OrgResponse.model_validate(org)
-
-
 @router.put(
     "/update/{org_id}",
     status_code=200,
@@ -119,6 +101,8 @@ async def update_org(
     current_user: User = Depends(require_role(["admin"])),
 ) -> OrgUpdateResponse:
     """Update an existing organization"""
+    if current_user.org_id != org_id:
+        raise MegapolisHTTPException(status_code=403, details="You are not authorized to update this organization")
     logger.info(f"Updating organization with ID: {org_id}")
     org = await update_organization(org_id, request)
     logger.info(f"Organization updated successfully: {org.name}")
@@ -127,67 +111,3 @@ async def update_org(
         message="Organization updated successfully",
         org=OrgResponse.model_validate(org),
     )
-
-
-@router.post(
-    "/invite/create",
-    status_code=200,
-    response_model=InviteResponse,
-    operation_id="inviteUser",
-)
-async def create_invite(
-    request: InviteCreateRequest,
-    current_user: User = Depends(require_role(["admin"])),
-) -> InviteResponse:
-    """Create an invite for a user"""
-    logger.info(
-        f"Creating invite for user {request.email} for org {current_user.org_id}"
-    )
-    invite = await create_user_invite(request, current_user)
-    return InviteResponse.model_validate(invite)
-
-
-@router.post(
-    "/invite/accept",
-    status_code=200,
-    response_model=AcceptInviteResponse,
-    operation_id="inviteAccept",
-)
-async def accept_invite(token: str = Query(..., description="Invite Token")):
-    logger.info(f"Verify token")
-    user = await accept_user_invite(token)
-    return AcceptInviteResponse(
-        message="Invite accepted", org_id=user.org_id
-    )
-
-
-@router.post(
-    "/user/add",
-    status_code=200,
-    response_model=AddUserInOrgResponse,
-    operation_id="addUser",
-)
-async def add_user_in_org(
-    request: AddUserInOrgRequest,
-    current_user: User = Depends(require_role(["admin"])),
-) -> AddUserInOrgResponse:
-    """Add a user to an organization"""
-    # Placeholder for actual implementation
-    logger.info(f"Adding user ID {request.email} to organization ID {request.org_id}")
-    user = await add_user(request)
-    return AddUserInOrgResponse(id=user.id, message="User added successfully")
-
-
-@router.delete(
-    "/user/delete/{user_id}",
-    status_code=200,
-    response_model=UserDeleteResponse,
-    operation_id="deleteUser",
-)
-async def delete_user(
-    user_id: UUID, current_user: User = Depends(require_role(["admin"]))
-):
-    logger.info(f"Deleting user for User ID {user_id} from this {current_user.org_id}")
-    user = await delete_user_from_org(user_id)
-
-    return UserDeleteResponse(message="User deleted successfully")

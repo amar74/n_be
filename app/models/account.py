@@ -7,6 +7,11 @@ import enum
 import uuid
 
 from app.db.base import Base
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.address import Address
+    from app.models.contact import Contact
 
 
 class ClientType(enum.Enum):
@@ -59,3 +64,4 @@ class Account(Base):
             "client_address_id": str(self.client_address_id) if self.client_address_id else None,
             "primary_contact_id": str(self.primary_contact_id) if self.primary_contact_id else None,
         }
+

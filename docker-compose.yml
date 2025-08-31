@@ -1,44 +1,3 @@
-# version: "3.9"
-# services:
-#   db:
-#     image: postgres:16-alpine
-#     environment:
-#       POSTGRES_USER: postgres
-#       POSTGRES_PASSWORD: postgres
-#       POSTGRES_DB: megapolis
-#     ports:
-#       - "5432:5432"
-#     volumes:
-#       - db_data:/var/lib/postgresql/data
-#     healthcheck:
-#       test: ["CMD-SHELL", "pg_isready -U postgres -d megapolis"]
-#       interval: 5s
-#       timeout: 3s
-#       retries: 10
-
-#   api:
-#     build: .
-#     environment:
-#       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/megapolis
-#       SUPABASE_URL: https://mzdvwfoepfagypsevyfh.supabase.co
-#       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-service-role-key-here}
-#       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-here}
-#     ports:
-#       - "8000:8000"
-#     depends_on:
-#       db:
-#         condition: service_healthy
-#     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-#     volumes:
-#       - ./:/app
-
-# volumes:
-#   db_data:
-
-
-
-
-version: "3.9"
 services:
   db:
     image: postgres:16-alpine
@@ -56,6 +15,23 @@ services:
       timeout: 3s
       retries: 10
 
+  formbricks_db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: formbricks
+    ports:
+      - "5433:5432"
+    volumes:
+      - formbricks_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d formbricks"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
   api:
     build: .
     environment:
@@ -64,13 +40,6 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-service-role-key-here}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-here}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-your-gemini-api-key-here}
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Megapolis}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-no-reply@megapolis.example.com}
-      FRONTEND_URL: ${FRONTEND_URL:-https://megapolis.example.com}
     ports:
       - "8000:8000"
     depends_on:
@@ -80,21 +49,29 @@ services:
     volumes:
       - ./:/app
 
-  ngrok:
-    image: ngrok/ngrok:latest
-    restart: unless-stopped
-    command:
-      - "http"
-      - "--url=alpaca-premium-impala.ngrok-free.app"
-      - "api:8000"
-    environment:
-      NGROK_AUTHTOKEN: "31abL01qF5iBKCsgYBdDyoQoLmC_421FJGVdjoq4DuYwhzxfC"
+  formbricks:
+    image: rishabhg71/formbricks:latest
     depends_on:
-      - api
+      formbricks_db:
+        condition: service_healthy
+    env_file:
+      - .env.example.formbricks
+    environment:
+      DATABASE_URL: postgresql://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@formbricks_db:5432/${PGDATABASE:-formbricks}?schema=public
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      WEBAPP_URL: ${WEBAPP_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NODE_ENV: production
     ports:
-      - "4040:4040"  # ngrok web interface
-    networks:
-      - default
+      - "3000:3000"
+    volumes:
+      - uploads:/home/nextjs/apps/web/uploads
+
+
+
 
 volumes:
   db_data:
+  formbricks_db_data:
+  uploads:
+    driver: local

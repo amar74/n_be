@@ -37,20 +37,9 @@ async def scrape_urls_endpoint(
         )
 
         return result
-
-    except jwt.ExpiredSignatureError:
-        logger.warning("Token has expired")
-        raise MegapolisHTTPException(status_code=401, message="Token has expired")
-    except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid token: {str(e)}")
-        raise MegapolisHTTPException(status_code=401, message="Invalid token")
-    except ValueError:
-        logger.warning("Invalid user ID in token")
-        raise MegapolisHTTPException(
-            status_code=401, message="Invalid user ID in token"
-        )
+    
     except Exception as ex:
-        logger.error(f"Error verifying token: {str(ex)}")
+        logger.error(f"Error scraping urls: {str(ex)}")
         raise MegapolisHTTPException(
-            status_code=500, message=f"Error verifying token: {str(ex)}"
+            status_code=500, message=f"Error scraping urls: {str(ex)}"
         )

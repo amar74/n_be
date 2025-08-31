@@ -5,6 +5,10 @@ from typing import Dict, Any, Optional
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.session import get_session
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.account import Account
 from app.schemas.contact import ContactCreateRequest, CreateContactResponse
 
 
