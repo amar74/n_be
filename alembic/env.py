@@ -16,10 +16,8 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
 from app.db.base import Base  # noqa: E402
-from app import (
-    models,
-)  # noqa: F401,E402  Ensure models are imported so metadata is populated
 
+from app.models.export import *
 
 config = context.config
 

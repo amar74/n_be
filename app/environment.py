@@ -72,6 +72,11 @@ class Environment(BaseModel):
     NGROK_AUTHTOKEN: str
     GEMINI_API_KEY: str
     ENVIRONMENT: Literal["dev", "prod", "stag"] = Field(default="dev")
+    
+    # Formbricks configuration
+    FORMBRICKS_SERVER_URL: str
+    FORMBRICKS_ADMIN_SECRET: str
+    FORMBRICKS_JWT_SECRET: str
 
 
 class Constants():
@@ -99,6 +104,9 @@ def load_environment() -> Environment:
         "NGROK_AUTHTOKEN": os.getenv("NGROK_AUTHTOKEN", "your-ngrok-authtoken"),
         "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", "-your-gemini-api-key-here"),
         "ENVIRONMENT": pick("ENVIRONMENT", default="dev"),
+        "FORMBRICKS_SERVER_URL": pick("FORMBRICKS_SERVER_URL", default="http://localhost:3000"),
+        "FORMBRICKS_ADMIN_SECRET": pick("FORMBRICKS_ADMIN_SECRET", default="your-admin-secret"),
+        "FORMBRICKS_JWT_SECRET": pick("FORMBRICKS_JWT_SECRET", default="your-jwt-secret"),
     }
 
     return Environment.model_validate(env)

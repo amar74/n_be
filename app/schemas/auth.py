@@ -18,6 +18,7 @@ class AuthUserResponse(BaseModel):
     id: UUID
     org_id: Optional[UUID] = None
     role: Optional[str]
+    email: str
 
     class Config:
         from_attributes = True

@@ -28,7 +28,7 @@ def require_super_admin():
     - Otherwise, raises 403
     """
 
-    async def super_admin_checker(current: AuthUserResponse = Depends(get_current_user)) -> AuthUserResponse:
+    async def super_admin_checker(current: User = Depends(get_current_user)) -> User:
         # Fetch full user to access email and latest role
         db_user = await User.get_by_id(int(current.id))
         if not db_user:

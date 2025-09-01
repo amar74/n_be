@@ -35,10 +35,10 @@ async def handle_exception(request: Request, call_next):
         response = await call_next(request)
         return response
     except MegapolisHTTPException as e:
-        logger.exception(f"Error handling request: {e}", exc_info=True)
+        logger.exception("Error handling request: {}", e)
         return JSONResponse(status_code=e.status_code, content={"message": e.message, "metadata": e.metadata})
     except Exception as e:
-        logger.exception(f"Error handling request: {e}", exc_info=True)
+        logger.exception("Error handling request: {}", e)
         return JSONResponse(status_code=500, content={"message": "Something went wrong"})
 
 logger.info("API router included successfully")

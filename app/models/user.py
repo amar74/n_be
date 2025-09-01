@@ -27,6 +27,7 @@ class User(Base):
     )
 
     role: Mapped[str] = mapped_column(String(50), default="admin", nullable=False)
+    formbricks_user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert User model to dictionary for API responses"""

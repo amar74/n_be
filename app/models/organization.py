@@ -9,6 +9,7 @@ from app.models.address import Address
 from app.models.contact import Contact
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
+from app.schemas.auth import AuthUserResponse
 from app.schemas.organization import (
     OrgCreateRequest,
     OrgUpdateRequest,
@@ -35,7 +36,7 @@ class Organization(Base):
     )
 
     name: Mapped[str] = mapped_column(
-        String(255), nullable=False, unique=True, index=True
+        String(255), nullable=False, index=True
     )
 
     address_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -51,6 +52,7 @@ class Organization(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )
+    formbricks_organization_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert organizations model to dictionary for API responses"""
@@ -67,7 +69,7 @@ class Organization(Base):
     @classmethod
     async def create(
         cls,
-        current_user,
+        current_user: User,
         request: OrgCreateRequest,
     ) -> "Organization":
         """Create a new organization"""

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from app.schemas.auth import AuthUserResponse
 from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
 from typing import List

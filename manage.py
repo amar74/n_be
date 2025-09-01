@@ -23,7 +23,7 @@ def env_with_db_url(database_url: Optional[str] = None) -> dict[str, str]:
 
 
 @app.command()
-def run(host: str = "127.0.0.1", port: int = 8000, reload: bool = True) -> None:
+def run(host: str = "0.0.0.0", port: int = 8000, reload: bool = True) -> None:
     args = [
         "uvicorn",
         "app.main:app",
@@ -38,7 +38,7 @@ def run(host: str = "127.0.0.1", port: int = 8000, reload: bool = True) -> None:
 
 
 @app.command()
-def migrate(message: str = "auto") -> None:
+def migrate(message: str) -> None:
     subprocess.run(
         ["alembic", "revision", "--autogenerate", "-m", message],
         check=True,
