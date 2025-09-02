@@ -17,9 +17,11 @@ from app.utils.logger import logger
 
 if TYPE_CHECKING:
     from app.models.user import User
-    from app.models.address import Address
-    from app.models.contact import Contact
-    from app.models.account import Account
+
+# Import these at runtime since they're used in queries
+from app.models.address import Address
+from app.models.contact import Contact
+from app.models.account import Account
 
 
 class Organization(Base):
