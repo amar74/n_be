@@ -88,23 +88,3 @@ class User(Base):
                 select(cls).where(cls.org_id == org_id, cls.role == Roles.ADMIN)
             )
             return result.scalar_one_or_none()
-
-    
-    async def update(
-        self,
-        email: Optional[str] = None,
-    ) -> "User":
-        """Update user"""
-        async with get_transaction() as db:
-            if email is not None:
-                self.email = email
-
-            await db.flush()
-            await db.refresh(self)
-            return self
-
-    async def delete(self) -> None:
-        """Delete user"""
-        async with get_transaction() as db:
-            await db.delete(self)
-            await db.flush()
