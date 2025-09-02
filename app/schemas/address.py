@@ -14,5 +14,5 @@ class AddressCreateResponse(BaseModel):
     line1: str
     line2: Optional[str] = None
     pincode: Optional[int] = None
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}

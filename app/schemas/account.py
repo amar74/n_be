@@ -17,8 +17,7 @@ class AddressCreate(BaseModel):
 class AddressResponse(AddressCreate):
     address_id: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class ContactCreate(BaseModel):
     name: str
@@ -29,14 +28,12 @@ class ContactCreate(BaseModel):
 class ContactResponse(ContactCreate):
     contact_id: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class ContactListResponse(BaseModel):
     contacts: List[ContactResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class AccountCreate(BaseModel):
     company_website: Optional[HttpUrl] = None
@@ -59,8 +56,7 @@ class AccountListItem(BaseModel):
     ai_health_score: Optional[float] = None
     last_contact: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class AccountListResponse(BaseModel):
     accounts: List[AccountListItem]
@@ -83,8 +79,7 @@ class AccountDetailResponse(BaseModel):
     updated_at: Optional[datetime] = None
     contacts: List[ContactResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class AccountUpdate(BaseModel):
     company_website: Optional[HttpUrl] = None

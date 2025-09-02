@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.models.address import Address
     from app.models.contact import Contact
+    from app.models.organization import Organization
 
 
 class ClientType(enum.Enum):
@@ -41,11 +42,13 @@ class Account(Base):
     # Foreign keys
     client_address_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("address.id"))
     primary_contact_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("contacts.id"))
+    org_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"))
 
     # Relationships
     client_address: Mapped[Optional["Address"]] = relationship("Address", back_populates="account", uselist=False)
     primary_contact: Mapped[Optional["Contact"]] = relationship("Contact", foreign_keys=[primary_contact_id])
     contacts: Mapped[List["Contact"]] = relationship("Contact", back_populates="account", foreign_keys="Contact.account_id", cascade="all, delete-orphan")
+    organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="accounts")
 
     def to_dict(self):
         return {
@@ -63,5 +66,6 @@ class Account(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "client_address_id": str(self.client_address_id) if self.client_address_id else None,
             "primary_contact_id": str(self.primary_contact_id) if self.primary_contact_id else None,
+            "org_id": str(self.org_id) if self.org_id else None,
         }
 

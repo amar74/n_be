@@ -46,7 +46,7 @@ class Address(Base):
         }
 
     @classmethod
-    async def create(cls, request: AddressCreateResquest,org_id) -> "Address":
+    async def create(cls, request: AddressCreateResquest, org_id: uuid.UUID) -> "Address":
         """Create address"""
 
         async with get_session() as db:

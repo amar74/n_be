@@ -19,13 +19,13 @@ class UserResponse(BaseModel):
 
     id: int
     email: str
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class UserDeleteResponse(BaseModel):
     """Delete user response schema"""
 
     message: Optional[str]
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}

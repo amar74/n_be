@@ -21,8 +21,8 @@ async def create_account_route(
     payload: AccountCreate,
     user: User = Depends(get_current_user)
 ):
-    logger.info(f"Create account request received with payload: {payload.json()}")
-    account = await create_account(payload)
+    logger.info(f"Create account request received with payload: {payload.model_dump_json()}")
+    account = await create_account(payload, user)
     logger.info(f"Account created with ID: {account.account_id}")
     return {
         "status": "success",
@@ -39,7 +39,7 @@ async def list_accounts_route(
     user: User = Depends(get_current_user)
 ):
     logger.info(f"List accounts request received with filters - q: {q}, tier: {tier}, limit: {limit}, offset: {offset}")
-    accounts = await list_accounts(q, tier, limit, offset)
+    accounts = await list_accounts(q, tier, limit, offset, user)
     logger.info(f"Retrieved {len(accounts)} accounts")
     
     # Convert Account objects to AccountListItem manually
@@ -79,10 +79,7 @@ async def get_account_route(
     user: User = Depends(get_current_user)
 ):
     logger.info(f"Get account request received for ID: {account_id}")
-    account = await get_account(account_id)
-    if not account:
-        logger.warning(f"Account not found for ID: {account_id}")
-        raise HTTPException(status_code=404, detail="Account not found")
+    account = await get_account(account_id, user)
     logger.info(f"Account found: {account_id}")
     
     # Convert Account to AccountDetailResponse manually
@@ -127,8 +124,8 @@ async def update_account_route(
     payload: AccountUpdate,
     user: User = Depends(get_current_user)
 ):
-    logger.info(f"Update account request for ID: {account_id} with payload: {payload.json()}")
-    account = await update_account(account_id, payload)
+    logger.info(f"Update account request for ID: {account_id} with payload: {payload.model_dump_json()}")
+    account = await update_account(account_id, payload, user)
     logger.info(f"Account updated successfully for ID: {account_id}")
     return {
         "status": "success",
@@ -142,7 +139,7 @@ async def delete_account_route(
     user: User = Depends(get_current_user)
 ):
     logger.info(f"Delete account request for ID: {account_id}")
-    await delete_account(account_id)
+    await delete_account(account_id, user)
     logger.info(f"Account deleted successfully for ID: {account_id}")
     return {
         "status": "success",
@@ -155,8 +152,8 @@ async def add_contact_route(
     payload: ContactCreate,
     user: User = Depends(get_current_user)
 ):
-    logger.info(f"Add contact request for account ID: {account_id} with payload: {payload.json()}")
-    contact = await add_contact(account_id, payload)
+    logger.info(f"Add contact request for account ID: {account_id} with payload: {payload.model_dump_json()}")
+    contact = await add_contact(account_id, payload, user)
     logger.info(f"Contact added successfully with ID: {contact.id} to account ID: {account_id}")
     return {
         "status": "success",
@@ -170,7 +167,7 @@ async def get_account_contacts_route(
     user: User = Depends(get_current_user)
 ):
     logger.info(f"Get contacts request for account ID: {account_id}")
-    contacts = await get_account_contacts(account_id)
+    contacts = await get_account_contacts(account_id, user)
     logger.info(f"Retrieved {len(contacts)} contacts for account ID: {account_id}")
     
     # Convert Contact objects to ContactResponse
@@ -194,7 +191,7 @@ async def update_contact_route(
     user: User = Depends(get_current_user)
 ):
     logger.info(f"Update contact request for account ID: {account_id}, contact ID: {contact_id}")
-    contact = await update_contact(account_id, contact_id, payload)
+    contact = await update_contact(account_id, contact_id, payload, user)
     logger.info(f"Contact updated successfully for account ID: {account_id}, contact ID: {contact_id}")
     return {
         "status": "success",

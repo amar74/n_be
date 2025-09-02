@@ -9,8 +9,6 @@ from app.schemas.organization import (
     OrgCreatedResponse,
     OrgUpdateRequest,
     OrgUpdateResponse,
-    AddUserInOrgResponse,
-    AddUserInOrgRequest,
     OrgAllUserResponse,
     OrgMemberResponse,
     OrgMembersListResponse,
@@ -135,7 +133,7 @@ async def get_org_members(
     member_responses = []
     
     # Add existing users with "Active" status
-    for user in data.users:
+    for user in data["users"]:
         member_responses.append(
             OrgMemberResponse(
                 email=user.email,
@@ -144,9 +142,9 @@ async def get_org_members(
             )
         )
     
-    # Add pending invites with their actual status
-    for invite in data.invites:
         # Only add invites that are PENDING (not accepted or expired)
+    for invite in data["invites"]:
+        # Only add invites that are not accepted (since accepted invites become users)
         if invite.status == "PENDING":
             member_responses.append(
                 OrgMemberResponse(

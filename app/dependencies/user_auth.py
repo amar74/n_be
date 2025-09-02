@@ -67,25 +67,10 @@ async def get_current_user(
                 status_code=404, details=f"User with ID {user_id} not found"
             )
             
-        org_id = None
-        
-        if user.org_id:
-            org_id=user.org_id
-            logger.info(f"Authenticated user: {user.org_id}")
-        # else:
-            
-        # updated code without gid
-        
-
-        # if user.org_id:
-        #     org = await Organization.get_by_id(user.org_id)
-        #     if org:
-        #         org_id = org.id
-
-        # return user
-        return AuthUserResponse.model_validate(
-            {"id": user.id, "org_id": org_id, "role": user.role}
-        )
+        return user
+        # return AuthUserResponse.model_validate(
+        #     {"id": user.id, "org_id": org_id, "role": user.role, "email": user.email}
+        # )
 
     except jwt.ExpiredSignatureError:
         logger.warning("Token has expired")

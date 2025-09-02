@@ -1,12 +1,15 @@
 from sqlalchemy import String, select, Boolean, Column, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from app.core.roles import Roles
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
+
+if TYPE_CHECKING:
+    from app.models.organization import Organization
 
 
 class User(Base):
@@ -27,6 +30,10 @@ class User(Base):
     )
 
     role: Mapped[str] = mapped_column(String(50), default=Roles.ADMIN, nullable=False)
+    formbricks_user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # Relationships
+    organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="users", foreign_keys=[org_id])
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert User model to dictionary for API responses"""

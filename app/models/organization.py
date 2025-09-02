@@ -1,14 +1,12 @@
 from sqlalchemy import String, select, Integer, ForeignKey, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 from sqlalchemy.dialects.postgresql import UUID as UUID_Type
 import uuid
-from datetime import datetime
-from typing import Optional, Dict, Any
-from app.models.user import User
-from app.models.address import Address
-from app.models.contact import Contact
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
+from app.schemas.auth import AuthUserResponse
 from app.schemas.organization import (
     OrgCreateRequest,
     OrgUpdateRequest,
@@ -16,6 +14,14 @@ from app.schemas.organization import (
 )
 from uuid import UUID
 from app.utils.logger import logger
+
+if TYPE_CHECKING:
+    from app.models.user import User
+
+# Import these at runtime since they're used in queries
+from app.models.address import Address
+from app.models.contact import Contact
+from app.models.account import Account
 
 
 class Organization(Base):
@@ -35,7 +41,7 @@ class Organization(Base):
     )
 
     name: Mapped[str] = mapped_column(
-        String(255), nullable=False, unique=True, index=True
+        String(255), nullable=False, index=True
     )
 
     address_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -49,8 +55,15 @@ class Organization(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=datetime.now(timezone.utc), nullable=False
     )
+    formbricks_organization_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # Relationships
+    users: Mapped[List["User"]] = relationship("User", back_populates="organization", foreign_keys="User.org_id")
+    accounts: Mapped[List["Account"]] = relationship("Account", back_populates="organization")
+    address: Mapped[Optional["Address"]] = relationship("Address", foreign_keys="[Organization.address_id]")
+    contact: Mapped[Optional["Contact"]] = relationship("Contact", foreign_keys="[Organization.contact_id]")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert organizations model to dictionary for API responses"""
@@ -67,7 +80,7 @@ class Organization(Base):
     @classmethod
     async def create(
         cls,
-        current_user,
+        current_user: "User",
         request: OrgCreateRequest,
     ) -> "Organization":
         """Create a new organization"""
@@ -79,7 +92,7 @@ class Organization(Base):
                 owner_id=current_user.id,
                 name=request.name,
                 website=request.website,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             db.add(org)
             await db.flush()  # org.id is available
@@ -122,21 +135,17 @@ class Organization(Base):
     async def get_by_id(cls, org_id: UUID) -> Optional["Organization"]:
         """Get organization by ID"""
         async with get_transaction() as db:
-            # result = await db.execute(select(cls).where(cls.id == org_id))
             result = await db.execute(
-                select(Organization, Contact, Address)
-                .join(Contact, Contact.id == Organization.contact_id, isouter=True)
-                .join(Address, Address.id == Organization.address_id, isouter=True)
-                .where(Organization.id == org_id)
+                select(cls)
+                .options(
+                    selectinload(cls.address),
+                    selectinload(cls.contact)
+                )
+                .where(cls.id == org_id)
             )
-
-            row = result.one_or_none()
-            if row:
-                org, contact, address = row
-                org.contact = contact
-                org.address = address
-                return org
-            return None
+            
+            org = result.scalar_one_or_none()
+            return org
 
     @classmethod
     async def update(
@@ -146,7 +155,14 @@ class Organization(Base):
     ) -> Optional["Organization"]:
         """Update organization details"""
         async with get_transaction() as db:
-            result = await db.execute(select(cls).where(cls.id == org_id))
+            result = await db.execute(
+                select(cls)
+                .options(
+                    selectinload(cls.address),
+                    selectinload(cls.contact)
+                )
+                .where(cls.id == org_id)
+            )
             org = result.scalar_one_or_none()
 
             # Update fields as necessary, e.g., org.name = new_name
