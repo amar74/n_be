@@ -1,12 +1,9 @@
 from sqlalchemy import String, select, Integer, ForeignKey, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as UUID_Type
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any
-from app.models.user import User
-from app.models.address import Address
-from app.models.contact import Contact
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
 from app.schemas.auth import AuthUserResponse
@@ -17,6 +14,12 @@ from app.schemas.organization import (
 )
 from uuid import UUID
 from app.utils.logger import logger
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.address import Address
+    from app.models.contact import Contact
+    from app.models.account import Account
 
 
 class Organization(Base):
@@ -54,6 +57,12 @@ class Organization(Base):
     )
     formbricks_organization_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
+    # Relationships
+    users: Mapped[List["User"]] = relationship("User", back_populates="organization", foreign_keys="User.org_id")
+    accounts: Mapped[List["Account"]] = relationship("Account", back_populates="organization")
+    address: Mapped[Optional["Address"]] = relationship("Address", foreign_keys="[Organization.address_id]")
+    contact: Mapped[Optional["Contact"]] = relationship("Contact", foreign_keys="[Organization.contact_id]")
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert organizations model to dictionary for API responses"""
         return {
@@ -69,7 +78,7 @@ class Organization(Base):
     @classmethod
     async def create(
         cls,
-        current_user: User,
+        current_user: "User",
         request: OrgCreateRequest,
     ) -> "Organization":
         """Create a new organization"""
