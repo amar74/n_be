@@ -23,7 +23,7 @@ def normalize_asyncpg(url: str) -> str:
 
 
 def load_infisical_secrets(name: str) -> Optional[str]:
-    """Fetch secrets using Infisical SDK. Returns {} on any error.
+    """Fetch secrets using Infisical SDK. Returns None on any error.
 
     The SDK reads INFISICAL_* env vars (token, project id, environment, site url).
     """
@@ -32,12 +32,11 @@ def load_infisical_secrets(name: str) -> Optional[str]:
     token = os.getenv("INFISICAL_SERVICE_TOKEN")
     host = os.getenv("INFISICAL_HOST", "https://app.infisical.com")
 
-    if not project_id or not env_slug or not token or not host:
-        raise Exception("Missing Infisical environment variables")
-
-    client = InfisicalSDKClient(host=host, token=token)
+    if not project_id or not token:
+        return None
 
     try:
+        client = InfisicalSDKClient(host=host, token=token)
         secret = client.secrets.get_secret_by_name(
             secret_name=name,
             project_id=project_id,
@@ -54,7 +53,14 @@ def pick(name: str, default: Optional[str] = None) -> Optional[str]:
     """Pick a value for a config key from OS env first, then Infisical."""
     raw = os.getenv(name)
     if raw is None:
-        raw = load_infisical_secrets(name)
+        # Only try Infisical if the required env vars are present
+        project_id = os.getenv("INFISICAL_PROJECT_ID")
+        env_slug = os.getenv("INFISICAL_ENV")
+        token = os.getenv("INFISICAL_SERVICE_TOKEN")
+        host = os.getenv("INFISICAL_HOST")
+        
+        if project_id and env_slug and token and host:
+            raw = load_infisical_secrets(name)
     
     if raw is None:
         return default

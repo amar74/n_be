@@ -102,3 +102,22 @@ class OrgAllUserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class OrgMemberResponse(BaseModel):
+    """Schema for organization member details"""
+    email: str
+    role: str
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class OrgMembersListResponse(BaseModel):
+    """Schema for list of organization members"""
+    members: list[OrgMemberResponse]
+    total_count: int
+
+    class Config:
+        from_attributes = True

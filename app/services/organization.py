@@ -1,15 +1,12 @@
-from app.db.session import get_transaction
-from app.models.formbricks_projects import FormbricksProject
 from app.models.organization import Organization
 from uuid import UUID
 from typing import List
-from app.schemas.auth import AuthUserResponse
 from app.schemas.organization import (
     OrgCreateRequest,
     OrgUpdateRequest,
     AddUserInOrgRequest,
 )
-from app.services.formbricks import create_formbricks_organization, create_formbricks_project, signup_user_in_formbricks
+from app.schemas.auth import AuthUserResponse
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
 from app.models.user import User
@@ -25,44 +22,17 @@ async def create_organization(
     current_user: User, request: OrgCreateRequest
 ) -> Organization:
     """Create a new organization"""
-    async with get_transaction() as db:
-        # Ensure the user is associated with an organization
-        if current_user.org_id:
-            logger.error(
-                f"User {current_user.id} is already associated with an organization"
-            )
-            raise MegapolisHTTPException(
-                status_code=400, details="Organization already exists for user"
-            )
-        
-        # Create the organization
-        organization = await Organization.create(current_user, request)
-        
-        # Create a formbricks organization
-        formbricks_organization = await create_formbricks_organization(organization)
-        organization.formbricks_organization_id = formbricks_organization.id
-        
-        # Sign up the user in formbricks
-        formbricks_user = await signup_user_in_formbricks(organization, current_user)
-        current_user.formbricks_user_id = formbricks_user.id
-
-        # Create a new project inside formbricks
-        formbricks_project = await create_formbricks_project(organization)
-        
-        # Create a FormbricksProject entry
-        await FormbricksProject.create(
-            organization_id=organization.id, 
-            project_id=formbricks_project.id, 
-            dev_env_id=formbricks_project.environments[0].id, 
-            prod_env_id=formbricks_project.environments[1].id
+    # Ensure the user is associated with an organization
+    if current_user.org_id:
+        logger.error(
+            f"User {current_user.id} is already associated with an organization"
+        )
+        # return existing_org
+        raise MegapolisHTTPException(
+            status_code=400, details="Organization already exists for user"
         )
 
-        # Save changes to the database
-        db.add(organization)
-        db.add(current_user)
-        await db.commit()
-
-        return organization
+    return await Organization.create(current_user, request)
 
 
 async def get_organization_by_id(org_id: UUID) -> Organization | None:
@@ -105,6 +75,22 @@ async def create_user_invite(
     logger.info(
         f"Creating invite for user {request.email} for org {current_user.org_id}"
     )
+
+    # Check if user already exists
+    existing_user = await User.get_by_email(request.email)
+    if existing_user:
+        if existing_user.org_id:
+            logger.error(f"User with email {request.email} already exists and is associated with organization {existing_user.org_id}")
+            raise MegapolisHTTPException(
+                status_code=400, 
+                details="User already exists and is associated with an organization"
+            )
+        else:
+            logger.error(f"User with email {request.email} already exists but has no organization")
+            raise MegapolisHTTPException(
+                status_code=400, 
+                details="User already exists. Please contact the user to join the organization directly."
+            )
 
     # When we receive role and email as a request, we need to:
     # 1. Create a token and status
@@ -192,3 +178,28 @@ async def delete_user_from_org(user_id: UUID) -> User:
         raise MegapolisHTTPException(status_code=404, details="User not found")
 
     return await Organization.delete(user_id)
+
+
+async def get_organization_members(current_user_auth: "AuthUserResponse") -> dict:
+    """Get all members and pending invites of the current user's organization"""
+    logger.info(f"Fetching organization members and invites for user {current_user_auth.id}")
+    
+    if not current_user_auth.org_id:
+        logger.error(f"User {current_user_auth.id} is not associated with any organization")
+        raise MegapolisHTTPException(
+            status_code=400, 
+            details="User is not associated with any organization"
+        )
+    
+    # Get all users in the organization
+    users = await User.get_all_org_users(current_user_auth.org_id, skip=0, limit=1000)
+    
+    # Get all pending invites for the organization
+    invites = await Invite.get_org_invites(current_user_auth.org_id)
+    
+    logger.info(f"Found {len(users)} users and {len(invites)} invites for organization {current_user_auth.org_id}")
+    
+    return {
+        "users": users,
+        "invites": invites
+    }
