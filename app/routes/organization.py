@@ -9,7 +9,6 @@ from app.schemas.organization import (
     OrgCreatedResponse,
     OrgUpdateRequest,
     OrgUpdateResponse,
-    OrgAllUserResponse,
     OrgMemberResponse,
     OrgMembersListResponse,
 )
@@ -23,7 +22,6 @@ from app.services.organization import (
     update_organization,
     add_user,
     delete_user_from_org,
-    get_organization_users,
     create_user_invite,
     accept_user_invite,
     get_organization_members,
@@ -74,23 +72,6 @@ async def get_my_org(current_user: User = Depends(get_current_user)) -> OrgRespo
     return OrgResponse.model_validate(org)
 
 
-@router.get(
-    "/user/get-all",
-    status_code=200,
-    response_model=List[OrgAllUserResponse],
-    operation_id="getOrgUsers",
-)
-async def get_org_users(
-    org_id: UUID = Query(..., description="Organization ID"),
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(
-        100, ge=1, le=100, description="Maximum number of records to fetch"
-    ),
-) -> List[User]:
-    """Get all users associated with this organization"""
-    logger.info(f"Fetching users for org_id: {org_id}, skip: {skip}, limit: {limit}")
-    users = await get_organization_users(org_id, skip=skip, limit=limit)
-    return [OrgAllUserResponse.model_validate(user) for user in users]
 
 @router.put(
     "/update/{org_id}",
@@ -133,7 +114,7 @@ async def get_org_members(
     member_responses = []
     
     # Add existing users with "Active" status
-    for user in data["users"]:
+    for user in data.users:
         member_responses.append(
             OrgMemberResponse(
                 email=user.email,
@@ -143,7 +124,7 @@ async def get_org_members(
         )
     
         # Only add invites that are PENDING (not accepted or expired)
-    for invite in data["invites"]:
+    for invite in data.invites:
         # Only add invites that are not accepted (since accepted invites become users)
         if invite.status == "PENDING":
             member_responses.append(
