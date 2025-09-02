@@ -116,11 +116,19 @@ async def create_user_invite(
             )
 
     # Check if there's already a pending invite for this email
-    existing_invite = await Invite.get_pending_invite_by_email(request.email, current_user.org_id)
+    existing_invite = await Invite.get_pending_invite_by_email(request.email)
     if existing_invite:
+        # Validate organization context
+        if existing_invite.org_id != current_user.org_id:
+            logger.warning(f"Existing invite for {request.email} belongs to different organization")
+            raise MegapolisHTTPException(
+                status_code=400,
+                details="User has a pending invite from another organization"
+            )
+        
         logger.info(f"Found existing pending invite for {request.email}. Expiring old invite and creating new one.")
         # Mark all pending invites for this email as expired
-        await Invite.expire_pending_invites_by_email(request.email, current_user.org_id)
+        await Invite.expire_pending_invites_by_email(request.email)
         logger.info(f"Expired previous pending invites for {request.email}")
 
     # When we receive role and email as a request, we need to:

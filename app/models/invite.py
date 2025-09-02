@@ -151,26 +151,35 @@ class Invite(Base):
             return list(result.scalars().all())
 
     @classmethod
-    async def get_pending_invite_by_email(cls, email: str, org_id: uuid.UUID) -> Optional["Invite"]:
-        """Get pending invite by email for a specific organization"""
+    async def get_invite_by_email(cls, email: str) -> Optional["Invite"]:
+        """Get the most recent invite by email"""
         async with get_transaction() as db:
             result = await db.execute(
                 select(cls).where(
-                    cls.email == email, 
-                    cls.org_id == org_id,
+                    cls.email == email
+                ).order_by(cls.created_at.desc())  # Get the most recent one
+            )
+            return result.scalars().first()  # Get first result or None
+
+    @classmethod
+    async def get_pending_invite_by_email(cls, email: str) -> Optional["Invite"]:
+        """Get the most recent pending invite by email"""
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(cls).where(
+                    cls.email == email,
                     cls.status == InviteStatus.PENDING
                 ).order_by(cls.created_at.desc())  # Get the most recent one
             )
             return result.scalars().first()  # Get first result or None
 
     @classmethod
-    async def expire_pending_invites_by_email(cls, email: str, org_id: uuid.UUID) -> None:
+    async def expire_pending_invites_by_email(cls, email: str) -> None:
         """Mark all pending invites for an email as expired"""
         async with get_transaction() as db:
             await db.execute(
                 update(cls).where(
                     cls.email == email,
-                    cls.org_id == org_id,
                     cls.status == InviteStatus.PENDING
                 ).values(status=InviteStatus.EXPIRED)
             )
