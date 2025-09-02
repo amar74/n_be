@@ -15,6 +15,7 @@ from app.schemas.organization import (
     OrgMemberResponse,
     OrgMembersListResponse,
 )
+from app.core.roles import Roles
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
 from app.schemas.auth import AuthUserResponse
@@ -102,7 +103,7 @@ async def get_org_users(
 async def update_org(
     org_id: UUID,
     request: OrgUpdateRequest,
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role([Roles.ADMIN])),
 ) -> OrgUpdateResponse:
     """Update an existing organization"""
     if current_user.org_id != org_id:
@@ -169,7 +170,7 @@ async def get_org_members(
 )
 async def create_invite(
     request: InviteCreateRequest,
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role([Roles.ADMIN])),
 ) -> InviteResponse:
     """Create an invite for a user to join the organization (Admin only)"""
     logger.info(f"Admin {current_user.email} creating invite for {request.email}")

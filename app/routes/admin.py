@@ -8,9 +8,9 @@ from app.schemas.admin import (
 )
 from app.schemas.auth import AuthUserResponse
 from app.services.admin import count_users, admin_create_user, list_users
+from app.core.roles import Roles
 
-
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=[Roles.ADMIN])
 
 
 @router.get("/user_list", response_model=AdminUserListResponse, operation_id="userList")

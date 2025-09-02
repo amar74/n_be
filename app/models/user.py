@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-
+from app.core.roles import Roles
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
 
@@ -26,7 +26,7 @@ class User(Base):
         UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
     )
 
-    role: Mapped[str] = mapped_column(String(50), default="admin", nullable=False)
+    role: Mapped[str] = mapped_column(String(50), default=Roles.ADMIN, nullable=False)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert User model to dictionary for API responses"""
@@ -46,7 +46,7 @@ class User(Base):
             user = cls(
                 email=email,
                 org_id=None,
-                role="admin",
+                role=Roles.ADMIN,
             )
             db.add(user)
             await db.flush()
@@ -85,7 +85,7 @@ class User(Base):
         """Get the admin user for a specific organization"""
         async with get_transaction() as db:
             result = await db.execute(
-                select(cls).where(cls.org_id == org_id, cls.role == "admin")
+                select(cls).where(cls.org_id == org_id, cls.role == Roles.ADMIN)
             )
             return result.scalar_one_or_none()
 

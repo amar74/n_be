@@ -11,6 +11,7 @@ from app.schemas.invite import InviteCreateRequest
 from typing import Optional
 from app.utils.error import MegapolisHTTPException
 import enum
+from app.core.roles import Roles
 
 
 class InviteStatus(str, enum.Enum):
@@ -30,7 +31,7 @@ class Invite(Base):
         primary_key=True,
         index=True,
     )
-    role: Mapped[str] = mapped_column(String, nullable=False, default="admin")
+    role: Mapped[str] = mapped_column(String, nullable=False, default=Roles.ADMIN)
     org_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
     )

@@ -7,6 +7,7 @@ from app.schemas.organization import (
     AddUserInOrgRequest,
     OrgMembersDataResponse,
 )
+from app.core.roles import Roles
 from app.schemas.auth import AuthUserResponse
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
@@ -78,7 +79,7 @@ async def create_user_invite(
     )
 
     # Validate that only admins can invite users
-    if current_user.role != "admin":
+    if current_user.role != Roles.ADMIN:
         logger.error(f"User {current_user.email} with role {current_user.role} attempted to create invite")
         raise MegapolisHTTPException(
             status_code=403,
@@ -86,7 +87,7 @@ async def create_user_invite(
         )
 
     # Validate that new invites cannot have admin role if org already has an admin
-    if request.role.lower() == "admin":
+    if request.role.lower() == Roles.ADMIN:
         # Check if organization already has an admin
         existing_admin = await User.get_org_admin(current_user.org_id)
         if existing_admin:
