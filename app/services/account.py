@@ -26,7 +26,7 @@ async def create_account(payload: AccountCreate, current_user: User) -> Account:
     
     async with get_transaction() as session:
         # Create address
-        address = Address(**payload.client_address.dict())
+        address = Address(**payload.client_address.model_dump())
         session.add(address)
         await session.flush()  # get address_id
 
@@ -47,7 +47,7 @@ async def create_account(payload: AccountCreate, current_user: User) -> Account:
         for contact_data in payload.contacts:
             contact = Contact(
                 account_id=account.account_id,
-                **contact_data.dict()
+                **contact_data.model_dump()
             )
             session.add(contact)
             contacts.append(contact)
@@ -207,7 +207,7 @@ async def add_contact(account_id: UUID, payload: ContactCreate, current_user: Us
                 status_code=404, details="Account not found or access denied"
             )
         
-        contact = Contact(account_id=account_id, **payload.dict())
+        contact = Contact(account_id=account_id, **payload.model_dump())
         session.add(contact)
         # No need to commit manually - get_transaction handles it
         await session.flush()
@@ -282,7 +282,7 @@ async def update_contact(account_id: UUID, contact_id: UUID, payload: ContactCre
             raise MegapolisHTTPException(status_code=404, message="Contact not found")
         
         # Update contact fields
-        for field, value in payload.dict(exclude_unset=True).items():
+        for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(contact, field, value)
         
         await session.flush()
