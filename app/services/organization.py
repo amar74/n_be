@@ -57,16 +57,7 @@ async def update_organization(org_id: UUID, request: OrgUpdateRequest) -> Organi
     return await Organization.update(org_id, request)
 
 
-async def get_organization_users(org_id: UUID, skip: int, limit: int) -> List[User]:
-    """Fetch users from users"""
 
-    logger.debug(f"Fetchig all users")
-
-    users = await User.get_all_org_users(org_id, skip, limit)
-    if not users:
-        logger.error(f"Users with org_id {org_id} not found")
-        raise MegapolisHTTPException(status_code=404, details="Users not found")
-    return users
 
 
 async def create_user_invite(
