@@ -15,7 +15,6 @@ from app.schemas.organization import (
 from app.core.roles import Roles
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
-from app.schemas.auth import AuthUserResponse
 from app.services.organization import (
     create_organization,
     get_organization_by_id,
@@ -104,7 +103,7 @@ async def update_org(
     operation_id="getOrgMembers",
 )
 async def get_org_members(
-    current_user: AuthUserResponse = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> OrgMembersListResponse:
     """Get all members of the current user's organization with their email and role"""
     logger.info(f"Fetching organization members for user {current_user.id}")
