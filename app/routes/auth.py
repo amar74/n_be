@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.models.user import User
 from app.services.supabase import verify_user_token
 from app.utils.logger import logger
@@ -115,7 +115,7 @@ async def verify_supabase_token(request: Request):
             logger.info(f"Found existing user with email {user_email}")
 
         # Generate our own JWT token
-        token_expiry = datetime.utcnow() + timedelta(days=30)
+        token_expiry = datetime.now(timezone.utc) + timedelta(days=30)
         payload = {"sub": str(user.id), "email": user_email, "exp": token_expiry}
 
         # Use a secret key from environment or create one
