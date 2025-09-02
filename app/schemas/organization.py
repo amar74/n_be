@@ -14,8 +14,8 @@ class OrgCreateRequest(BaseModel):
     website: Optional[str] = None
     contact: Optional[ContactCreateRequest] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class OrgCreateResponse(BaseModel):
@@ -24,8 +24,8 @@ class OrgCreateResponse(BaseModel):
     name: str
     id: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class OrgCreatedResponse(BaseModel):
@@ -34,8 +34,8 @@ class OrgCreatedResponse(BaseModel):
     message: str
     org: OrgCreateResponse
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class OrgUpdateRequest(BaseModel):
@@ -46,8 +46,8 @@ class OrgUpdateRequest(BaseModel):
     website: Optional[str] = None
     contact: Optional[ContactCreateRequest] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class OrgUpdateResponse(BaseModel):
@@ -56,8 +56,8 @@ class OrgUpdateResponse(BaseModel):
     message: str
     org: OrgCreateResponse
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class OrgResponse(BaseModel):
@@ -69,8 +69,8 @@ class OrgResponse(BaseModel):
     contact: Optional[CreateContactResponse] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class AddUserInOrgRequest(BaseModel):
@@ -80,8 +80,8 @@ class AddUserInOrgRequest(BaseModel):
     role: str
     email: str
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class AddUserInOrgResponse(BaseModel):
@@ -90,8 +90,8 @@ class AddUserInOrgResponse(BaseModel):
     id: UUID
     message: str
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class OrgAllUserResponse(BaseModel):
@@ -100,8 +100,8 @@ class OrgAllUserResponse(BaseModel):
     role: Optional[str]
     email: str
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class OrgMemberResponse(BaseModel):
@@ -110,8 +110,8 @@ class OrgMemberResponse(BaseModel):
     role: str
     status: str
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class OrgMembersListResponse(BaseModel):
@@ -119,5 +119,5 @@ class OrgMembersListResponse(BaseModel):
     members: list[OrgMemberResponse]
     total_count: int
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}

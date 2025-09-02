@@ -21,7 +21,7 @@ async def create_account_route(
     payload: AccountCreate,
     user: User = Depends(get_current_user)
 ):
-    logger.info(f"Create account request received with payload: {payload.json()}")
+    logger.info(f"Create account request received with payload: {payload.model_dump_json()}")
     account = await create_account(payload, user)
     logger.info(f"Account created with ID: {account.account_id}")
     return {
@@ -106,7 +106,7 @@ async def update_account_route(
     payload: AccountUpdate,
     user: User = Depends(get_current_user)
 ):
-    logger.info(f"Update account request for ID: {account_id} with payload: {payload.json()}")
+    logger.info(f"Update account request for ID: {account_id} with payload: {payload.model_dump_json()}")
     account = await update_account(account_id, payload, user)
     logger.info(f"Account updated successfully for ID: {account_id}")
     return {
@@ -134,7 +134,7 @@ async def add_contact_route(
     payload: ContactCreate,
     user: User = Depends(get_current_user)
 ):
-    logger.info(f"Add contact request for account ID: {account_id} with payload: {payload.json()}")
+    logger.info(f"Add contact request for account ID: {account_id} with payload: {payload.model_dump_json()}")
     contact = await add_contact(account_id, payload, user)
     logger.info(f"Contact added successfully with ID: {contact.id} to account ID: {account_id}")
     return {

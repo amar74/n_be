@@ -20,8 +20,8 @@ class CreateOrganizationFormBricksResponse(BaseModel):
     isAIEnabled: bool
     whitelabel: dict
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 
@@ -36,8 +36,8 @@ class CreateUserInFormBricksResponse(BaseModel):
     role: str
     teams: list
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class Environment(BaseModel):
@@ -80,12 +80,12 @@ class CreateFormBricksProjectResponse(BaseModel):
     languages: list
     logo: Logo
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class FormbricksLoginTokenResponse(BaseModel):
     token: str
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}

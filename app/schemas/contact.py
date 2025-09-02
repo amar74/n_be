@@ -11,5 +11,5 @@ class CreateContactResponse(BaseModel):
     id: UUID
     phone: Optional[str]=None
     email: Optional[str]=None
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}

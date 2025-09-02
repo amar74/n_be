@@ -27,8 +27,8 @@ class AdminUser(BaseModel):
     account: bool
     role: str
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class AdminUserListResponse(BaseModel):

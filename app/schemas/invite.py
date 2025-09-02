@@ -20,8 +20,8 @@ class InviteResponse(BaseModel):
     expires_at: datetime
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
 
 
 class AcceptInviteRequest(BaseModel):
@@ -32,5 +32,5 @@ class AcceptInviteResponse(BaseModel):
     message: str
     org_id: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}

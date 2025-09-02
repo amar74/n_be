@@ -34,5 +34,5 @@ class ScrapeResponse(BaseModel):
     successful_scrapes: int
     failed_scrapes: int
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True}
