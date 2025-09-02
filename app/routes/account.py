@@ -206,7 +206,7 @@ async def delete_contact_route(
     user: User = Depends(get_current_user)
 ):
     logger.info(f"Delete contact request for account ID: {account_id}, contact ID: {contact_id}")
-    await delete_contact(account_id, contact_id)
+    await delete_contact(account_id, contact_id, user)
     logger.info(f"Contact deleted successfully for account ID: {account_id}, contact ID: {contact_id}")
     return {
         "status": "success",
