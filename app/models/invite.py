@@ -46,9 +46,9 @@ class Invite(Base):
         Enum(InviteStatus), default=InviteStatus.PENDING
     )
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(timezone.utc) + timedelta(days=7)
+        DateTime(timezone=False), default=lambda: datetime.utcnow() + timedelta(days=7)
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow)
 
     def to_dict(self):
         return {
@@ -81,7 +81,7 @@ class Invite(Base):
                 token=token,
                 status=status,
                 expires_at=expires_at,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.utcnow(),
             )
             db.add(invite)
             await db.flush()
@@ -103,7 +103,7 @@ class Invite(Base):
                 )
 
             # 2. Check expiry & status
-            if invite.expires_at < datetime.now(timezone.utc):
+            if invite.expires_at < datetime.utcnow():
                 raise MegapolisHTTPException(
                     status_code=401, details="Invitation link has expired"
                 )
