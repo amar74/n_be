@@ -1,5 +1,5 @@
 from sqlalchemy import String, select, Integer, ForeignKey, DateTime
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 from sqlalchemy.dialects.postgresql import UUID as UUID_Type
 import uuid
 from datetime import datetime, timezone
@@ -135,21 +135,17 @@ class Organization(Base):
     async def get_by_id(cls, org_id: UUID) -> Optional["Organization"]:
         """Get organization by ID"""
         async with get_transaction() as db:
-            # result = await db.execute(select(cls).where(cls.id == org_id))
             result = await db.execute(
-                select(Organization, Contact, Address)
-                .join(Contact, Contact.id == Organization.contact_id, isouter=True)
-                .join(Address, Address.id == Organization.address_id, isouter=True)
-                .where(Organization.id == org_id)
+                select(cls)
+                .options(
+                    selectinload(cls.address),
+                    selectinload(cls.contact)
+                )
+                .where(cls.id == org_id)
             )
-
-            row = result.one_or_none()
-            if row:
-                org, contact, address = row
-                org.contact = contact
-                org.address = address
-                return org
-            return None
+            
+            org = result.scalar_one_or_none()
+            return org
 
     @classmethod
     async def update(
@@ -159,7 +155,14 @@ class Organization(Base):
     ) -> Optional["Organization"]:
         """Update organization details"""
         async with get_transaction() as db:
-            result = await db.execute(select(cls).where(cls.id == org_id))
+            result = await db.execute(
+                select(cls)
+                .options(
+                    selectinload(cls.address),
+                    selectinload(cls.contact)
+                )
+                .where(cls.id == org_id)
+            )
             org = result.scalar_one_or_none()
 
             # Update fields as necessary, e.g., org.name = new_name
