@@ -1,6 +1,6 @@
 from app.db.base import Base
 from app.models.user import User
-from sqlalchemy import Integer, String, DateTime, ForeignKey, select, update
+from sqlalchemy import Integer, String, DateTime, ForeignKey, select, update, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime, timedelta
 from sqlalchemy.dialects.postgresql import UUID
@@ -10,6 +10,14 @@ from app.db.session import get_session, get_transaction
 from app.schemas.invite import InviteCreateRequest
 from typing import Optional
 from app.utils.error import MegapolisHTTPException
+import enum
+
+
+class InviteStatus(str, enum.Enum):
+    """Enum for invite status values"""
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    EXPIRED = "EXPIRED"
 
 
 class Invite(Base):
@@ -33,9 +41,9 @@ class Invite(Base):
     token: Mapped[str] = mapped_column(
         String, unique=True, nullable=False, default=lambda: str(uuid4())
     )
-    status: Mapped[str] = mapped_column(
-        String, default="pending"
-    )  # pending | accepted | expired
+    status: Mapped[InviteStatus] = mapped_column(
+        Enum(InviteStatus), default=InviteStatus.PENDING
+    )
     expires_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow() + timedelta(days=7)
     )
@@ -59,7 +67,7 @@ class Invite(Base):
         request: InviteCreateRequest,
         current_user: User,
         token: str,
-        status: str,
+        status: InviteStatus,
         expires_at: datetime,
     ) -> "Invite":
         async with get_transaction() as db:
@@ -99,7 +107,7 @@ class Invite(Base):
                     status_code=401, details="Invitation link has expired"
                 )
 
-            if invite.status == "accepted":
+            if invite.status == InviteStatus.ACCEPTED:
                 raise MegapolisHTTPException(
                     status_code=200, details="Invitation already accepted"
                 )
@@ -125,7 +133,7 @@ class Invite(Base):
             # 5. Mark invite as accepted (or delete it)
             await db.execute(select(cls).where(cls.id == invite.id))
             await db.execute(
-                update(cls).where(cls.id == invite.id).values(status="accepted")
+                update(cls).where(cls.id == invite.id).values(status=InviteStatus.ACCEPTED)
             )
 
             await db.flush()
@@ -150,7 +158,7 @@ class Invite(Base):
                 select(cls).where(
                     cls.email == email, 
                     cls.org_id == org_id,
-                    cls.status == "PENDING"
+                    cls.status == InviteStatus.PENDING
                 ).order_by(cls.created_at.desc())  # Get the most recent one
             )
             return result.scalars().first()  # Get first result or None
@@ -163,8 +171,8 @@ class Invite(Base):
                 update(cls).where(
                     cls.email == email,
                     cls.org_id == org_id,
-                    cls.status == "PENDING"
-                ).values(status="EXPIRED")
+                    cls.status == InviteStatus.PENDING
+                ).values(status=InviteStatus.EXPIRED)
             )
 
     @classmethod

@@ -10,7 +10,7 @@ from app.schemas.auth import AuthUserResponse
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
 from app.models.user import User
-from app.models.invite import Invite
+from app.models.invite import Invite, InviteStatus
 from app.schemas.invite import InviteCreateRequest, InviteResponse, AcceptInviteRequest
 from app.utils.send_invite_email import send_invite_email
 from datetime import datetime, timedelta
@@ -143,7 +143,7 @@ async def create_user_invite(
 
     token = jwt.encode(payload, secret_key, algorithm="HS256")
 
-    status = "PENDING"
+    status = InviteStatus.PENDING
 
     invite_url = f"{environment.FRONTEND_URL}/invite/accept?token={token}"
 
