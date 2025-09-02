@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 from app.models.address import Address
 from app.models.contact import Contact
 from app.models.account import Account
+from app.models.user import User
 
 
 class Organization(Base):
@@ -55,7 +56,7 @@ class Organization(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(timezone.utc), nullable=False
+        DateTime(timezone=False), default=datetime.utcnow, nullable=False
     )
     formbricks_organization_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
@@ -92,7 +93,7 @@ class Organization(Base):
                 owner_id=current_user.id,
                 name=request.name,
                 website=request.website,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.utcnow(),
             )
             db.add(org)
             await db.flush()  # org.id is available
