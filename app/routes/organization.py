@@ -37,7 +37,7 @@ from app.schemas.invite import (
 )
 from app.schemas.user import UserDeleteResponse
 from uuid import UUID
-from app.dependencies.permissions import require_role, require_admin
+from app.dependencies.permissions import require_role
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
@@ -169,7 +169,7 @@ async def get_org_members(
 )
 async def create_invite(
     request: InviteCreateRequest,
-    current_user: User = Depends(require_admin()),
+    current_user: User = Depends(require_role(["admin"])),
 ) -> InviteResponse:
     """Create an invite for a user to join the organization (Admin only)"""
     logger.info(f"Admin {current_user.email} creating invite for {request.email}")

@@ -7,13 +7,17 @@ from app.schemas.auth import AuthUserResponse
 
 
 def require_role(allowed_roles: list[str]):
-    def role_checker(current_user: User = Depends(get_current_user)):
+    async def role_checker(current_user: AuthUserResponse = Depends(get_current_user)):
         if current_user.role not in allowed_roles:
             raise MegapolisHTTPException(
                 status_code=403,
                 details="You do not have permission to perform this action",
             )
-        return current_user
+        # Convert AuthUserResponse to User for full access
+        user = await User.get_by_id(current_user.id)
+        if not user:
+            raise MegapolisHTTPException(status_code=404, details="User not found")
+        return user
 
     return role_checker
 
@@ -49,20 +53,3 @@ def require_super_admin():
 
 
     return super_admin_checker
-
-
-def require_admin():
-    """Dependency ensuring the requester is an admin within their organization."""
-    async def admin_checker(current_user: AuthUserResponse = Depends(get_current_user)):
-        if current_user.role != "admin":
-            raise MegapolisHTTPException(
-                status_code=403,
-                details="Only organization admins can perform this action",
-            )
-        # Convert AuthUserResponse to User for full access
-        user = await User.get_by_id(current_user.id)
-        if not user:
-            raise MegapolisHTTPException(status_code=404, details="User not found")
-        return user
-
-    return admin_checker
