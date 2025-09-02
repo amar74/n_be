@@ -5,13 +5,14 @@ from app.schemas.organization import (
     OrgCreateRequest,
     OrgUpdateRequest,
     AddUserInOrgRequest,
+    OrgMembersDataResponse,
 )
 from app.schemas.auth import AuthUserResponse
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
 from app.models.user import User
 from app.models.invite import Invite, InviteStatus
-from app.schemas.invite import InviteCreateRequest, InviteResponse, AcceptInviteRequest
+from app.schemas.invite import InviteCreateRequest, InviteResponse, AcceptInviteRequest, AcceptInviteServiceResponse
 from app.utils.send_invite_email import send_invite_email
 from datetime import datetime, timedelta
 from app.environment import environment
@@ -174,7 +175,7 @@ async def create_user_invite(
     return invite
 
 
-async def accept_user_invite(token: str) -> dict:
+async def accept_user_invite(token: str) -> AcceptInviteServiceResponse:
     # 4. When the user accepts the invitation via the URL, verify the token
     # 5. Mark the status as accepted and add the user to the organization
 
@@ -200,13 +201,12 @@ async def accept_user_invite(token: str) -> dict:
     # Accept the invite (creates user and marks invite as accepted)
     user = await Invite.accept_invite(token)
     
-    # Return user info along with invite details
-    return {
-        "user": user,
-        "email": invite.email,
-        "role": invite.role,
-        "org_id": invite.org_id
-    }    
+    # Return properly typed response
+    return AcceptInviteServiceResponse(
+        email=invite.email,
+        role=invite.role,
+        org_id=invite.org_id
+    )    
 
 
 async def add_user(request: AddUserInOrgRequest) -> User:
@@ -237,7 +237,7 @@ async def delete_user_from_org(user_id: UUID) -> User:
     return await Organization.delete(user_id)
 
 
-async def get_organization_members(current_user_auth: "AuthUserResponse") -> dict:
+async def get_organization_members(current_user_auth: AuthUserResponse) -> OrgMembersDataResponse:
     """Get all members and pending invites of the current user's organization"""
     logger.info(f"Fetching organization members and invites for user {current_user_auth.id}")
     
@@ -256,7 +256,7 @@ async def get_organization_members(current_user_auth: "AuthUserResponse") -> dic
     
     logger.info(f"Found {len(users)} users and {len(invites)} invites for organization {current_user_auth.org_id}")
     
-    return {
-        "users": users,
-        "invites": invites
-    }
+    return OrgMembersDataResponse(
+        users=users,
+        invites=invites
+    )

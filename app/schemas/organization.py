@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Any
 from uuid import UUID
 from datetime import datetime
 from app.schemas.address import AddressCreateResquest, AddressCreateResponse
@@ -118,6 +118,15 @@ class OrgMembersListResponse(BaseModel):
     """Schema for list of organization members"""
     members: list[OrgMemberResponse]
     total_count: int
+
+    class Config:
+        from_attributes = True
+
+
+class OrgMembersDataResponse(BaseModel):
+    """Schema for organization members and invites data"""
+    users: List[OrgAllUserResponse]
+    invites: List[Any]  # Use Any to avoid circular import
 
     class Config:
         from_attributes = True

@@ -44,3 +44,13 @@ class AcceptInviteResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AcceptInviteServiceResponse(BaseModel):
+    """Service layer response for accepting an invite"""
+    email: str
+    role: str
+    org_id: UUID
+
+    class Config:
+        from_attributes = True

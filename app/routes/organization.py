@@ -134,7 +134,7 @@ async def get_org_members(
     member_responses = []
     
     # Add existing users with "Active" status
-    for user in data["users"]:
+    for user in data.users:
         member_responses.append(
             OrgMemberResponse(
                 email=user.email,
@@ -144,14 +144,14 @@ async def get_org_members(
         )
     
     # Add pending invites with their actual status
-    for invite in data["invites"]:
-        # Only add invites that are not accepted (since accepted invites become users)
-        if invite.status != "accepted":
+    for invite in data.invites:
+        # Only add invites that are PENDING (not accepted or expired)
+        if invite.status == "PENDING":
             member_responses.append(
                 OrgMemberResponse(
                     email=invite.email,
                     role=invite.role,
-                    status=invite.status.title()  # Convert to title case (e.g., "pending" -> "Pending")
+                    status=invite.status.title()  # Convert to title case (e.g., "PENDING" -> "Pending")
                 )
             )
     
@@ -194,10 +194,10 @@ async def accept_invite(
 
     result = await accept_user_invite(request.token)
 
-    logger.info(f"Invite accepted successfully for user {result['email']}")
+    logger.info(f"Invite accepted successfully for user {result.email}")
     return AcceptInviteResponse(
         message="Invite accepted successfully",
-        email=result["email"],
-        role=result["role"],
-        org_id=result["org_id"],
+        email=result.email,
+        role=result.role,
+        org_id=result.org_id,
     )
