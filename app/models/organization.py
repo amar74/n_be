@@ -2,7 +2,7 @@ from sqlalchemy import String, select, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 from sqlalchemy.dialects.postgresql import UUID as UUID_Type
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from app.db.base import Base
 from app.db.session import get_session, get_transaction

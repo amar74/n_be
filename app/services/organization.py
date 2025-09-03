@@ -15,7 +15,7 @@ from app.models.user import User
 from app.models.invite import Invite, InviteStatus
 from app.schemas.invite import InviteCreateRequest, InviteResponse, AcceptInviteRequest, AcceptInviteServiceResponse
 from app.utils.send_invite_email import send_invite_email
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from app.environment import environment
 import jwt
 

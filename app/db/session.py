@@ -1,6 +1,6 @@
-import os
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 from contextlib import asynccontextmanager
+from contextvars import ContextVar, Token
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -19,6 +19,35 @@ engine: AsyncEngine = create_async_engine(get_database_url(), echo=False, future
 AsyncSessionLocal = async_sessionmaker(
     bind=engine, autoflush=False, expire_on_commit=False, class_=AsyncSession
 )
+
+
+# Context variable to hold the current request-scoped AsyncSession/transaction
+_request_session_ctx: ContextVar[Optional[AsyncSession]] = ContextVar(
+    "request_async_session", default=None
+)
+
+# Internal helpers for middleware to bind/reset the request-scoped session
+def _bind_request_transaction(session: AsyncSession) -> Token:
+    """Bind the given session to the current context and return the reset token."""
+    return _request_session_ctx.set(session)
+
+
+def _reset_request_transaction(token: Token) -> None:
+    """Reset the context var to the previous value using the provided token."""
+    _request_session_ctx.reset(token)
+
+
+def get_request_transaction() -> AsyncSession:
+    """Return the request-scoped AsyncSession within an active transaction.
+
+    Raises an error if called outside of a request or if the transaction is not bound.
+    """
+    session = _request_session_ctx.get()
+    if session is None:
+        raise RuntimeError(
+            "No active request transaction found. Ensure RequestTransactionMiddleware is installed."
+        )
+    return session
 
 
 # Async context managers for ad-hoc session usage anywhere in the app

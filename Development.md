@@ -4,8 +4,7 @@ This is the go-to document for contributing to `megapolis-api`. It explains how 
 
 - Tech stack: FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, Loguru
 - Entry: `app/main.py` with `FastAPI` app and CORS; routers included in `app/router.py`
-- DB: Async Postgres via `app/db/session.py` (`get_session` for DI, `get_session` context manager for non-route code)
-- DB: Transactional Postgres via `app/db/session.py` (`get_transaction` for DI, `get_transaction` context manager for non-route code)
+- DB: Transactional Postgres via `app/db/session.py` (`get_request_transaction` for DI, `get_request_transaction` will return the current request-scoped transaction if a error occurs transaction will be rolled back)
 - Models: SQLAlchemy models in `app/models/*` extending `app.db.base.Base`
 - Schemas: Pydantic v2 models in `app/schemas/*` with `Config.from_attributes = True`
 - Services: Business logic in `app/services/*`
@@ -32,7 +31,7 @@ Understand where code lives and what belongs where.
 - `app/services/*`: Business logic (async)
 - `app/models/*`: SQLAlchemy models (DeclarativeBase)
 - `app/schemas/*`: Pydantic v2 schemas (`from_attributes = True`)
-- `app/db/session.py`: Async engine, `get_session`
+- `app/db/session.py`: Async engine, `get_request_transaction` will return the current request-scoped transaction if a error occurs transaction will be rolled back
 - `app/utils/logger.py`: Loguru configuration
 - `alembic/*`: Migrations
 - `manage.py`: Typer CLI for running and migrating
@@ -62,14 +61,16 @@ poetry run python manage.py initdb
 
 ### Database Sessions
 
-Everywhere in FastAPI, use `get_session` as an async context manager.
+Everywhere in FastAPI, use `get_request_transaction` as an async context manager.
 
 ```python
-from app.db.session import get_session
+from app.db.session import get_request_transaction
+from app.models.user import User
+from sqlalchemy import select
 
 async def job():
-    async with get_session() as session:
-        ...
+    db = get_request_transaction()
+    await db.execute(select(User).where(User.id == 1))
 ```
 
 ### Environment Variables
@@ -123,18 +124,19 @@ class Widget(Base):
 
     @classmethod
     async def create(cls, name: str) -> "Widget":
-        async with get_session() as session:
-            inst = cls(name=name)
-            session.add(inst)
-            await session.commit()
-            await session.refresh(inst)
-            return inst
+        transaction = get_request_transaction()
+        inst = cls(name=name)
+        transaction.add(inst)
+        # Let middleware commit on success; flush to persist and populate PKs
+        await transaction.flush()
+        await transaction.refresh(inst)
+        return inst
 
     @classmethod
     async def get_by_id(cls, widget_id: int) -> Optional["Widget"]:
-        async with get_session() as session:
-            res = await session.execute(select(cls).where(cls.id == widget_id))
-            return res.scalar_one_or_none()
+        transaction = get_request_transaction()
+        res = await transaction.execute(select(cls).where(cls.id == widget_id))
+        return res.scalar_one_or_none()
 ```
 
 Run a migration to create the table.
@@ -227,7 +229,7 @@ logger.debug("Payload received for widget creation")
 ## Additional Notes
 
 - Avoid synchronous/blocking code inside request handlers; offload CPU-bound work.
-- Keep transactions short; call `await session.commit()` and `await session.refresh(instance)` after writes.
+- Avoid manual commits in request handlers; the RequestTransactionMiddleware commits on success and rolls back on error. Use `await session.flush()` to emit SQL and populate primary keys, and `await session.refresh(instance)` if you need server-assigned defaults.
 - One router per feature/domain; keep naming consistent and clear.
 - Do not write tests unless explicitly requested.
 
