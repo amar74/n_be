@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from app.core.roles import Roles
+from app.schemas.user import Roles
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
 

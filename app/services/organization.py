@@ -7,7 +7,7 @@ from app.schemas.organization import (
     AddUserInOrgRequest,
     OrgMembersDataResponse,
 )
-from app.core.roles import Roles
+from app.schemas.user import Roles
 from app.schemas.auth import AuthUserResponse
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException

@@ -1,5 +1,11 @@
 from pydantic import BaseModel
 from typing import Optional
+import enum
+
+
+class Roles(str, enum.Enum):
+    """User roles enum - NOT stored in database, used for code consistency only"""
+    ADMIN = "admin"
 
 
 class UserCreateRequest(BaseModel):

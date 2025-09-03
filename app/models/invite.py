@@ -11,7 +11,7 @@ from app.schemas.invite import InviteCreateRequest
 from typing import Optional
 from app.utils.error import MegapolisHTTPException
 import enum
-from app.core.roles import Roles
+from app.schemas.user import Roles
 
 
 class InviteStatus(str, enum.Enum):

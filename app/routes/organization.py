@@ -12,7 +12,7 @@ from app.schemas.organization import (
     OrgMemberResponse,
     OrgMembersListResponse,
 )
-from app.core.roles import Roles
+from app.schemas.user import Roles
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
 from app.services.organization import (
