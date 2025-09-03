@@ -13,7 +13,7 @@ from app.models.user import User
 from app.models.invite import Invite
 from app.schemas.invite import InviteCreateRequest, InviteResponse, AcceptInviteRequest
 from app.utils.send_invite_email import send_invite_email
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from app.environment import environment
 import jwt
 
@@ -98,7 +98,7 @@ async def create_user_invite(
     # 3. Save the token and status to the database
 
     # 1. Generate token and status
-    token_expiry = datetime.now(timezone.utc) + timedelta(days=7)
+    token_expiry = datetime.utcnow() + timedelta(days=7)
 
     payload = {"email": request.email, "exp": token_expiry}
 

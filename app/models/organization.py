@@ -2,7 +2,7 @@ from sqlalchemy import String, select, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 from sqlalchemy.dialects.postgresql import UUID as UUID_Type
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
@@ -55,7 +55,7 @@ class Organization(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(timezone.utc), nullable=False
+        DateTime, default=datetime.utcnow, nullable=False
     )
     formbricks_organization_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
@@ -92,7 +92,7 @@ class Organization(Base):
                 owner_id=current_user.id,
                 name=request.name,
                 website=request.website,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.utcnow(),
             )
             db.add(org)
             await db.flush()  # org.id is available

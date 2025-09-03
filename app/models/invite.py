@@ -2,7 +2,7 @@ from app.db.base import Base
 from app.models.user import User
 from sqlalchemy import Integer, String, DateTime, ForeignKey, select, update
 from sqlalchemy.orm import Mapped, mapped_column
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from uuid import uuid4
@@ -37,9 +37,9 @@ class Invite(Base):
         String, default="pending"
     )  # pending | accepted | expired
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(timezone.utc) + timedelta(days=7)
+        DateTime, default=datetime.utcnow() + timedelta(days=7)
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
@@ -72,7 +72,7 @@ class Invite(Base):
                 token=token,
                 status=status,
                 expires_at=expires_at,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.utcnow(),
             )
             db.add(invite)
             await db.flush()
@@ -94,7 +94,7 @@ class Invite(Base):
                 )
 
             # 2. Check expiry & status
-            if invite.expires_at < datetime.now(timezone.utc):
+            if invite.expires_at < datetime.utcnow():
                 raise MegapolisHTTPException(
                     status_code=401, details="Invitation link has expired"
                 )
