@@ -17,10 +17,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",      # Frontend development server
-        "http://localhost:5174",      # Frontend development server
+        "http://localhost:5174",      # Frontend development server (alternative port)
         "http://127.0.0.1:5173",     # Frontend with 127.0.0.1
+        "http://127.0.0.1:5174",     # Frontend with 127.0.0.1 (alternative port)
+        "http://localhost:3000",      # Another common frontend port
+        "http://127.0.0.1:3000",     # Another common frontend port with 127.0.0.1
         "http://localhost:8000",      # API server (for testing)
         "http://127.0.0.1:8000",     # API server with 127.0.0.1
+        "*",                          # Allow all origins for development (remove in production)
     ],
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods

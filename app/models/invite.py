@@ -1,6 +1,6 @@
 from app.db.base import Base
 from app.models.user import User
-from sqlalchemy import Integer, String, DateTime, ForeignKey, select, update
+from sqlalchemy import Integer, String, DateTime, ForeignKey, select, update, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime, timedelta
 from sqlalchemy.dialects.postgresql import UUID
@@ -10,6 +10,15 @@ from app.db.session import get_session, get_transaction
 from app.schemas.invite import InviteCreateRequest
 from typing import Optional
 from app.utils.error import MegapolisHTTPException
+import enum
+from app.schemas.user import Roles
+
+
+class InviteStatus(str, enum.Enum):
+    """Enum for invite status values"""
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    EXPIRED = "EXPIRED"
 
 
 class Invite(Base):
@@ -22,7 +31,7 @@ class Invite(Base):
         primary_key=True,
         index=True,
     )
-    role: Mapped[str] = mapped_column(String, nullable=False, default="admin")
+    role: Mapped[str] = mapped_column(String, nullable=False, default=Roles.ADMIN)
     org_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
     )
@@ -33,13 +42,13 @@ class Invite(Base):
     token: Mapped[str] = mapped_column(
         String, unique=True, nullable=False, default=lambda: str(uuid4())
     )
-    status: Mapped[str] = mapped_column(
-        String, default="pending"
-    )  # pending | accepted | expired
-    expires_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow() + timedelta(days=7)
+    status: Mapped[InviteStatus] = mapped_column(
+        Enum(InviteStatus), default=InviteStatus.PENDING
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), default=lambda: datetime.utcnow() + timedelta(days=7)
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow)
 
     def to_dict(self):
         return {
@@ -59,7 +68,7 @@ class Invite(Base):
         request: InviteCreateRequest,
         current_user: User,
         token: str,
-        status: str,
+        status: InviteStatus,
         expires_at: datetime,
     ) -> "Invite":
         async with get_transaction() as db:
@@ -99,7 +108,7 @@ class Invite(Base):
                     status_code=401, details="Invitation link has expired"
                 )
 
-            if invite.status == "accepted":
+            if invite.status == InviteStatus.ACCEPTED:
                 raise MegapolisHTTPException(
                     status_code=200, details="Invitation already accepted"
                 )
@@ -125,10 +134,62 @@ class Invite(Base):
             # 5. Mark invite as accepted (or delete it)
             await db.execute(select(cls).where(cls.id == invite.id))
             await db.execute(
-                update(cls).where(cls.id == invite.id).values(status="accepted")
+                update(cls).where(cls.id == invite.id).values(status=InviteStatus.ACCEPTED)
             )
 
             await db.flush()
             await db.refresh(new_user)
 
             return new_user
+
+    @classmethod
+    async def get_org_invites(cls, org_id: uuid.UUID) -> list["Invite"]:
+        """Get all invites for an organization"""
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(cls).where(cls.org_id == org_id)
+            )
+            return list(result.scalars().all())
+
+    @classmethod
+    async def get_invite_by_email(cls, email: str) -> Optional["Invite"]:
+        """Get the most recent invite by email"""
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(cls).where(
+                    cls.email == email
+                ).order_by(cls.created_at.desc())  # Get the most recent one
+            )
+            return result.scalars().first()  # Get first result or None
+
+    @classmethod
+    async def get_pending_invite_by_email(cls, email: str) -> Optional["Invite"]:
+        """Get the most recent pending invite by email"""
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(cls).where(
+                    cls.email == email,
+                    cls.status == InviteStatus.PENDING
+                ).order_by(cls.created_at.desc())  # Get the most recent one
+            )
+            return result.scalars().first()  # Get first result or None
+
+    @classmethod
+    async def expire_pending_invites_by_email(cls, email: str) -> None:
+        """Mark all pending invites for an email as expired"""
+        async with get_transaction() as db:
+            await db.execute(
+                update(cls).where(
+                    cls.email == email,
+                    cls.status == InviteStatus.PENDING
+                ).values(status=InviteStatus.EXPIRED)
+            )
+
+    @classmethod
+    async def get_invite_by_token(cls, token: str) -> Optional["Invite"]:
+        """Get invite by token"""
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(cls).where(cls.token == token)
+            )
+            return result.scalars().first()

@@ -1,12 +1,20 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 from uuid import UUID
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 
 class InviteCreateRequest(BaseModel):
-    email: str
-    role: str
+    email: str = Field(..., description="Email address of the user to invite")
+    role: str = Field(
+        ..., 
+        description="Role for the invited user. Any role is allowed, but admin role is only permitted if organization has no existing admin."
+    )
+    
+    @validator('role')
+    def validate_role(cls, v):
+        # Convert to lowercase for consistency
+        return v.lower()
 
 
 class InviteResponse(BaseModel):
@@ -30,6 +38,18 @@ class AcceptInviteRequest(BaseModel):
 
 class AcceptInviteResponse(BaseModel):
     message: str
+    email: str
+    role: str
+    org_id: UUID
+
+    class Config:
+        from_attributes = True
+
+
+class AcceptInviteServiceResponse(BaseModel):
+    """Service layer response for accepting an invite"""
+    email: str
+    role: str
     org_id: UUID
 
     model_config = {
