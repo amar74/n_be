@@ -9,7 +9,7 @@ These rules always apply to the `megapolis-api` backend. They encode the convent
 
 - **Stack**: FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, Loguru
 - **Entry**: `app/main.py` with CORS; routers included from `app/router.py`
-- **DB**: Async Postgres via `app/db/session.py` using `get_session` (async context manager)
+- **DB**: Transactional Postgres via `app/db/session.py` (`get_request_transaction` returns the current request-scoped transaction; on errors it is rolled back)
 - **Models**: `app/models/*` extending `app.db.base.Base`
 - **Schemas**: `app/schemas/*` with `Config.from_attributes = True`
 - **Services**: `app/services/*` with async functions (or a small coordinator class if orchestration is required)
@@ -55,14 +55,16 @@ poetry run python manage.py initdb
 
 ## Database Sessions
 
-- **Always use `get_session`**: Open sessions via the async context manager; do not introduce alternative patterns.
+- **Always use `get_request_transaction()`**: Access the request-scoped transaction anywhere in the request lifecycle.
 
 ```python
-from app.db.session import get_session
+from app.db.session import get_request_transaction
+from app.models.user import User
+from sqlalchemy import select
 
 async def job():
-    async with get_session() as session:
-        ...
+    db = get_request_transaction()
+    await db.execute(select(User).where(User.id == 1))
 ```
 
 ## Environment Variables
@@ -105,7 +107,7 @@ raise AppHTTPException(status_code=400, message="Name already exists", metadata=
 ## Models
 
 - Place models in `app/models/<feature>.py` extending `Base`.
-- Provide class/instance methods. You may open sessions inside model methods using `get_session`.
+- Provide class/instance methods. Access the current transaction inside model methods using `get_request_transaction`.
 
 ```python
 from sqlalchemy import String, select
@@ -113,7 +115,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from app.db.base import Base
-from app.db.session import get_session
+from app.db.session import get_request_transaction
 
 class Widget(Base):
     __tablename__ = "widgets"
@@ -123,18 +125,19 @@ class Widget(Base):
 
     @classmethod
     async def create(cls, name: str) -> "Widget":
-        async with get_session() as session:
-            inst = cls(name=name)
-            session.add(inst)
-            await session.commit()
-            await session.refresh(inst)
-            return inst
+        db = get_request_transaction()
+        inst = cls(name=name)
+        db.add(inst)
+        # Avoid manual commit; middleware handles commit/rollback. Use flush to persist and get IDs.
+        await db.flush()
+        await db.refresh(inst)
+        return inst
 
     @classmethod
     async def get_by_id(cls, widget_id: int) -> Optional["Widget"]:
-        async with get_session() as session:
-            res = await session.execute(select(cls).where(cls.id == widget_id))
-            return res.scalar_one_or_none()
+        db = get_request_transaction()
+        res = await db.execute(select(cls).where(cls.id == widget_id))
+        return res.scalar_one_or_none()
 ```
 
 ## Schemas (Pydantic v2)

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 # from app.middlewares.db_session import DBSessionMiddleware
 from app.router import api_router
+from app.middlewares.request_transaction import RequestTransactionMiddleware
 from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
 
@@ -25,6 +26,8 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers
 )
+
+app.add_middleware(RequestTransactionMiddleware)
 
 
 # Include API router
