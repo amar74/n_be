@@ -75,7 +75,7 @@ class AccountDetailResponse(BaseModel):
     total_value: Optional[float] = None
     opportunities: Optional[int] = None
     last_contact: Optional[datetime] = None
-    created_at: Optional[datetime] = None
+    created_at: datetime  # has default in DB, should always be present
     updated_at: Optional[datetime] = None
     contacts: List[ContactResponse] = []
 
