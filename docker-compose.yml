@@ -15,21 +15,21 @@ services:
       timeout: 3s
       retries: 10
 
-  formbricks_db:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: formbricks
-    ports:
-      - "5433:5432"
-    volumes:
-      - formbricks_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d formbricks"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+  # formbricks_db:
+  #   image: pgvector/pgvector:pg16
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: formbricks
+  #   ports:
+  #     - "5433:5432"
+  #   volumes:
+  #     - formbricks_db_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres -d formbricks"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
 
 
   api:
@@ -49,23 +49,23 @@ services:
     volumes:
       - ./:/app
 
-  formbricks:
-    image: rishabhg71/formbricks:latest
-    depends_on:
-      formbricks_db:
-        condition: service_healthy
-    env_file:
-      - .env.example.formbricks
-    environment:
-      DATABASE_URL: postgresql://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@formbricks_db:5432/${PGDATABASE:-formbricks}?schema=public
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      WEBAPP_URL: ${WEBAPP_URL:-http://localhost:3000}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      NODE_ENV: production
-    ports:
-      - "3000:3000"
-    volumes:
-      - uploads:/home/nextjs/apps/web/uploads
+  # formbricks:
+  #   image: rishabhg71/formbricks:latest
+  #   depends_on:
+  #     formbricks_db:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env.example.formbricks
+  #   environment:
+  #     DATABASE_URL: postgresql://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@formbricks_db:5432/${PGDATABASE:-formbricks}?schema=public
+  #     ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+  #     WEBAPP_URL: ${WEBAPP_URL:-http://localhost:3000}
+  #     NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+  #     NODE_ENV: production
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - uploads:/home/nextjs/apps/web/uploads
 
 
 
