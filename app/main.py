@@ -6,6 +6,7 @@ from app.router import api_router
 from app.middlewares.request_transaction import RequestTransactionMiddleware
 from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
+from pydantic import BaseModel
 
 app = FastAPI(title="Megapolis API", version="0.1.0")
 
@@ -52,7 +53,10 @@ async def handle_exception(request: Request, call_next):
 logger.info("API router included successfully")
 
 
+class HelloWorld(BaseModel):
+    message: str
+
 @app.get("/")
-async def read_root() -> dict[str, str]:
+async def read_root() -> HelloWorld:
     logger.info("Root endpoint accessed")
     return {"message": "Hello, world!"}

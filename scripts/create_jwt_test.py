@@ -1,6 +1,6 @@
 import time, jwt
 secret = "your-shared-secret"  # must match SSO_JWT_SECRET
-EMAIL = "rishabhgautam@gmail.com"
+EMAIL = "rishabhgautam727@gmail.com"
 NAME = "Rishabh"
 now = int(time.time())
 

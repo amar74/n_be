@@ -30,9 +30,9 @@ async def create_formbricks_organization(
             },
         )
         if response.status_code != 201:
-            logger.error(f"Failed to create formbricks organization: {response.text}")
+            logger.error(f"Failed to create formbricks organization: {response.status_code}, {response.text[0:200]}")
             raise Exception(
-                f"Failed to create formbricks organization: {response.text}"
+                f"Failed to create formbricks organization: {response.status_code}, {response.text[0:200]}"
             )
         return CreateOrganizationFormBricksResponse.model_validate(
             response.json().get("data")
