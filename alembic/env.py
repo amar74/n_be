@@ -17,7 +17,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from app.db.base import Base  # noqa: E402
 
-from app.models.export import *
+import app.models  # Import all models to register them with Base.metadata
 
 config = context.config
 
