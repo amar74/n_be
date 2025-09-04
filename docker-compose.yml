@@ -32,22 +32,22 @@ services:
       retries: 10
 
 
-  # api:
-  #   build: .
-  #   environment:
-  #     DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/megapolis
-  #     SUPABASE_URL: https://mzdvwfoepfagypsevyfh.supabase.co
-  #     SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-service-role-key-here}
-  #     JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-here}
-  #     GEMINI_API_KEY: ${GEMINI_API_KEY:-your-gemini-api-key-here}
-  #   ports:
-  #     - "8000:8000"
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-  #   volumes:
-  #     - ./:/app
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/megapolis
+      SUPABASE_URL: https://mzdvwfoepfagypsevyfh.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-service-role-key-here}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-here}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-your-gemini-api-key-here}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./:/app
 
   formbricks:
     image: rishabhg71/formbricks:latest
