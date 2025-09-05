@@ -2,23 +2,28 @@ import os
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
 from infisical_sdk import InfisicalSDKClient
+from dotenv import load_dotenv
+load_dotenv()
 
 
-
-def normalize_asyncpg(url: str) -> str:
-    """Ensure the SQLAlchemy URL uses asyncpg for PostgreSQL.
+def normalize_psycopg(url: str) -> str:
+    """Ensure the SQLAlchemy URL uses psycopg (async) for PostgreSQL.
 
     Accepts common forms like postgresql:// or postgres:// and upgrades them
-    to postgresql+asyncpg://. Leaves non-postgres URLs untouched.
+    to postgresql+psycopg://. Leaves non-postgres URLs untouched.
+    Preserves query params such as sslmode and channel_binding required by Neon.
     """
     if not url:
         return url
-    if url.startswith("postgresql+asyncpg://"):
+    if url.startswith("postgresql+psycopg://"):
         return url
     if url.startswith("postgresql://"):
-        return "postgresql+asyncpg://" + url[len("postgresql://"):]
+        return "postgresql+psycopg://" + url[len("postgresql://"):]
     if url.startswith("postgres://"):
-        return "postgresql+asyncpg://" + url[len("postgres://"):]
+        return "postgresql+psycopg://" + url[len("postgres://"):]
+    # If asyncpg DSN is provided, downgrade to psycopg which supports channel_binding
+    if url.startswith("postgresql+asyncpg://"):
+        return "postgresql+psycopg://" + url[len("postgresql+asyncpg://"):]
     return url
 
 
@@ -33,7 +38,7 @@ def load_infisical_secrets(name: str) -> Optional[str]:
     host = os.getenv("INFISICAL_HOST", "https://app.infisical.com")
 
     if not project_id or not token:
-        return None
+        raise Exception("INFISICAL_PROJECT_ID or INFISICAL_SERVICE_TOKEN is not set")
 
     try:
         client = InfisicalSDKClient(host=host, token=token)
@@ -53,14 +58,7 @@ def pick(name: str, default: Optional[str] = None) -> Optional[str]:
     """Pick a value for a config key from OS env first, then Infisical."""
     raw = os.getenv(name)
     if raw is None:
-        # Only try Infisical if the required env vars are present
-        project_id = os.getenv("INFISICAL_PROJECT_ID")
-        env_slug = os.getenv("INFISICAL_ENV")
-        token = os.getenv("INFISICAL_SERVICE_TOKEN")
-        host = os.getenv("INFISICAL_HOST")
-        
-        if project_id and env_slug and token and host:
-            raw = load_infisical_secrets(name)
+        raw = load_infisical_secrets(name)
     
     if raw is None:
         return default
@@ -75,7 +73,6 @@ class Environment(BaseModel):
     DATABASE_URL: str
     SUPABASE_URL: str
     SUPABASE_SERVICE_ROLE_KEY: str
-    NGROK_AUTHTOKEN: str
     GEMINI_API_KEY: str
     ENVIRONMENT: Literal["dev", "prod", "stag"] = Field(default="dev")
     
@@ -103,34 +100,34 @@ class Constants():
 def load_environment() -> Environment:
     """Load environment variables (from .env and OS) and return Environment instance."""
 
+
     env = {
         "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY", "-your-secret-key-here"),
         # Prefer .env/OS value, normalize driver for async engine
-        "DATABASE_URL": normalize_asyncpg(
+        "DATABASE_URL": normalize_psycopg(
             os.getenv(
                 "DATABASE_URL"
             )
         ),
-        "SUPABASE_URL": os.getenv(
-            "SUPABASE_URL", "https://your-supabase-url.supabase.co"
+        "SUPABASE_URL": pick(
+            "SUPABASE_URL"
         ),
-        "SUPABASE_SERVICE_ROLE_KEY": os.getenv(
-            "SUPABASE_SERVICE_ROLE_KEY", "-your-service-role-key-here"
+        "SUPABASE_SERVICE_ROLE_KEY": pick(
+            "SUPABASE_SERVICE_ROLE_KEY"
         ),
-        "NGROK_AUTHTOKEN": os.getenv("NGROK_AUTHTOKEN", "your-ngrok-authtoken"),
-        "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", "-your-gemini-api-key-here"),
+        "GEMINI_API_KEY": pick("GEMINI_API_KEY"),
         "ENVIRONMENT": pick("ENVIRONMENT", default="dev"),
         
         # SMTP Configuration
-        "SMTP_HOST": os.getenv("SMTP_HOST", "smtp.gmail.com"),
-        "SMTP_PORT": int(os.getenv("SMTP_PORT", "587")),
-        "SMTP_USER": os.getenv("SMTP_USER", ""),
-        "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD", ""),
-        "SMTP_FROM_NAME": os.getenv("SMTP_FROM_NAME", "SHAKTI-AI Support"),
-        "SMTP_FROM_EMAIL": os.getenv("SMTP_FROM_EMAIL", ""),
+        "SMTP_HOST": pick("SMTP_HOST", "smtp.gmail.com"),
+        "SMTP_PORT": int(pick("SMTP_PORT", "587")),
+        "SMTP_USER": pick("SMTP_USER", ""),
+        "SMTP_PASSWORD": pick("SMTP_PASSWORD", ""),
+        "SMTP_FROM_NAME": pick("SMTP_FROM_NAME", "SHAKTI-AI Support"),
+        "SMTP_FROM_EMAIL": pick("SMTP_FROM_EMAIL", ""),
         
         # Frontend URL
-        "FRONTEND_URL": os.getenv("FRONTEND_URL", "http://localhost:5173"),
+        "FRONTEND_URL": pick("FRONTEND_URL", "http://localhost:5173"),
         "FORMBRICKS_SERVER_URL": pick("FORMBRICKS_SERVER_URL", default="http://localhost:3000/_formbricks"),
         "FORMBRICKS_ADMIN_SECRET": pick("FORMBRICKS_ADMIN_SECRET", default="your-admin-secret"),
         "FORMBRICKS_JWT_SECRET": pick("FORMBRICKS_JWT_SECRET", default="your-jwt-secret"),

@@ -35,7 +35,7 @@ services:
   api:
     build: .
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/megapolis
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/megapolis
       SUPABASE_URL: https://mzdvwfoepfagypsevyfh.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-service-role-key-here}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-here}
