@@ -21,11 +21,11 @@ class AdminCreateUserResponse(BaseModel):
 class AdminUser(BaseModel):
     """User row for admin list response."""
 
-    id: int
+    id: UUID
     email: str
-    gid: UUID
-    account: bool
+    org_id: Optional[UUID]
     role: str
+    formbricks_user_id: Optional[str]
 
     model_config = {
         "from_attributes": True}

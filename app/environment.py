@@ -97,7 +97,7 @@ class Environment(BaseModel):
 
 class Constants():
     """Constants for the application."""
-    SUPER_ADMIN_EMAILS: list[str] = ["rishabhgautam727@gmail.com"]
+    SUPER_ADMIN_EMAILS: list[str] = ["rishabhgautam727@gmail.com", "prathamkamthan1306@gmail.com"]
 
 
 def load_environment() -> Environment:
