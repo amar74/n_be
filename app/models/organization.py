@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from app.db.base import Base
-from app.db.session import get_session, get_transaction
+from app.db.session import get_request_transaction, get_session, get_transaction
 from app.schemas.auth import AuthUserResponse
 from app.schemas.organization import (
     OrgCreateRequest,
@@ -85,52 +85,54 @@ class Organization(Base):
         request: OrgCreateRequest,
     ) -> "Organization":
         """Create a new organization"""
-        async with get_transaction() as db:
 
-            logger.info(f"Creating new organization : {request.name}")
-            org = cls(
+        transaction = get_request_transaction()
+
+        logger.info(f"Creating new organization : {request.name}")
+        org = cls(
+            id=uuid.uuid4(),
+            owner_id=current_user.id,
+            name=request.name,
+            website=request.website,
+            created_at=datetime.utcnow(),
+        )
+        
+        transaction.add(org)
+        await transaction.flush()  # org.id is available
+
+        # update the existing user
+        db_user = await transaction.get(User, current_user.id)  # fetch ORM user
+        if db_user:
+            db_user.org_id = org.id
+
+        # Create address if provided
+        if request.address:
+            address = Address(
                 id=uuid.uuid4(),
-                owner_id=current_user.id,
-                name=request.name,
-                website=request.website,
-                created_at=datetime.utcnow(),
+                line1=request.address.line1,
+                line2=request.address.line2,
+                pincode=request.address.pincode,
+                org_id=org.id,  # link to org
             )
-            db.add(org)
-            await db.flush()  # org.id is available
+            transaction.add(address)
+            await transaction.flush()
+            org.address_id = address.id
 
-            # update the existing user
-            db_user = await db.get(User, current_user.id)  # fetch ORM user
-            if db_user:
-                db_user.org_id = org.id
-
-            # Create address if provided
-            if request.address:
-                address = Address(
-                    id=uuid.uuid4(),
-                    line1=request.address.line1,
-                    line2=request.address.line2,
-                    pincode=request.address.pincode,
-                    org_id=org.id,  # link to org
-                )
-                db.add(address)
-                await db.flush()
-                org.address_id = address.id
-
-            # Create contact if provided
-            if request.contact:
-                contact = Contact(
-                    id=uuid.uuid4(),
-                    phone=request.contact.phone,
-                    email=request.contact.email,
-                    org_id=org.id,  # link to org
-                )
-                db.add(contact)
-                await db.flush()
-                org.contact_id = contact.id
-                db.add(org)
-            await db.flush()
-            await db.refresh(org)
-            return org
+        # Create contact if provided
+        if request.contact:
+            contact = Contact(
+                id=uuid.uuid4(),
+                phone=request.contact.phone,
+                email=request.contact.email,
+                org_id=org.id,  # link to org
+            )
+            transaction.add(contact)
+            await transaction.flush()
+            org.contact_id = contact.id
+            transaction.add(org)
+        await transaction.flush()
+        await transaction.refresh(org)
+        return org
 
     @classmethod
     async def get_by_id(cls, org_id: UUID) -> Optional["Organization"]:

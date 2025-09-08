@@ -1,3 +1,5 @@
+from app.db.session import get_request_transaction
+from app.models.formbricks_projects import FormbricksProject
 from app.models.organization import Organization
 from uuid import UUID
 from typing import List
@@ -9,6 +11,7 @@ from app.schemas.organization import (
 )
 from app.schemas.user import Roles
 from app.schemas.auth import AuthUserResponse
+from app.services.formbricks import create_formbricks_organization, create_formbricks_project, signup_user_in_formbricks
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
 from app.models.user import User
@@ -25,6 +28,7 @@ async def create_organization(
 ) -> Organization:
     """Create a new organization"""
     # Ensure the user is associated with an organization
+    transaction = get_request_transaction()
     if current_user.org_id:
         logger.error(
             f"User {current_user.id} is already associated with an organization"
@@ -33,8 +37,35 @@ async def create_organization(
         raise MegapolisHTTPException(
             status_code=400, details="Organization already exists for user"
         )
+    organization = await Organization.create(current_user, request)
+    
+    # Create a formbricks organization
+    formbricks_organization = await create_formbricks_organization(organization)
+    organization.formbricks_organization_id = formbricks_organization.id
+    
+    # Sign up the user in formbricks
+    formbricks_user = await signup_user_in_formbricks(organization, current_user)
+    current_user.formbricks_user_id = formbricks_user.id
 
-    return await Organization.create(current_user, request)
+    # Create a new project inside formbricks
+    formbricks_project = await create_formbricks_project(organization)
+    
+    # Create a FormbricksProject entry
+    await FormbricksProject.create(
+        organization_id=organization.id, 
+        project_id=formbricks_project.id, 
+        dev_env_id=formbricks_project.environments[0].id, 
+        prod_env_id=formbricks_project.environments[1].id
+    )
+
+    # Save changes to the database
+    transaction.add(organization)
+    transaction.add(current_user)
+    await transaction.flush()
+    await transaction.refresh(organization)
+    await transaction.refresh(current_user)
+
+    return organization
 
 
 async def get_organization_by_id(org_id: UUID) -> Organization | None:
