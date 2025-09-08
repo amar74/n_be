@@ -92,12 +92,12 @@ async def get_me(user: User = Depends(get_current_user)):
 
 ## Error Handling
 
-- **Raise `AppHTTPException` in services**: Centralize client-facing errors; translate to HTTP at route boundaries.
+- **Raise `MegapolisHTTPException` in services**: Centralize client-facing errors; translate to HTTP at route boundaries.
 
 ```python
-from app.utils.exceptions import AppHTTPException
+from app.utils.exceptions import MegapolisHTTPException
 
-raise AppHTTPException(status_code=400, message="Name already exists", metadata={"name": payload.name})
+raise MegapolisHTTPException(status_code=400, message="Name already exists", metadata={"name": payload.name})
 ```
 
 ## Logging
@@ -161,10 +161,10 @@ class WidgetResponse(BaseModel):
 ## Services
 
 - Keep services small and functional by default.
-- Log major events and raise `AppHTTPException` for client-visible errors.
+- Log major events and raise `MegapolisHTTPException` for client-visible errors.
 
 ```python
-from app.utils.exceptions import AppHTTPException
+from app.utils.exceptions import MegapolisHTTPException
 from app.models.widget import Widget
 from app.schemas.widget import WidgetCreateRequest
 from app.utils.logger import logger
@@ -173,7 +173,7 @@ async def create_widget(payload: WidgetCreateRequest):
     # Replace with real uniqueness check
     existing = await Widget.get_by_id(1)
     if existing and getattr(existing, "name", None) == payload.name:
-        raise AppHTTPException(status_code=400, message="Name already exists", metadata={"name": payload.name})
+        raise MegapolisHTTPException(status_code=400, message="Name already exists", metadata={"name": payload.name})
     logger.info("Creating widget")
     return await Widget.create(payload.name)
 ```
@@ -227,7 +227,7 @@ api_router.include_router(widget_router)
 2. Add/modify SQLAlchemy models under `app/models/*`.
 3. Run migrations with `poetry run python manage.py migrate -m "..."` and upgrade.
 4. Add Pydantic schemas under `app/schemas/*` with `from_attributes = True`.
-5. Implement service functions under `app/services/*` using async patterns and raising `AppHTTPException` on errors.
+5. Implement service functions under `app/services/*` using async patterns and raising `MegapolisHTTPException` on errors.
 6. Add routes under `app/routes/*` that call services, use `get_current_user` when needed, and return schemas.
 7. Register the router in `app/router.py`.
 8. Add logging at key points; validate inputs; avoid deep nesting.

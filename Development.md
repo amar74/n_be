@@ -166,10 +166,10 @@ class WidgetResponse(BaseModel):
 
 ### 4) Implement the Service Layer
 
-Keep routes thin by pushing business logic into services. Services should be async, typed, and use model methods. Log major events; raise `AppHTTPException` for client-facing errors.
+Keep routes thin by pushing business logic into services. Services should be async, typed, and use model methods. Log major events; raise `MegapolisHTTPException` for client-facing errors.
 
 ```python
-from app.utils.exceptions import AppHTTPException
+from app.utils.exceptions import MegapolisHTTPException
 from app.models.widget import Widget
 from app.schemas.widget import WidgetCreateRequest
 from app.utils.logger import logger
@@ -178,7 +178,7 @@ async def create(payload: WidgetCreateRequest) -> Widget:
     # Uniqueness check example
     existing = await Widget.get_by_id(1)  # replace with actual check
     if existing and getattr(existing, "name", None) == payload.name:
-        raise AppHTTPException(status_code=400, message="Name already exists", metadata={"name": payload.name})
+        raise MegapolisHTTPException(status_code=400, message="Name already exists", metadata={"name": payload.name})
     logger.info("Creating widget")
     return await Widget.create(payload.name)
 ```
