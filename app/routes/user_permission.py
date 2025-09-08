@@ -13,7 +13,7 @@ from app.utils.logger import logger
 router = APIRouter(prefix="/user-permissions", tags=["user-permissions"])
 
 
-@router.post("/", response_model=UserPermissionResponse, status_code=201)
+@router.post("/", response_model=UserPermissionResponse, status_code=201, operation_id="createUserPermission")
 async def create_user_permission_route(
     payload: UserPermissionCreateRequest,
     user: User = Depends(get_current_user)
@@ -25,7 +25,7 @@ async def create_user_permission_route(
     return UserPermissionResponse.model_validate(user_permission)
 
 
-@router.get("/{userid}", response_model=UserPermissionResponse)
+@router.get("/{userid}", response_model=UserPermissionResponse, operation_id="getUserPermission")
 async def get_user_permission_route(
     userid: UUID = Path(..., description="User ID"),
     user: User = Depends(get_current_user)
@@ -37,7 +37,7 @@ async def get_user_permission_route(
     return UserPermissionResponse.model_validate(user_permission)
 
 
-@router.put("/{userid}", response_model=UserPermissionResponse)
+@router.put("/{userid}", response_model=UserPermissionResponse, operation_id="updateUserPermission")
 async def update_user_permission_route(
     userid: UUID = Path(..., description="User ID"),
     payload: UserPermissionUpdateRequest = ...,
@@ -50,7 +50,7 @@ async def update_user_permission_route(
     return UserPermissionResponse.model_validate(user_permission)
 
 
-@router.delete("/{userid}", status_code=204)
+@router.delete("/{userid}", status_code=204, operation_id="deleteUserPermission")
 async def delete_user_permission_route(
     userid: UUID = Path(..., description="User ID"),
     user: User = Depends(get_current_user)
@@ -61,7 +61,7 @@ async def delete_user_permission_route(
     logger.info(f"Deleted user permission for user {userid}")
 
 
-@router.get("/", response_model=List[UserWithPermissionsResponse])
+@router.get("/", response_model=List[UserWithPermissionsResponse], operation_id="listUserPermissions")
 async def list_user_permissions_route(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
@@ -72,4 +72,4 @@ async def list_user_permissions_route(
     user_permissions_data = await list_user_permissions(skip=skip, limit=limit, current_user=user)
     logger.info(f"Retrieved {len(user_permissions_data)} users with permissions")
     
-    return [UserWithPermissionsResponse.model_validate(data) for data in user_permissions_data]
+    return user_permissions_data

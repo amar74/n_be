@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field  # pyright: ignore[reportMissingImports]
 from typing import List, Optional
 import uuid
 
