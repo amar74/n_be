@@ -17,6 +17,7 @@ from app.utils.logger import logger
 
 if TYPE_CHECKING:
     from app.models.user import User
+    from app.models.note import Note
 
 # Import these at runtime since they're used in queries
 from app.models.address import Address
@@ -65,6 +66,7 @@ class Organization(Base):
     accounts: Mapped[List["Account"]] = relationship("Account", back_populates="organization")
     address: Mapped[Optional["Address"]] = relationship("Address", foreign_keys="[Organization.address_id]")
     contact: Mapped[Optional["Contact"]] = relationship("Contact", foreign_keys="[Organization.contact_id]")
+    notes: Mapped[List["Note"]] = relationship("Note", back_populates="organization")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert organizations model to dictionary for API responses"""

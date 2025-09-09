@@ -10,6 +10,7 @@ from app.db.session import get_session, get_transaction
 
 if TYPE_CHECKING:
     from app.models.organization import Organization
+    from app.models.note import Note
 
 
 class User(Base):
@@ -34,6 +35,7 @@ class User(Base):
 
     # Relationships
     organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="users", foreign_keys=[org_id])
+    notes: Mapped[List["Note"]] = relationship("Note", back_populates="creator")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert User model to dictionary for API responses"""
