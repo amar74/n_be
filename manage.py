@@ -1,7 +1,7 @@
 import os
 import subprocess
 from typing import Optional
-
+from app.environment import environment
 import typer
 
 
@@ -15,10 +15,6 @@ def env_with_db_url(database_url: Optional[str] = None) -> dict[str, str]:
     env = os.environ.copy()
     if database_url:
         env["DATABASE_URL"] = database_url
-    env.setdefault(
-        "DATABASE_URL",
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/megapolis",
-    )
     return env
 
 
@@ -34,7 +30,7 @@ def run(host: str = "0.0.0.0", port: int = 8000, reload: bool = True) -> None:
     ]
     if reload:
         args.append("--reload")
-    subprocess.run(args, check=True, env=env_with_db_url())
+    subprocess.run(args, check=True, env=env_with_db_url(environment.DATABASE_URL))
 
 
 @app.command()
@@ -42,31 +38,31 @@ def migrate(message: str) -> None:
     subprocess.run(
         ["alembic", "revision", "--autogenerate", "-m", message],
         check=True,
-        env=env_with_db_url(),
+        env=env_with_db_url(environment.DATABASE_URL),
     )
 
 
 @app.command()
 def upgrade(revision: str = "head") -> None:
-    subprocess.run(["alembic", "upgrade", revision], check=True, env=env_with_db_url())
+    subprocess.run(["alembic", "upgrade", revision], check=True, env=env_with_db_url(environment.DATABASE_URL))
 
 
 @app.command()
 def downgrade(revision: str = "-1") -> None:
     subprocess.run(
-        ["alembic", "downgrade", revision], check=True, env=env_with_db_url()
+        ["alembic", "downgrade", revision], check=True, env=env_with_db_url(environment.DATABASE_URL)
     )
 
 @app.command()
 def stamp_head() -> None:
     subprocess.run(
-        ["alembic", "stamp", "head"], check=True, env=env_with_db_url()
+        ["alembic", "stamp", "head"], check=True, env=env_with_db_url(environment.DATABASE_URL)
     )
 
 
 @app.command()
 def initdb() -> None:
-    subprocess.run(["alembic", "upgrade", "head"], check=True, env=env_with_db_url())
+    subprocess.run(["alembic", "upgrade", "head"], check=True, env=env_with_db_url(environment.DATABASE_URL))
 
 
 if __name__ == "__main__":

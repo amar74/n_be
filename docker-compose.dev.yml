@@ -1,0 +1,106 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: megapolis
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d megapolis"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  formbricks_db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: formbricks
+    ports:
+      - "5433:5432"
+    volumes:
+      - formbricks_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d formbricks"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  formbricks:
+    image: rishabhg71/formbricks:latest
+    depends_on:
+      formbricks_db:
+        condition: service_healthy
+    env_file:
+      - .env.example.formbricks
+    environment:
+      DATABASE_URL: postgresql://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@formbricks_db:5432/${PGDATABASE:-formbricks}?schema=public
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      WEBAPP_URL: ${WEBAPP_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads:/home/nextjs/apps/web/uploads
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.formbricks.rule=PathPrefix(`/_formbricks`)
+      - traefik.http.routers.formbricks.entrypoints=web
+      - traefik.http.routers.formbricks.priority=100
+      - traefik.http.services.formbricks.loadbalancer.server.port=3000
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.client.rule=PathPrefix(`/`)
+      - traefik.http.routers.client.entrypoints=web
+      - traefik.http.routers.client.priority=1
+      - traefik.http.services.client.loadbalancer.server.port=80
+    develop:
+      watch:
+        - path: ./client
+          target: /app
+          action: sync
+          ignore:
+            - node_modules/
+            - dist/
+        - path: ./client/package.json
+          action: rebuild
+        - path: ./client/pnpm-lock.yaml
+          action: rebuild
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  traefik:
+    image: traefik:v2.10
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --api.insecure=true
+    ports:
+      - "5173:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+
+volumes:
+  db_data:
+  formbricks_db_data:
+  uploads:
+    driver: local

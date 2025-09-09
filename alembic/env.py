@@ -10,6 +10,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
+from app.environment import environment
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -17,7 +18,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from app.db.base import Base  # noqa: E402
 
-from app.models.export import *
+import app.models  # Import all models to register them with Base.metadata
 
 config = context.config
 
@@ -27,9 +28,7 @@ if config.config_file_name is not None:
 
 
 def get_url() -> str:
-    return os.getenv(
-        "DATABASE_URL", "postgresql+asyncpg://postgres:postgres@db:5432/megapolis"
-    )
+    return environment.DATABASE_URL
 
 
 target_metadata = Base.metadata

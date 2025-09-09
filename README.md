@@ -69,10 +69,10 @@ megapolis-api/
 ## Configuration
 Set the database URL via the `DATABASE_URL` environment variable. Defaults are provided for Docker.
 
-- Format: `postgresql+asyncpg://<user>:<password>@<host>:<port>/<db>`
+- Format: `postgresql+psycopg://<user>:<password>@<host>:<port>/<db>`
 - Examples:
-  - Local: `postgresql+asyncpg://postgres:postgres@localhost:5432/megapolis`
-  - Docker network: `postgresql+asyncpg://postgres:postgres@db:5432/megapolis`
+  - Local: `postgresql+psycopg://postgres:postgres@localhost:5432/megapolis`
+  - Docker network: `postgresql+psycopg://postgres:postgres@db:5432/megapolis`
 
 Additional environment variables for authentication:
 - `JWT_SECRET_KEY`: Secret key for JWT token generation/verification
@@ -190,7 +190,7 @@ poetry install --no-root
 2) Ensure Postgres is running and reachable at your `DATABASE_URL` (create database if needed):
 ```bash
 createdb megapolis   # if you have local Postgres and want this DB name
-export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/megapolis
+export DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/megapolis
 ```
 
 3) Run the API (hot reload on by default):

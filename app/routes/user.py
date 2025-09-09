@@ -10,6 +10,8 @@ from app.services.user import (
     delete_user,
 )
 from app.schemas.user import UserCreateRequest, UserUpdateRequest, UserResponse
+from app.schemas.user_permission import UserPermissionResponse
+from app.dependencies.permissions import get_user_permission
 from app.utils.logger import logger
 
 
@@ -69,3 +71,51 @@ async def delete_user(user_id: int) -> dict[str, str]:
     await delete_user(user_id)
     logger.info(f"User with ID {user_id} deleted successfully")
     return {"message": "User deleted successfully"}
+
+
+# Example route demonstrating the new user permission dependency
+@router.get("/opportunities", response_model=Dict[str, Any], operation_id="getOpportunities")
+async def get_opportunities(
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["view"]}))
+) -> Dict[str, Any]:
+    """
+    Example endpoint that requires 'view' permission for opportunities.
+    
+    This demonstrates how to use the get_user_permission dependency:
+    - user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["view"]}))
+    
+    The dependency will:
+    1. Get the current user from JWT token
+    2. Fetch user permissions from database
+    3. Validate that user has 'view' permission for 'opportunities'
+    4. Return 403 if permission is missing
+    5. Return UserPermissionResponse if permission is granted
+    """
+    logger.info(f"User {user_permission.userid} accessed opportunities with view permission")
+    return {
+        "message": "Access granted to opportunities",
+        "user_permissions": user_permission.model_dump(),
+        "opportunities": [
+            {"id": 1, "name": "Sample Opportunity 1"},
+            {"id": 2, "name": "Sample Opportunity 2"}
+        ]
+    }
+
+
+@router.post("/opportunities", response_model=Dict[str, Any], operation_id="createOpportunity")
+async def create_opportunity(
+    opportunity_data: Dict[str, Any],
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["view", "edit"]}))
+) -> Dict[str, Any]:
+    """
+    Example endpoint that requires both 'view' and 'edit' permissions for opportunities.
+    
+    This demonstrates requiring multiple permissions for the same resource:
+    - user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["view", "edit"]}))
+    """
+    logger.info(f"User {user_permission.userid} created opportunity with view and edit permissions")
+    return {
+        "message": "Opportunity created successfully",
+        "user_permissions": user_permission.model_dump(),
+        "opportunity": opportunity_data
+    }
