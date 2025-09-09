@@ -11,7 +11,9 @@ from app.services.account import (
     add_contact, get_account_contacts, update_contact, delete_contact
 )
 from app.dependencies.user_auth import get_current_user
+from app.dependencies.permissions import get_user_permission
 from app.models.user import User
+from app.schemas.user_permission import UserPermissionResponse
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
@@ -19,7 +21,8 @@ router = APIRouter(prefix="/accounts", tags=["accounts"])
 @router.post("/", response_model=dict)
 async def create_account_route(
     payload: AccountCreate,
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit"]}))
 ):
     logger.info(f"Create account request received with payload: {payload.model_dump_json()}")
     account = await create_account(payload, user)

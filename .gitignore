@@ -150,3 +150,5 @@ local.test.db
 local.test.sqlite3
 local.test.log
 local.test.env
+
+.idea/
