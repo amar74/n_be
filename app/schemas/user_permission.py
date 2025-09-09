@@ -51,3 +51,9 @@ class UserWithPermissionsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class UserWithPermissionsResponseModel(BaseModel):
+    data: List[UserWithPermissionsResponse]
+
+    class Config:
+        from_attributes = True

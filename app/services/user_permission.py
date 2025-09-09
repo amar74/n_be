@@ -1,6 +1,6 @@
 from app.models.user_permission import UserPermission
 from app.models.user import User
-from app.schemas.user_permission import UserPermissionCreateRequest, UserPermissionUpdateRequest, UserWithPermissionsResponse, UserInfo, UserPermissions
+from app.schemas.user_permission import UserPermissionCreateRequest, UserPermissionUpdateRequest, UserWithPermissionsResponseModel, UserInfo, UserPermissions
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
 from sqlalchemy import select
@@ -135,7 +135,7 @@ async def delete_user_permission(userid: uuid.UUID, current_user: User) -> None:
     logger.info(f"Deleted user permission for user {userid}")
 
 
-async def list_user_permissions(current_user: User, skip: int = 0, limit: int = 100) -> List[UserWithPermissionsResponse]:
+async def list_user_permissions(current_user: User, skip: int = 0, limit: int = 100) -> List[UserWithPermissionsResponseModel]:
     """Get all users from current user's organization with their permissions (LEFT JOIN)"""
     
     if not current_user.org_id:
@@ -172,7 +172,7 @@ async def list_user_permissions(current_user: User, skip: int = 0, limit: int = 
             proposals=user_permission.proposals if user_permission else []
         )
         
-        user_with_permissions = UserWithPermissionsResponse(
+        user_with_permissions = UserWithPermissionsResponseModel(
             user=user_info,
             permissions=permissions
         )
