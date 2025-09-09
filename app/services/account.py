@@ -10,7 +10,7 @@ from app.schemas.account import (
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, text
+from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from uuid import UUID
@@ -254,7 +254,7 @@ async def update_account(account_id: UUID, payload: AccountUpdate, current_user:
     return account
 
 async def delete_account(account_id: UUID, current_user: User) -> None:
-    """Delete account and all associated contacts and address"""
+    """Delete account and all associated contacts and address using ORM cascades"""
     # Guard clauses
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
@@ -281,34 +281,20 @@ async def delete_account(account_id: UUID, current_user: User) -> None:
             status_code=404, message="Not found", details="Account not found or access denied"
         )
     
-    # Step 1: Use raw SQL to break circular dependencies by setting foreign key references to NULL
-    await db.execute(
-        text("UPDATE accounts SET primary_contact_id = NULL, client_address_id = NULL WHERE account_id = :account_id"),
-        {"account_id": account_id}
-    )
-    await db.flush()
+    # Break circular reference by clearing primary_contact_id before deletion
+    # This allows the ORM cascade to work properly
+    if account.primary_contact_id:
+        account.primary_contact_id = None
+        await db.flush()
     
-    # Step 2: Delete all contacts
-    await db.execute(
-        text("DELETE FROM contacts WHERE account_id = :account_id"),
-        {"account_id": account_id}
-    )
-    logger.info(f"Deleted contacts for account {account_id}")
-    
-    # Step 3: Delete the address if it exists
-    if account.client_address_id:
-        await db.execute(
-            text("DELETE FROM address WHERE id = :address_id"),
-            {"address_id": account.client_address_id}
-        )
+    # Delete the address if it exists (must be done before account deletion)
+    if account.client_address:
+        await db.delete(account.client_address)
         logger.info(f"Deleted address for account {account_id}")
     
-    # Step 4: Now delete the account itself
-    await db.execute(
-        text("DELETE FROM accounts WHERE account_id = :account_id"),
-        {"account_id": account_id}
-    )
-    logger.info(f"Deleted account {account_id}")
+    # Now delete the account - contacts will be deleted automatically via cascade
+    await db.delete(account)
+    logger.info(f"Deleted account {account_id} and all associated contacts via ORM cascade")
     
     # Transaction will be automatically committed by the transaction middleware
 
