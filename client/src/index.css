@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+/* Global Sonner toast styles - applied to the main.tsx instance */
+[data-sonner-toaster] {
+  z-index: 9999 !important;
+  position: fixed !important;
+}
+
+[data-sonner-toast] {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000 !important;
+}
+
+/* Success toast styling for authentication */
+.success-login-toast {
+  background: #10b981 !important;
+  color: white !important;
+  border: 1px solid #059669 !important;
+  z-index: 10001 !important;
+}

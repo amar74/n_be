@@ -39,25 +39,27 @@ async def create_organization(
         )
     organization = await Organization.create(current_user, request)
     
-    # Create a formbricks organization
-    formbricks_organization = await create_formbricks_organization(organization)
-    organization.formbricks_organization_id = formbricks_organization.id
-    
-    # Sign up the user in formbricks
-    formbricks_user = await signup_user_in_formbricks(organization, current_user)
-    current_user.formbricks_user_id = formbricks_user.id
+    try:
+        # Create a formbricks organization
+        formbricks_organization = await create_formbricks_organization(organization)
+        organization.formbricks_organization_id = formbricks_organization.id
+        
+        # Sign up the user in formbricks
+        formbricks_user = await signup_user_in_formbricks(organization, current_user)
+        current_user.formbricks_user_id = formbricks_user.id
 
-    # Create a new project inside formbricks
-    formbricks_project = await create_formbricks_project(organization)
-    
-    # Create a FormbricksProject entry
-    await FormbricksProject.create(
-        organization_id=organization.id, 
-        project_id=formbricks_project.id, 
-        dev_env_id=formbricks_project.environments[0].id, 
-        prod_env_id=formbricks_project.environments[1].id
-    )
-
+        # Create a new project inside formbricks
+        formbricks_project = await create_formbricks_project(organization)
+        
+        # Create a FormbricksProject entry
+        await FormbricksProject.create(
+            organization_id=organization.id, 
+            project_id=formbricks_project.id, 
+            dev_env_id=formbricks_project.environments[0].id, 
+            prod_env_id=formbricks_project.environments[1].id
+        )
+    except Exception as e:
+        logger.warning(f"Continuing without formbricks: {e}")
     # Save changes to the database
     transaction.add(organization)
     transaction.add(current_user)

@@ -70,6 +70,5 @@ async def list_user_permissions_route(
     """Get all users from current user's organization with their permissions"""
     logger.info(f"List user permissions request received - skip: {skip}, limit: {limit}")
     user_permissions_data = await list_user_permissions(skip=skip, limit=limit, current_user=user)
-    logger.info(f"Retrieved {len(user_permissions_data)} users with permissions")
     
     return user_permissions_data

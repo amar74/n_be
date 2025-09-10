@@ -1,3 +1,4 @@
+import traceback
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -48,6 +49,7 @@ async def handle_exception(request: Request, call_next):
         return JSONResponse(status_code=e.status_code, content={"message": e.message, "metadata": e.metadata})
     except Exception as e:
         logger.exception("Error handling request", e, exc_info=True)
+        traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": "Something went wrong"})
 
 logger.info("API router included successfully")

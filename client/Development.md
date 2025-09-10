@@ -1,0 +1,585 @@
+## Megapolis Client – Development Guide
+
+This is the go-to document for contributing to `megapolis-client`. It explains how the frontend is structured, the conventions we follow, and a step-by-step workflow to add a new feature using Vite, React 19, TypeScript, React Router 7, Tailwind CSS v4, Axios, and OpenAPI-driven type generation.
+
+- Tech stack: Vite, React 19, TypeScript, React Router 7, Tailwind CSS v4, Axios
+- Entry: `src/main.tsx` bootstraps the app and mounts the router
+- Routing: Centralized in `src/routes/AppRouter.tsx`
+- State: centralised state management for whole app
+- UI: Pages under `src/pages/*`, shared components in `src/components/*`
+- API Client: Central Axios instance with interceptors in `src/services/api/client.ts`
+- Hooks: Feature hooks in `src/hooks/*` using OpenAPI-generated clients from `src/types/generated/*` and TanStack Query
+- Types: OpenAPI-based generated types in `src/types/generated/*` via `openapi-zod-client`
+- Styling: Tailwind CSS via Vite plugin
+
+### Quick Start
+
+Install dependencies, configure env, and run the dev server.
+
+```bash
+pnpm install
+cp .env.example .env   # ensure VITE_API_BASE_URL is set
+pnpm dev
+# App runs at http://127.0.0.1:5173 (or shown by Vite)
+```
+
+### Project Structure
+
+Understand where code lives and what belongs where.
+
+- `src/main.tsx`: App bootstrap; mounts the router and QueryClientProvider
+- `src/routes/AppRouter.tsx`: Route configuration using React Router 7
+- `src/components/ui/*`: Reusable UI primitives (Button, Input, Dialog, etc.)
+- `src/components/*`: Feature-agnostic presentational components (no HTTP calls)
+- `src/pages/*`: Route-level components that call feature hooks (keep thin)
+- `src/hooks/*`: Feature hooks using OpenAPI-generated clients + TanStack Query
+- `src/services/api/client.ts`: Central Axios instance with interceptors
+- `src/types/generated/*`: OpenAPI-generated schemas and API clients per tag
+- `generate.ts`: Script invoking `openapi-zod-client` to generate types/clients
+- `vite.config.ts`: Vite + React SWC + Tailwind config
+- `index.html` and `src/index.css`: HTML entry and global styles
+
+### Common Commands
+
+Use package scripts for local development and code generation.
+
+```bash
+pnpm dev
+pnpm build
+pnpm preview
+pnpm lint
+pnpm generate:dev   # uses http://127.0.0.1:8000/openapi.json
+pnpm generate:prod  # uses https://api.megapolis.com/openapi.json
+```
+
+### Conventions and Patterns
+
+- Keep pages thin; use feature hooks powered by generated clients (`src/types/generated/*`).
+- Use TypeScript end-to-end for components and feature hooks.
+- Prefer guard clauses and early returns over deep nesting.
+- Centralize HTTP concerns in `src/services/api/client.ts` (timeouts, headers, auth token, logging, error handling).
+- For interconnected flows where values pass across layers, prefer an event/coordinator class per feature to orchestrate.
+- Co-locate feature state in centralised state management when it benefits multiple pages/components; otherwise, prefer local component state.
+- Use Tailwind utility classes for styling; avoid inline styles.
+- Keep routing declarative in `AppRouter.tsx`; route components should call feature hooks.
+
+### Component and Folder Structure
+
+- `src/components/ui/*`: Headless+styled building blocks (Button, Input, Dialog...). Keep them stateless.
+- `src/components/*`: Feature-agnostic presentational components (tables, cards). No HTTP calls here.
+- `src/pages/*`: Route-level containers. Compose UI and call hooks/services. Keep them thin.
+- `src/hooks/*`: Feature hooks that encapsulate queries/mutations using TanStack Query.
+- `src/services/*`: UI-facing facades that orchestrate controllers/models when needed.
+- `src/models/*`: Network calls only. Use the shared `apiClient`.
+- `src/types/generated/*`: OpenAPI-generated schemas and `createApiClient(...)` per tag.
+- Naming: one hook per feature (e.g., `useSuperAdmin`, `useOrgs`). Query keys are namespaced (e.g., `['admin', 'user_list']`).
+
+### API Client
+
+All network calls should flow through the shared Axios instance.
+
+```ts
+// src/services/api/client.ts
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+apiClient.interceptors.request.use(config => {
+  const token = localStorage.getItem('authToken');
+  if (token && config.headers) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+```
+
+### TanStack Query Setup
+
+Wrap the app with `QueryClientProvider` to enable feature hooks that use TanStack Query.
+
+```tsx
+// src/main.tsx (excerpt)
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <AppRouter />
+      </QueryClientProvider>
+    </Provider>
+  </StrictMode>
+);
+```
+
+### Environment Variables
+
+Read environment variables using Vite’s `import.meta.env`. Create `.env` (and optionally `.env.local`) files in the project root.
+
+```env
+# .env
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
+
+```ts
+// usage
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
+```
+
+### Authentication Overview
+
+We use a bearer token stored in `localStorage` under `authToken`. The Axios request interceptor attaches it to outgoing requests. A 401 response clears the token and redirects to `/login`.
+
+```ts
+// src/services/api/client.ts (excerpt)
+apiClient.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('authToken');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+## How to Add a New Feature
+
+Follow this checklist to add a new domain/feature. Each step has a short explanation followed by a concrete snippet.
+
+### 1) Plan the UI, Routes, and State
+
+Define screens, navigation, and data needs. Decide on local vs centralised state and API contracts. If backend changes are needed, ensure OpenAPI is updated with clear `operation_id`s.
+
+### 2) Create or Use the Generated API Client
+
+Prefer generated clients from `src/types/generated/*`. Create a feature-scoped client once and reuse it.
+
+```ts
+// src/hooks/use<Feature>.ts (client creation excerpt)
+import { apiClient } from '@/services/api/client';
+import { createApiClient as createFeatureApiClient } from '@/types/generated/feature_tag';
+
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
+const featureApi = createFeatureApiClient(baseUrl, { axiosInstance: apiClient });
+```
+
+### 3) Create a TanStack Hook
+
+Use a single hook per feature to encapsulate reads/writes and cache invalidation.
+
+```ts
+// src/hooks/useFeature.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/services/api/client';
+import { createApiClient as createFeatureApiClient } from '@/types/generated/feature_tag';
+
+const featureApi = createFeatureApiClient(import.meta.env.VITE_API_BASE_URL, { axiosInstance: apiClient });
+
+export const featureKeys = {
+  all: ['feature'] as const,
+  list: () => [...featureKeys.all, 'list'] as const,
+  detail: (id: number | string) => [...featureKeys.all, 'detail', id] as const,
+};
+
+export function useFeature() {
+  const qc = useQueryClient();
+
+  const listQuery = useQuery({
+    queryKey: featureKeys.list(),
+    queryFn: () => featureApi.listItems(),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (payload: { name: string }) => featureApi.createItem(undefined, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: featureKeys.list() }),
+  });
+
+  return {
+    list: listQuery.data,
+    isLoading: listQuery.isLoading,
+    createItem: createMutation.mutateAsync,
+    creating: createMutation.isPending,
+  };
+}
+```
+
+### 4) Add a Page/Component
+
+Create a route-level page under `src/pages/*` or a reusable component under `src/components/*`. Use Tailwind for styling and keep logic minimal.
+
+```tsx
+// src/pages/WidgetsPage.tsx
+import { useState } from 'react';
+import { WidgetService } from '../services/widget.service';
+
+export default function WidgetsPage() {
+  const [name, setName] = useState('');
+  return (
+    <div>
+      <input value={name} onChange={e => setName(e.target.value)} />
+      <button onClick={() => WidgetService.create({ name })}>Create</button>
+    </div>
+  );
+}
+```
+
+### 5) Register the Route
+
+Include your new route in `src/routes/AppRouter.tsx`.
+
+```tsx
+// src/routes/AppRouter.tsx (excerpt)
+import WidgetsPage from '../pages/WidgetsPage';
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Navigation />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: '/widgets', element: <WidgetsPage /> },
+    ],
+  },
+]);
+```
+
+### 6) Generate/Use OpenAPI Types
+
+When backend OpenAPI changes (new routes/schemas), regenerate types and (optionally) clients.
+
+```bash
+pnpm generate:dev
+```
+
+Generated outputs are written to `src/types/generated/*` with grouping by OpenAPI tag. You can import types or client functions directly from these files to avoid manual typing.
+
+### 7) Unified Feature Hooks (CRUD with TanStack Query)
+
+Use a single hook per feature to encapsulate all CRUD queries and mutations. The hook exposes functions to perform operations and returns current state from TanStack Query. Internally, use the generated `createApiClient` from `src/types/generated/<feature>.ts` and pass our Axios instance.
+
+```ts
+// src/hooks/useUsers.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createApiClient as createUsersApiClient } from '../types/generated/users';
+import { apiClient } from '../services/api/client';
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+const usersApi = createUsersApiClient(BASE_URL, { axiosInstance: apiClient });
+
+const queryKeys = {
+  all: ['users'] as const,
+  list: () => [...queryKeys.all, 'list'] as const,
+  detail: (id: number | string) => [...queryKeys.all, 'detail', id] as const,
+};
+
+export function useUsers() {
+  const qc = useQueryClient();
+
+  // READ - list users
+  const listQuery = useQuery({
+    queryKey: queryKeys.list(),
+    queryFn: () => usersApi.listUsers(), // alias from generated file
+  });
+
+  // CREATE
+  const createMutation = useMutation({
+    mutationFn: (payload: { name: string; email: string; password: string }) =>
+      usersApi.createUser(undefined, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.list() });
+    },
+  });
+
+  // UPDATE
+  const updateMutation = useMutation({
+    mutationFn: (args: { user_id: number; data: { name?: string; email?: string } }) =>
+      usersApi.updateUser({ user_id: args.user_id }, args.data),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.detail(vars.user_id) });
+      qc.invalidateQueries({ queryKey: queryKeys.list() });
+    },
+  });
+
+  // DELETE
+  const deleteMutation = useMutation({
+    mutationFn: (user_id: number) => usersApi.deleteUser({ user_id }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.list() });
+    },
+  });
+
+  return {
+    // state
+    list: listQuery.data ?? [],
+    isLoading: listQuery.isLoading,
+    isError: listQuery.isError,
+    error: listQuery.error,
+
+    // actions
+    refetch: listQuery.refetch,
+    createUser: createMutation.mutateAsync,
+    updateUser: updateMutation.mutateAsync,
+    deleteUser: deleteMutation.mutateAsync,
+
+    // granular mutation state
+    creating: createMutation.isPending,
+    updating: updateMutation.isPending,
+    deleting: deleteMutation.isPending,
+  };
+}
+```
+
+Example using the generated client directly:
+
+```ts
+import { createApiClient as createUsersApiClient } from '../types/generated/users';
+import { apiClient } from '../services/api/client';
+
+const usersApi = createUsersApiClient(import.meta.env.VITE_API_BASE_URL, {
+  axiosInstance: apiClient,
+});
+await usersApi.deleteUser({ user_id: 1234 });
+```
+
+Notes:
+
+- The alias names (e.g., `deleteUser`) come from the generated file and match your OpenAPI `operation_id` or configured alias.
+- Path params are passed as the first argument object, body as the second argument.
+- Use a similar single-hook pattern for each feature (e.g., `useAccounts`, `useWidgets`).
+
+### 8) Use Hooks in Pages and Keep Components Dumb
+
+Pages import the feature hook (smart), obtain data and actions, and pass props to dumb components.
+
+```tsx
+// src/pages/UsersPage.tsx (sketch)
+import { useState } from 'react';
+import { useUsers } from '../hooks/useUsers';
+import { UsersTable } from '../components/UsersTable';
+
+export default function UsersPage() {
+  const { list, isLoading, isError, error, createUser, deleteUser } = useUsers();
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
+
+  return (
+    <div>
+      {/* form UI */}
+      <button onClick={() => createUser(form)}>Create</button>
+      <UsersTable
+        users={list}
+        loading={isLoading}
+        error={isError ? String(error) : null}
+        onDelete={deleteUser}
+      />
+    </div>
+  );
+}
+```
+
+```tsx
+// src/components/UsersTable.tsx (dumb component sketch)
+export function UsersTable({
+  users,
+  loading,
+  error,
+  onDelete,
+}: {
+  users: Array<{ id: number | string; name: string; email: string; createdAt?: string }>;
+  loading: boolean;
+  error: string | null;
+  onDelete: (id: number) => Promise<unknown>;
+}) {
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
+  return (
+    <table>
+      <tbody>
+        {users.map(u => (
+          <tr key={String(u.id)}>
+            <td>{u.name}</td>
+            <td>{u.email}</td>
+            <td>
+              <button onClick={() => onDelete(Number(u.id))}>Delete</button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+```
+
+### 9) Validate, Log, and Handle Errors
+
+Validate inputs at the controller layer where business context exists. Use `console.info` for major events and `console.debug` for details (avoid logging secrets). Gracefully surface errors to the UI.
+
+```ts
+try {
+  await createUser({ name, email, password });
+} catch (error) {
+  // show toast or inline error
+}
+```
+
+## Additional Notes
+
+- Avoid coupling components to HTTP; use services and models.
+- Keep components small and focused; prefer hooks for reusable logic.
+- Keep forms accessible; validate before submit and show useful errors.
+- Prefer semantic HTML and Tailwind utilities over custom CSS when possible.
+- Keep network timeouts and auth handling centralized in the Axios instance.
+
+## Code rules
+
+- Use TypeScript and proper type annotations throughout components and domain layers.
+- Use async/await properly for all async operations.
+- Code should be properly formatted and keep consistent naming conventions.
+- One route-level page per feature/domain (users, accounts, widgets, etc.)
+- Use consistent naming for endpoints and parameters; mirror backend names when possible.
+- Use guard clauses to handle edge cases and invalid inputs early.
+- Return early from functions to reduce nesting and improve readability.
+- Validate inputs at the beginning of controller/service functions before processing.
+
+## Feature Blueprint: Super Admin (End-to-End Example)
+
+This mirrors the existing Super Admin flow and can serve as a template for new features that list entities and create new ones.
+
+### Generated client (from OpenAPI tag `admin`)
+
+The generator produces `src/types/generated/admin.ts` with `createApiClient(...)` and typed endpoints based on `operation_id`s:
+
+```ts
+// src/types/generated/admin.ts (excerpt)
+import { makeApi, Zodios, type ZodiosOptions } from '@zodios/core';
+import { z } from 'zod';
+
+const endpoints = makeApi([
+  { method: 'get', path: '/admin/user_list', alias: 'userList', /* ... */ },
+  { method: 'post', path: '/admin/create_new_user', alias: 'createNewUser', /* ... */ },
+]);
+
+export function createApiClient(baseUrl: string, options?: ZodiosOptions) {
+  return new Zodios(baseUrl, endpoints, options);
+}
+```
+
+### Hook: `useSuperAdmin`
+
+Encapsulates read/write operations and cache invalidation. Uses our shared Axios instance and the generated client.
+
+```ts
+// src/hooks/useSuperAdmin.ts (pattern)
+import { apiClient } from '@services/api/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { createApiClient } from '@/types/generated/admin';
+import { useToast } from './use-toast';
+
+const adminApi = createApiClient(import.meta.env.VITE_API_BASE_URL, { axiosInstance: apiClient });
+
+export const superAdminKeys = {
+  all: ['admin'] as const,
+  users: () => [...superAdminKeys.all, 'user_list'] as const,
+};
+
+export function useSuperAdmin() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: userList, isLoading: isUserListLoading, error: userListError } = useQuery({
+    queryKey: superAdminKeys.users(),
+    queryFn: () => adminApi.userList(),
+  });
+
+  const createNewUser = async (email: string, password: string) => {
+    const response = await adminApi.createNewUser({ email, password });
+    toast({ title: 'User Created', description: 'User created successfully' });
+    queryClient.invalidateQueries({ queryKey: superAdminKeys.users() });
+    return response;
+  };
+
+  return { createNewUser, userList, isUserListLoading, userListError };
+}
+```
+
+Key points:
+- Keep query keys namespaced under the feature to avoid collisions.
+- Invalidate only the affected lists/details after mutations.
+- Surface minimal state to pages (data + booleans + actions).
+
+### Page: Admin Dashboard
+
+Thin route-level component that renders a form and list using `useSuperAdmin`.
+
+```tsx
+// src/pages/admin/DashboardPage.tsx (pattern)
+import { useSuperAdmin } from '@/hooks/useSuperAdmin';
+import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+
+export default function AdminDashboardPage() {
+  const { userList, isUserListLoading, createNewUser } = useSuperAdmin();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    await createNewUser(email, password);
+    setEmail('');
+    setPassword('');
+  };
+
+  if (isUserListLoading) return <div>Loading...</div>;
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-3 items-end">
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Email</label>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Password</label>
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </div>
+        <div>
+          <Button type="submit">Create User</Button>
+        </div>
+      </form>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {userList?.users.map((u) => (
+          <div key={u.id} className="bg-white p-4 rounded shadow">
+            <div className="font-semibold">{u.email}</div>
+            <div className="text-gray-600">{u.role}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+### Route Registration
+
+Register the page under an appropriate path in `src/routes/AppRouter.tsx`.
+
+```tsx
+// src/routes/AppRouter.tsx (sketch)
+{ path: '/admin', element: <AdminLayout />, children: [
+  { index: true, element: <AdminDashboardPage /> },
+]}
+```
+
+### When to introduce a coordinator class
+
+If the feature requires cross-step orchestration (multi-form wizards, dependent uploads, or multi-entity writes), introduce a small coordinator class in `src/services/<feature>.coordinator.ts` that emits events and internally uses the generated client. Keep pages and hooks subscribing to those events; avoid pushing event logic into components.
