@@ -161,7 +161,7 @@ class WidgetResponse(BaseModel):
     name: str
 
     class Config:
-        from_attributes = True
+        model_config = {"from_attributes": True}
 ```
 
 ### 4) Implement the Service Layer

@@ -65,8 +65,7 @@ class NoteResponse(BaseModel):
     org_id: uuid.UUID
     created_by: uuid.UUID
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class NoteListResponse(BaseModel):
@@ -79,8 +78,7 @@ class NoteListResponse(BaseModel):
     has_next: bool
     has_prev: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class NoteCreateResponse(BaseModel):
@@ -94,8 +92,7 @@ class NoteCreateResponse(BaseModel):
     org_id: uuid.UUID
     created_by: uuid.UUID
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class NoteUpdateResponse(BaseModel):
@@ -109,8 +106,7 @@ class NoteUpdateResponse(BaseModel):
     org_id: uuid.UUID
     created_by: uuid.UUID
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class NoteDeleteResponse(BaseModel):

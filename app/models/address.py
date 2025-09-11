@@ -27,6 +27,7 @@ class Address(Base):
     )
     line1: Mapped[Optional[str]] = mapped_column(String(255), nullable=False)
     line2: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    city: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     pincode: Mapped[int] = mapped_column(Integer, nullable=True)
     org_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
@@ -41,6 +42,7 @@ class Address(Base):
             "id": self.id,
             "line1": self.line1,
             "line2": self.line2,
+            "city": self.city,
             "pincode": self.pincode,
             "org_id": self.org_id,
         }
@@ -55,6 +57,7 @@ class Address(Base):
                 id=uuid.uuid4(),
                 line1=request.line1,
                 line2=request.line2,
+                city=getattr(request, "city", None),
                 pincode=request.pincode,
                 org_id=org_id,
             )
