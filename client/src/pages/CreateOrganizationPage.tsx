@@ -22,6 +22,8 @@ import {
   Sparkles,
   Mail,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { apiClient } from '@/services/api/client';
 import { useToast } from '@/hooks/use-toast';
 import { scraperApi, ApiError } from '@/services/api/scraperApi';
 
@@ -441,7 +443,16 @@ export default function CreateOrganizationPage() {
                     type="button"
                     variant="outline" 
                     className="py-2 text-sm mx-2"
-                    onClick={() => navigate('/auth/login')}
+                    onClick={async () => {
+                      // Sign out from Supabase
+                      await supabase.auth.signOut();
+                      // Clear backend auth token
+                      localStorage.removeItem('authToken');
+                      // Clear API client auth header
+                      delete apiClient.defaults.headers.common['Authorization'];
+                      // Navigate to login
+                      navigate('/auth/login', { replace: true });
+                    }}
                     disabled={isSubmitting}
                   >
                     Back to Sign-In
