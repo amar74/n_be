@@ -113,6 +113,7 @@ class Organization(Base):
                 id=uuid.uuid4(),
                 line1=request.address.line1,
                 line2=request.address.line2,
+                city=request.address.city,
                 pincode=request.address.pincode,
                 org_id=org.id,  # link to org
             )
@@ -184,7 +185,7 @@ class Organization(Base):
                 )
                 address = result.scalars().first()
                 if address:
-                    for field in ["line1", "line2", "pincode"]:
+                    for field in ["line1", "line2", "city", "pincode"]:
                         value = getattr(request.address, field, None)
                         if value is not None:
                             setattr(address, field, value)

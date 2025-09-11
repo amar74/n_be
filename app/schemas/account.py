@@ -13,6 +13,7 @@ class ClientType(str, Enum):
 class AddressCreate(BaseModel):
     line1: str = Field(..., min_length=1, max_length=255, description="Address line 1 is required")
     line2: Optional[str] = Field(None, max_length=255, description="Optional address line 2")
+    city: Optional[str] = Field(None, max_length=255, description="Optional city")
     pincode: Optional[int] = Field(None, ge=100000, le=999999, description="Valid 6-digit pincode")
 
 class AddressResponse(AddressCreate):
