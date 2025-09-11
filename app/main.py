@@ -1,5 +1,6 @@
 import traceback
 from fastapi import FastAPI, Request
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 # from app.middlewares.db_session import DBSessionMiddleware
@@ -38,6 +39,30 @@ app.add_middleware(RequestTransactionMiddleware)
 
 # Include API router
 app.include_router(api_router)
+
+# Customize OpenAPI to add global Bearer auth in Swagger UI
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description="Megapolis API",
+        routes=app.routes,
+    )
+    components = openapi_schema.setdefault("components", {})
+    security_schemes = components.setdefault("securitySchemes", {})
+    security_schemes["BearerAuth"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+    }
+    # Apply Bearer auth globally so the Authorize button adds the header to all requests
+    openapi_schema["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
 
 @app.middleware("http")
 async def handle_exception(request: Request, call_next):

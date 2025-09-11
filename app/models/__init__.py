@@ -7,3 +7,4 @@ from .invite import *
 from .organization import *
 from .user import *
 from .user_permission import *
+from .account_note import *
