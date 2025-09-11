@@ -63,7 +63,7 @@ class AccountCreate(BaseModel):
     client_name: str = Field(..., min_length=1, max_length=255, description="Client name is required")
     client_address: AddressCreate = Field(..., description="Client address is required")
     primary_contact: ContactCreate = Field(..., description="Primary contact is required")
-    secondary_contacts: List[ContactCreate] = Field(default_factory=list, max_items=10, description="Optional secondary contacts (max 10)")
+    secondary_contacts: List[ContactCreate] = Field(default_factory=list, max_length=10, description="Optional secondary contacts (max 10)")
     client_type: ClientType = Field(..., description="Client tier classification is required")
     market_sector: Optional[str] = Field(None, max_length=255, description="Optional market sector")
 

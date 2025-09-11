@@ -39,3 +39,17 @@ build-backend = "poetry.core.masonry.api"
 packages = [
     { include = "app" }
 ]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+asyncio_mode = "auto"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.2"
+pytest-asyncio = "^1.1.0"
+anyio = "^4.10.0"
+httpx = "^0.28.1"
+aiosqlite = "^0.21.0"
+

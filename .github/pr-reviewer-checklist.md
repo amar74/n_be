@@ -17,7 +17,7 @@
         id: int
         name: str
         class Config:
-            from_attributes = True
+            model_config = {"from_attributes": True}
     ```
 - [ ] Services in `app/services/<feature>.py`, async functions
     ```python

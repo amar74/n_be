@@ -22,8 +22,7 @@ class UserPermissionResponse(BaseModel):
     opportunities: List[str]
     proposals: List[str]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class UserInfo(BaseModel):
@@ -32,8 +31,7 @@ class UserInfo(BaseModel):
     org_id: Optional[uuid.UUID]
     role: str
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class UserPermissions(BaseModel):
@@ -41,19 +39,16 @@ class UserPermissions(BaseModel):
     opportunities: List[str]
     proposals: List[str]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class UserWithPermissionsResponse(BaseModel):
     user: UserInfo
     permissions: UserPermissions
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class UserWithPermissionsResponseModel(BaseModel):
     data: List[UserWithPermissionsResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
