@@ -5,7 +5,7 @@ from app.utils.error import MegapolisHTTPException
 from app.models.user import User
 from app.models.user_permission import UserPermission
 from app.schemas.auth import AuthUserResponse
-from app.schemas.user_permission import UserPermissionResponse
+from app.schemas.user_permission import Permission, UserPermissionResponse
 from typing import Dict, List
 
 
@@ -84,6 +84,14 @@ def get_user_permission(required_permissions: Dict[str, List[str]]):
         """
         # Get user permissions from database
         user_permission = await UserPermission.get_by_userid(current_user.id)
+        
+        if current_user.organization.owner_id == current_user.id:
+            return UserPermissionResponse(
+                userid=current_user.id,
+                accounts=[Permission.VIEW, Permission.EDIT],
+                opportunities=[Permission.VIEW, Permission.EDIT],
+                proposals=[Permission.VIEW, Permission.EDIT]
+            )
         
         # If no permissions found, user has no permissions (empty lists)
         if not user_permission:

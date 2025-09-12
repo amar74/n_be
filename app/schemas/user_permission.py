@@ -1,26 +1,32 @@
+from enum import Enum
 from pydantic import BaseModel, Field  # pyright: ignore[reportMissingImports]
 from typing import List, Optional
 import uuid
 
+class Permission(str, Enum):
+    VIEW = "view"
+    EDIT = "edit"
+
+PermissionList = List[Permission]
 
 class UserPermissionCreateRequest(BaseModel):
     userid: uuid.UUID = Field(..., description="User ID")
-    accounts: List[str] = Field(default_factory=list, description="List of account permissions")
-    opportunities: List[str] = Field(default_factory=list, description="List of opportunity permissions")
-    proposals: List[str] = Field(default_factory=list, description="List of proposal permissions")
+    accounts: PermissionList = Field(default_factory=list, description="List of account permissions")
+    opportunities: PermissionList = Field(default_factory=list, description="List of opportunity permissions")
+    proposals: PermissionList = Field(default_factory=list, description="List of proposal permissions")
 
 
 class UserPermissionUpdateRequest(BaseModel):
-    accounts: Optional[List[str]] = Field(None, description="List of account permissions")
-    opportunities: Optional[List[str]] = Field(None, description="List of opportunity permissions")
-    proposals: Optional[List[str]] = Field(None, description="List of proposal permissions")
+    accounts: Optional[PermissionList] = Field(None, description="List of account permissions")
+    opportunities: Optional[PermissionList] = Field(None, description="List of opportunity permissions")
+    proposals: Optional[PermissionList] = Field(None, description="List of proposal permissions")
 
 
 class UserPermissionResponse(BaseModel):
     userid: uuid.UUID
-    accounts: List[str]
-    opportunities: List[str]
-    proposals: List[str]
+    accounts: PermissionList
+    opportunities: PermissionList
+    proposals: PermissionList
 
     model_config = {"from_attributes": True}
 
@@ -35,9 +41,9 @@ class UserInfo(BaseModel):
 
 
 class UserPermissions(BaseModel):
-    accounts: List[str]
-    opportunities: List[str]
-    proposals: List[str]
+    accounts: PermissionList
+    opportunities: PermissionList
+    proposals: PermissionList
 
     model_config = {"from_attributes": True}
 
