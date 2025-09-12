@@ -86,4 +86,5 @@ class HelloWorld(BaseModel):
 @app.get("/")
 async def read_root() -> HelloWorld:
     logger.info("Root endpoint accessed")
+    raise MegapolisHTTPException(status_code=400, message="Something went wrong")
     return {"message": "Hello, world!"}

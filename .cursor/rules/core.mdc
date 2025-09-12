@@ -108,6 +108,7 @@ raise MegapolisHTTPException(status_code=400, message="Name already exists", met
 
 - Place models in `app/models/<feature>.py` extending `Base`.
 - Provide class/instance methods. Access the current transaction inside model methods using `get_request_transaction`.
+- Make sure to include organization id or any other identifier to make sure to implement the authorization logic in the model methods.
 
 ```python
 from sqlalchemy import String, select
@@ -122,11 +123,12 @@ class Widget(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
 
     @classmethod
-    async def create(cls, name: str) -> "Widget":
+    async def create(cls, name: str, user: User) -> "Widget":
         db = get_request_transaction()
-        inst = cls(name=name)
+        inst = cls(name=name, organization_id=user.org_id)
         db.add(inst)
         # Avoid manual commit; middleware handles commit/rollback. Use flush to persist and get IDs.
         await db.flush()
@@ -138,6 +140,14 @@ class Widget(Base):
         db = get_request_transaction()
         res = await db.execute(select(cls).where(cls.id == widget_id))
         return res.scalar_one_or_none()
+    
+    async def update(cls, payload: WidgetUpdateRequest) -> Optional["Widget"]:
+        db = get_request_transaction()
+        values = payload.model_dump(exclude_unset=True)
+        db.execute(update(cls).where(cls.id == payload.id).values(**values))
+        await db.flush()
+        await db.refresh(payload)
+        return payload
 ```
 
 ## Schemas (Pydantic v2)
@@ -162,20 +172,48 @@ class WidgetResponse(BaseModel):
 
 - Keep services small and functional by default.
 - Log major events and raise `MegapolisHTTPException` for client-visible errors.
-
+- Implement the authorization logic in the service functions. ** NOTE **: This is the most important thing you need to do in the service functions.
 ```python
 from app.utils.exceptions import MegapolisHTTPException
 from app.models.widget import Widget
 from app.schemas.widget import WidgetCreateRequest
 from app.utils.logger import logger
 
-async def create_widget(payload: WidgetCreateRequest):
+async def get_by_name(payload: WidgetGetRequest, user: User):
+    existing = await Widget.get_by_name(payload.name, user)
     # Replace with real uniqueness check
-    existing = await Widget.get_by_id(1)
-    if existing and getattr(existing, "name", None) == payload.name:
+    if existing and existing.name == payload.name:
         raise MegapolisHTTPException(status_code=400, message="Name already exists", metadata={"name": payload.name})
-    logger.info("Creating widget")
-    return await Widget.create(payload.name)
+    
+    return existing
+
+async def create_widget(payload: WidgetCreateRequest, user: User):
+    # Replace with real uniqueness check
+    ...
+    All the logic to authenticate and check check that person is authorized to perform the action
+    ...
+    
+    return await Widget.create(payload.name, user)
+
+async def update_widget(payload: WidgetUpdateRequest, user: User):
+    existing = await Widget.get_by_id(payload.id)
+    ...
+    All the logic to authenticate and check check that person is authorized to perform the action
+    ...
+    if existing and existing.org_id != user.org_id:
+        raise MegapolisHTTPException(status_code=403, message="You are not authorized to update this widget")
+
+    return await Widget.update(payload)
+
+async def delete_widget(payload: WidgetUpdateRequest, user: User):
+    existing = await Widget.get_by_id(payload.id)
+    ...
+    All the logic to authenticate and check check that person is authorized to perform the action
+    ...
+    if existing and existing.org_id != user.org_id:
+        raise MegapolisHTTPException(status_code=403, message="You are not authorized to update this widget")
+
+    return await Widget.delete()
 ```
 
 ## Routes
@@ -193,8 +231,7 @@ router = APIRouter(prefix="/widgets", tags=["widgets"])
 
 @router.post("/", response_model=WidgetResponse, status_code=201)
 async def create_widget_route(payload: WidgetCreateRequest, user = Depends(get_current_user)) -> WidgetResponse:
-    logger.info("POST /widgets")
-    widget = await create_widget(payload)
+    widget = await create_widget(payload)    
     return WidgetResponse.model_validate(widget)
 ```
 
