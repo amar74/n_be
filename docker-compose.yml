@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - api_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d megapolis"]
       interval: 5s
@@ -87,7 +87,7 @@ services:
 
 
 volumes:
-  db_data:
+  api_db_data:
   formbricks_db_data:
   uploads:
     driver: local
