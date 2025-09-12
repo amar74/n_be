@@ -10,7 +10,7 @@ from app.schemas.account import (
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, and_, func, desc, case
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from uuid import UUID
@@ -110,24 +110,92 @@ async def list_accounts(q: Optional[str], tier: Optional[str], limit: int, offse
     
     db = get_request_transaction()
     
-    stmt = select(Account).options(
+    # Base loader options
+    loader_options = (
         selectinload(Account.client_address),
         selectinload(Account.primary_contact),
-        selectinload(Account.contacts)
-    ).where(Account.org_id == current_user.org_id)
-    
-    # Apply filters
+        selectinload(Account.contacts),
+    )
+
     if q:
-        stmt = stmt.where(or_(
-            Account.client_name.ilike(f"%{q}%"),
-            Account.account_id.cast(str).ilike(f"%{q}%")
-        ))
-    if tier:
-        stmt = stmt.where(Account.client_type == tier)
-    
-    stmt = stmt.offset(offset).limit(limit)
-    result = await db.execute(stmt)
-    accounts = result.scalars().all()
+        # Build per-field search vectors and ranks with weights in priority order:
+        # Name (A), Emails (primary) (B), Website (C), Address line1 (D)
+        ts_cfg = 'public.english_unaccent'
+        # Build a prefix tsquery to support partial token matches (e.g., "Jai Nara" -> 'Jai:* & Nara:*')
+        # Use plainto_tsquery for normal ranking, and a manual prefix query for broader matches
+        ts_query = func.plainto_tsquery(ts_cfg, q)
+        tokens = [t for t in q.strip().split() if t]
+        prefix_query_text = ' & '.join([f"{t}:*" for t in tokens]) if tokens else ''
+        ts_query_prefix = func.to_tsquery(ts_cfg, prefix_query_text) if prefix_query_text else ts_query
+
+        name_vec = func.to_tsvector(ts_cfg, func.coalesce(Account.client_name, '')).label('name_vec')
+        name_rank = func.ts_rank_cd(name_vec, ts_query, 1).label('name_rank')  # weight bucket 1
+
+        email_vec = func.to_tsvector(ts_cfg, func.coalesce(Contact.email, '')).label('email_vec')
+        email_rank = func.ts_rank_cd(email_vec, ts_query, 2).label('email_rank')
+
+        website_vec = func.to_tsvector(ts_cfg, func.coalesce(Account.company_website, '')).label('website_vec')
+        website_rank = func.ts_rank_cd(website_vec, ts_query, 4).label('website_rank')
+
+        address_vec = func.to_tsvector(ts_cfg, func.coalesce(Address.line1, '')).label('address_vec')
+        address_rank = func.ts_rank_cd(address_vec, ts_query, 8).label('address_rank')
+
+        # Weighted score: prioritize name > email > website > address
+        weighted_score = (
+            (name_rank * 4.0)
+            + (email_rank * 3.0)
+            + (website_rank * 2.0)
+            + (address_rank * 1.0)
+        ).label('weighted_score')
+
+        stmt = (
+            select(Account, weighted_score)
+            .options(*loader_options)
+            .join(Contact, Account.primary_contact_id == Contact.id, isouter=True)
+            .join(Address, Account.client_address_id == Address.id, isouter=True)
+            .where(Account.org_id == current_user.org_id)
+            .where(
+                or_(
+                    name_vec.op('@@')(ts_query_prefix),
+                    email_vec.op('@@')(ts_query_prefix),
+                    website_vec.op('@@')(ts_query_prefix),
+                    address_vec.op('@@')(ts_query_prefix),
+                )
+            )
+        )
+
+        if tier:
+            stmt = stmt.where(Account.client_type == tier)
+
+        # Add small boosts for ILIKE prefix matches as a fallback for very short tokens
+        name_like = Account.client_name.ilike(f"%{q}%")
+        email_like = Contact.email.ilike(f"%{q}%")
+        website_like = Account.company_website.ilike(f"%{q}%")
+        address_like = Address.line1.ilike(f"%{q}%")
+
+        fallback_boost = (
+            case((name_like, 0.2), else_=0.0)
+            + case((email_like, 0.15), else_=0.0)
+            + case((website_like, 0.1), else_=0.0)
+            + case((address_like, 0.05), else_=0.0)
+        )
+        final_score = (weighted_score + fallback_boost).label('final_score')
+
+        stmt = stmt.order_by(desc(final_score), Account.created_at.desc()).offset(offset).limit(limit)
+        result = await db.execute(stmt)
+        accounts = result.scalars().all()
+    else:
+        # Default non-search listing
+        stmt = (
+            select(Account)
+            .options(*loader_options)
+            .where(Account.org_id == current_user.org_id)
+        )
+        if tier:
+            stmt = stmt.where(Account.client_type == tier)
+        stmt = stmt.order_by(Account.created_at.desc()).offset(offset).limit(limit)
+        result = await db.execute(stmt)
+        accounts = result.scalars().all()
     
     logger.info(f"Retrieved {len(accounts)} accounts for organization {current_user.org_id}")
     return list(accounts)
