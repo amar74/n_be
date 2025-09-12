@@ -18,5 +18,5 @@ COPY . .
 
 EXPOSE 80
 
-CMD ["sh", "-c", "hypercorn app.main:app --bind 0.0.0.0:${PORT:-80}"]
+CMD ["sh", "-c", "hypercorn app.main:app --bind 0.0.0.0:${PORT:-80} --reload"]
 

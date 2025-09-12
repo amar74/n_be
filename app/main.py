@@ -40,6 +40,7 @@ app.add_middleware(RequestTransactionMiddleware)
 # Include API router
 app.include_router(api_router)
 
+
 # Customize OpenAPI to add global Bearer auth in Swagger UI
 def custom_openapi():
     if app.openapi_schema:
@@ -86,5 +87,4 @@ class HelloWorld(BaseModel):
 @app.get("/")
 async def read_root() -> HelloWorld:
     logger.info("Root endpoint accessed")
-    raise MegapolisHTTPException(status_code=400, message="Something went wrong")
     return {"message": "Hello, world!"}
