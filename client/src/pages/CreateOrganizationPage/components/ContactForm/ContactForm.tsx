@@ -47,20 +47,13 @@ export function ContactForm({ control, isSubmitting, userEmail }: ContactFormPro
                   <Input
                     {...field}
                     type="tel"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    placeholder="10-digit phone number"
+                    placeholder="Phone number (e.g., +1-555-123-4567)"
                     className="pl-10 border 
                       placeholder-shown:border-gray-300 
                       focus:border-orange-300 
                       not-placeholder-shown:border-orange-300 
                       focus:outline-none focus:ring-0 focus-visible:ring-0"
                     disabled={isSubmitting}
-                    maxLength={10}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                      field.onChange(value);
-                    }}
                   />
                 </div>
               </FormControl>

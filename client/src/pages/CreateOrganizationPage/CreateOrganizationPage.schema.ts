@@ -3,8 +3,8 @@ import { z } from 'zod';
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Phone number validation (exactly 10 digits, no special characters)
-const phoneRegex = /^[0-9]{10}$/;
+// Phone number validation (standard international formats)
+const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
 
 // Postal code validation (supports various international formats)
 const postalCodeRegex = /^[0-9]{5,6}$/;
@@ -53,10 +53,10 @@ export const CreateOrganizationSchema = z.object({
       .optional()
       .refine((val) => {
         if (!val || val.trim() === '') return true; // Optional field
-        // Remove all non-digit characters for validation
-        const cleanPhone = val.replace(/\D/g, '');
+        // Remove spaces, dashes, and parentheses for validation
+        const cleanPhone = val.replace(/[\s\-\(\)]/g, '');
         return phoneRegex.test(cleanPhone);
-      }, 'Please enter exactly 10 digits'),
+      }, 'Please enter a valid phone number'),
   }).optional(),
 }).refine((data) => {
   // At least one contact method should be provided if contact object exists
