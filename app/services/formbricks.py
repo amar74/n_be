@@ -1,7 +1,8 @@
 import time
-from typing import Optional
+from typing import List, Optional
 import jwt
 from pydantic import BaseModel
+from sqlalchemy import UUID
 from app.environment import environment
 from app.models.organization import Organization
 import httpx
@@ -13,7 +14,12 @@ from app.schemas.formbricks import (
     CreateOrganizationFormBricksResponse,
     CreateUserInFormBricksResponse,
     FormbricksLoginTokenResponse,
+    SurveyListResponse,
+    SurveyCreateRequest,
+    Survey,
 )
+from app.models.formbricks_projects import FormbricksProject
+from app.utils.error import MegapolisHTTPException
 from loguru import logger
 
 
@@ -116,3 +122,116 @@ async def get_formbricks_login_token(
     token = jwt.encode(payload, environment.FORMBRICKS_JWT_SECRET, algorithm="HS256")
     
     return FormbricksLoginTokenResponse(token=token)
+
+
+
+
+
+
+
+async def get_all_surveys(org_id: UUID, current_user: User) -> SurveyListResponse:
+    """Get all surveys for an organization.
+
+    Fetches surveys from Formbricks admin API using the organization's
+    environment id (dev by default). Returns a normalized SurveyListResponse.
+    """
+
+    # Authorization: user must belong to the organization
+    if not current_user.org_id or str(current_user.org_id) != str(org_id):
+        raise MegapolisHTTPException(status_code=403, message="Forbidden")
+
+    # Resolve Formbricks environment id for the organization
+    fb_project = await FormbricksProject.get_by_organization_id(org_id)
+    if not fb_project or not fb_project.prod_env_id:
+        raise MegapolisHTTPException(status_code=404, message="Formbricks environment not configured")
+
+    environment_id = fb_project.prod_env_id
+
+    url = f"{environment.FORMBRICKS_SERVER_URL}/api/admin/environments/{environment_id}/surveys"
+    headers = {
+        "accept": "application/json",
+        "Content-Type": "application/json",
+        "x-admin-secret": environment.FORMBRICKS_ADMIN_SECRET,
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers)
+
+    if response.status_code != 200:
+        logger.error(f"Failed to fetch surveys: {response.status_code} {response.text[0:200]}")
+        raise MegapolisHTTPException(status_code=502, message="Upstream Formbricks error")
+
+    payload = response.json()
+    raw_list = payload.get("data", [])
+
+    # Map minimal fields we currently model; keep extensible
+    surveys = []
+    for item in raw_list:
+        try:
+            surveys.append({
+                "id": item.get("id"),
+                "environment_id": environment_id,
+                "createdAt": item.get("createdAt"),
+                "updatedAt": item.get("updatedAt"),
+                "name": item.get("name"),
+            })
+        except Exception:
+            # Skip malformed entries instead of failing the whole list
+            continue
+
+    return SurveyListResponse.model_validate({"surveys": surveys})
+
+
+
+async def create_survey(current_user: User, payload: SurveyCreateRequest) -> Survey:
+    """Create a new Formbricks survey for the current user's organization.
+
+    Posts to the Formbricks admin API using the organization's production
+    environment id and returns the upstream `data` payload.
+    """
+
+    if not current_user.org_id:
+        raise MegapolisHTTPException(status_code=400, message="User has no organization")
+
+    fb_project = await FormbricksProject.get_by_organization_id(current_user.org_id)
+    if not fb_project or not fb_project.prod_env_id:
+        raise MegapolisHTTPException(status_code=404, message="Formbricks environment not configured")
+
+    environment_id = fb_project.prod_env_id
+
+    url = f"{environment.FORMBRICKS_SERVER_URL}/api/admin/environments/{environment_id}/surveys"
+    headers = {
+        "accept": "application/json",
+        "Content-Type": "application/json",
+        "x-admin-secret": environment.FORMBRICKS_ADMIN_SECRET,
+    }
+
+    # Only forward required fields; rely on upstream defaults for the rest
+    body = {
+        "name": payload.name,
+        "questions": [
+            {
+                "id": "q1",
+                "type": "openText",
+                "headline": { "default": "Your name?" },
+                "required": False
+            }
+        ],
+        "type": "link"
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, json=body)
+
+    if response.status_code not in (200, 201):
+        logger.error(f"Failed to create survey: {response.status_code} {response.text[0:200]}")
+        raise MegapolisHTTPException(status_code=502, message="Upstream Formbricks error")
+
+    data = response.json().get("data", {})
+    return Survey.model_validate({
+        "id": data.get("id"),
+        "environment_id": environment_id,
+        "createdAt": data.get("createdAt"),
+        "updatedAt": data.get("updatedAt"),
+        "name": data.get("name"),
+    })

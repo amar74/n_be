@@ -60,6 +60,7 @@ async def create_organization(
         )
     except Exception as e:
         logger.warning(f"Continuing without formbricks: {e}")
+        # raise e
     # Save changes to the database
     transaction.add(organization)
     transaction.add(current_user)

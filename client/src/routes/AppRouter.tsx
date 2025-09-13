@@ -37,6 +37,7 @@ import PastPerformance from '@/pages/testUI/PastPerformance';
 import MyAccountNotes from '@/pages/testUI/MyAccountNotes';
 import MyAccountFinancial from '@/pages/testUI/MyAccountFinancial';
 import MyOpportunities from '@/pages/testUI/MyOpportunities';
+import ShowSurvey from '@/pages/client-surveys/ShowSurvey';
 
 // import ClientSurveys from '@/pages/client-surveys';
 
@@ -99,6 +100,10 @@ const router = createBrowserRouter([
       {
         path: '/client-surveys/',
         element: <ClientSurveys />,
+      },
+      {
+        path: '/client-surveys/:environmentId/:surveyId',
+        element: <ShowSurvey />,
       },
     ],
   },
