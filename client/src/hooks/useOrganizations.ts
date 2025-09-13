@@ -137,6 +137,7 @@ export function useOrganizations() {
           line1: formData.address.line1 || '',
           line2: formData.address.line2 || null,
           pincode: formData.address.pincode || null,
+          city: null,
         } : null,
         website: formData.website || null,
         contact: formData.contact ? {
@@ -194,6 +195,7 @@ export function useOrganizations() {
           line1: data.address.line1 || '',
           line2: data.address.line2 || null,
           pincode: data.address.pincode || null,
+          city: null,
         } : null,
         website: data.website || null,
         contact: data.contact ? {
