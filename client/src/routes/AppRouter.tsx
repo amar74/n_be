@@ -1,5 +1,6 @@
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router-dom';
-import HomePage from '@pages/HomePage';
+import { HomePage } from '@/pages/HomePage';
+import { DashboardWelcome } from '@/pages/HomePage/components/DashboardWelcome';
 import LoginPage from '@pages/LoginPage';
 import SignupPage from '@pages/SignupPage';
 import ForgotPasswordPage from '@pages/ForgotPasswordPage';
@@ -53,52 +54,58 @@ const router = createBrowserRouter([
     element: <MainLayout />,
     children: [
       {
-        index: true,
+        path: '',
         element: <HomePage />,
-      },
-      {
-        path: '/module/accounts',
-        element: <Accounts />,
-      },
-      {
-        path: '/module/accounts/:id',
-        element: <AccountDetails />,
-      },
-      {
-        path: '/module/accounts/:id/edit',
-        element: <AccountEdit />,
-      },
-      {
-        path: '/module/notes',
-        element: <NotesPage />,
-      },
-      {
-        path: '/module/notes/create',
-        element: <NoteCreatePage />,
-      },
-      {
-        path: '/module/notes/:noteId',
-        element: <NoteDetailsPage />,
-      },
-      {
-        path: '/module/notes/:noteId/edit',
-        element: <NoteEditPage />,
-      },
-      {
-        path: '/modules/accounts-user-permissions',
-        element: <AccountsUserPermissions />,
-      },
-      {
-        path: '/organization',
-        element: <OrganizationPage />,
-      },
-      {
-        path: '/organization/update',
-        element: <OrganizationUpdatePage />,
-      },
-      {
-        path: '/client-surveys/',
-        element: <ClientSurveys />,
+        children: [
+          {
+            index: true,
+            element: <DashboardWelcome />,
+          },
+          {
+            path: 'module/accounts',
+            element: <Accounts />,
+          },
+          {
+            path: 'module/accounts/:id',
+            element: <AccountDetails />,
+          },
+          {
+            path: 'module/accounts/:id/edit',
+            element: <AccountEdit />,
+          },
+          {
+            path: 'module/notes',
+            element: <NotesPage />,
+          },
+          {
+            path: 'module/notes/create',
+            element: <NoteCreatePage />,
+          },
+          {
+            path: 'module/notes/:noteId',
+            element: <NoteDetailsPage />,
+          },
+          {
+            path: 'module/notes/:noteId/edit',
+            element: <NoteEditPage />,
+          },
+          {
+            path: 'modules/accounts-user-permissions',
+            element: <AccountsUserPermissions />,
+          },
+          {
+            path: 'organization',
+            element: <OrganizationPage />,
+          },
+          {
+            path: 'organization/update',
+            element: <OrganizationUpdatePage />,
+          },
+          {
+            path: 'client-surveys',
+            element: <ClientSurveys />,
+          },
+        ],
       },
     ],
   },
