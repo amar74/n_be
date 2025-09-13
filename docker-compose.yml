@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - api_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d megapolis"]
       interval: 5s
@@ -33,7 +33,9 @@ services:
 
 
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
     env_file:
       - .env
     ports:
@@ -41,9 +43,27 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - ./:/app
+    command: hypercorn app.main:app --bind 0.0.0.0:8000 --reload
+    develop:
+      watch:
+        - path: .
+          target: /app
+          action: sync
+          ignore:
+            - .git/
+            - .venv/
+            - __pycache__/
+            - .mypy_cache/
+            - .pytest_cache/
+            - .ruff_cache/
+            - .vscode/
+            - uploads/
+        - path: Dockerfile.dev
+          action: rebuild
+        - path: pyproject.toml
+          action: rebuild
+        - path: poetry.lock
+          action: rebuild
 
   # formbricks:
   #   image: rishabhg71/formbricks:latest
@@ -63,11 +83,11 @@ services:
   #   volumes:
   #     - uploads:/home/nextjs/apps/web/uploads
 
-
+  
 
 
 volumes:
-  db_data:
+  api_db_data:
   formbricks_db_data:
   uploads:
     driver: local
