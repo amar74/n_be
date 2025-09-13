@@ -209,6 +209,7 @@ async def create_survey(current_user: User, payload: SurveyCreateRequest) -> Sur
     # Only forward required fields; rely on upstream defaults for the rest
     body = {
         "name": payload.name,
+        "publish": True,
         "questions": [
             {
                 "id": "q1",
@@ -235,3 +236,5 @@ async def create_survey(current_user: User, payload: SurveyCreateRequest) -> Sur
         "updatedAt": data.get("updatedAt"),
         "name": data.get("name"),
     })
+
+
