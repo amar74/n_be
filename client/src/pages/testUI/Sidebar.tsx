@@ -27,7 +27,7 @@ const navigationItems = [
   { icon: Kanban, label: "Projects" },
   { icon: CurrencyCircleDollar, label: "Finance" },
   { icon: ShoppingCart, label: "Procurements" },
-  { icon: ChartBar, label: "KPIsss" },
+  { icon: ChartBar, label: "KPIs" },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
