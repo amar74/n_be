@@ -1,5 +1,4 @@
 # Megapolis API
-
 FastAPI + SQLAlchemy (async) + Alembic + Poetry + Docker Compose.
 
 ## Contents

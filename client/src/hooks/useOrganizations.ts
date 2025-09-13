@@ -127,7 +127,8 @@ export function useOrganizations() {
   const createOrganizationMutation = useMutation({
     mutationFn: async (formData: CreateOrgFormData): Promise<OrgCreated> => {
       console.log('🚀 createOrganization: Starting organization creation', { 
-        orgName: formData.name 
+        orgName: formData.name,
+        formData: JSON.stringify(formData, null, 2)
       });
       
       // Transform form data to match API schema requirements
@@ -136,8 +137,8 @@ export function useOrganizations() {
         address: formData.address ? {
           line1: formData.address.line1 || '',
           line2: formData.address.line2 || null,
+          city: formData.address.city || null,
           pincode: formData.address.pincode || null,
-          city: null,
         } : null,
         website: formData.website || null,
         contact: formData.contact ? {
@@ -146,7 +147,8 @@ export function useOrganizations() {
         } : null,
       };
       
-      const result = await orgsApi.createOrg(orgData);
+      console.log('🔄 createOrganization: Sending API payload:', JSON.stringify(orgData, null, 2));
+      const result = await orgsApi.createOrg(orgData as any); // Type assertion needed due to outdated generated schema
       console.log('✅ createOrganization: Organization created successfully', { 
         orgId: result.org.id,
         orgName: result.org.name 

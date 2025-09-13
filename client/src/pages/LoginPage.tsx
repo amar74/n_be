@@ -58,7 +58,7 @@ export default function LoginPage() {
         password: data.password,
       };
 
-      const { error } = await signIn(credentials.email, credentials.password);
+      const { data: authResponse, error } = await signIn(credentials.email, credentials.password);
 
       if (error) {
         console.info('Login error:', error.message); // Debug log
@@ -114,7 +114,7 @@ export default function LoginPage() {
         setTimeout(() => {
           console.log('Navigating to home page...');
           navigate('/', { replace: true });
-        }, 1500); // 1.5 seconds delay
+        }, 500); // 0.5 seconds delay - enough for toast to show
       }
     } catch (err) {
       const errorMessage = 'An unexpected error occurred. Please try again.';
