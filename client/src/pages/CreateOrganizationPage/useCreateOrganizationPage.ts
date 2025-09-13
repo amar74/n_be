@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -9,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { apiClient } from '@/services/api/client';
 import { CreateOrgFormData } from '@/types/orgs';
 import { FORM_DEFAULT_VALUES, WEBSITE_ANALYSIS_DELAY } from './CreateOrganizationPage.constants';
+import { CreateOrganizationSchema, CreateOrganizationFormData } from './CreateOrganizationPage.schema';
 
 export function useCreateOrganizationPage() {
   const navigate = useNavigate();
@@ -23,8 +25,10 @@ export function useCreateOrganizationPage() {
   const analysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentWebsiteRef = useRef<string>('');
 
-  const form = useForm<CreateOrgFormData>({
+  const form = useForm<CreateOrganizationFormData>({
+    resolver: zodResolver(CreateOrganizationSchema),
     defaultValues: FORM_DEFAULT_VALUES,
+    mode: 'onChange', // Validate on change for better UX
   });
 
   const {
@@ -125,18 +129,11 @@ export function useCreateOrganizationPage() {
     }
   }, [setValue, analyzeWebsite]);
 
-  const handleSubmitForm = useCallback(async (data: CreateOrgFormData) => {
-    if (!data.name?.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Organization name is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (data.website && data.website.trim() && !data.website.startsWith('http')) {
-      data.website = `https://${data.website}`;
+  const handleSubmitForm = useCallback(async (data: CreateOrganizationFormData) => {
+    // Add protocol to website if missing
+    let website = data.website;
+    if (website && website.trim() && !website.startsWith('http')) {
+      website = `https://${website}`;
     }
 
     try {
@@ -152,7 +149,7 @@ export function useCreateOrganizationPage() {
                 pincode: data.address.pincode || undefined,
               }
             : undefined,
-        website: data.website?.trim() || undefined,
+        website: website?.trim() || undefined,
         contact:
           data.contact?.email || data.contact?.phone
             ? {

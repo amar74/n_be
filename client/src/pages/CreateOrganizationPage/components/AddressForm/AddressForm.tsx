@@ -64,7 +64,9 @@ export function AddressForm({ control, isSubmitting, showAISuggestions }: Addres
                 disabled={isSubmitting}
               />
             </FormControl>
-            <FormMessage />
+            <div className="h-4 mt-0.5">
+              <FormMessage className="text-red-500 text-xs" />
+            </div>
           </FormItem>
         )}
       />
@@ -94,7 +96,9 @@ export function AddressForm({ control, isSubmitting, showAISuggestions }: Addres
                 />
               </div>
             </FormControl>
-            <FormMessage />
+            <div className="h-4 mt-0.5">
+              <FormMessage className="text-red-500 text-xs" />
+            </div>
           </FormItem>
         )}
       />
@@ -126,7 +130,9 @@ export function AddressForm({ control, isSubmitting, showAISuggestions }: Addres
                 />
               </div>
             </FormControl>
-            <FormMessage />
+            <div className="h-4 mt-0.5">
+              <FormMessage className="text-red-500 text-xs" />
+            </div>
           </FormItem>
         )}
       />
@@ -146,8 +152,10 @@ export function AddressForm({ control, isSubmitting, showAISuggestions }: Addres
                 <Input
                   {...field}
                   value={field.value || ''}
-                  type="number"
-                  placeholder="Enter postal code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="Enter postal code (5-6 digits)"
                   className="pl-10 border 
                     placeholder-shown:border-gray-300 
                     focus:border-orange-300 
@@ -155,13 +163,17 @@ export function AddressForm({ control, isSubmitting, showAISuggestions }: Addres
                     focus:outline-none focus:ring-0 focus-visible:ring-0"
                   disabled={isSubmitting}
                   onChange={(e) => {
-                    const value = e.target.value ? parseInt(e.target.value) : null;
-                    field.onChange(value);
+                    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                    const numValue = value ? parseInt(value) : undefined;
+                    field.onChange(numValue);
                   }}
+                  maxLength={6}
                 />
               </div>
             </FormControl>
-            <FormMessage />
+            <div className="h-4 mt-0.5">
+              <FormMessage className="text-red-500 text-xs" />
+            </div>
           </FormItem>
         )}
       />

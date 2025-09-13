@@ -74,13 +74,6 @@ function CreateOrganizationPage() {
               </div>
               <span className="text-sm font-medium">{STEPS.ORGANIZATION_SETUP.title}</span>
             </div>
-            <div className="w-8 h-px bg-[#A7A7A7]"></div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-200 text-gray-500">
-                {STEPS.PLATFORM_ACCESS.number}
-              </div>
-              <span className="text-sm font-medium text-[#A7A7A7]">{STEPS.PLATFORM_ACCESS.title}</span>
-            </div>
           </div>
 
           {/* Organization Details Section */}
@@ -117,6 +110,7 @@ function CreateOrganizationPage() {
                             <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
                               {...field}
+                              type="url"
                               placeholder="https://your-company.com"
                               className="pl-10 mt-2 border 
                                 placeholder-shown:border-gray-300 
@@ -128,7 +122,9 @@ function CreateOrganizationPage() {
                             />
                           </div>
                         </FormControl>
-                        <FormMessage />
+                        <div className="h-4 mt-0.5">
+                          <FormMessage className="text-red-500 text-xs" />
+                        </div>
                         {websiteValue &&
                           websiteValue.includes('.') &&
                           !isAnalyzing &&
@@ -171,7 +167,9 @@ function CreateOrganizationPage() {
                             />
                           </div>
                         </FormControl>
-                        <FormMessage />
+                        <div className="h-4 mt-0.5">
+                          <FormMessage className="text-red-500 text-xs" />
+                        </div>
                       </FormItem>
                     )}
                   />
