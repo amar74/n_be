@@ -75,6 +75,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
+    "@types/google.maps": "^3.58.1",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
     "@types/react-day-picker": "^5.3.0",

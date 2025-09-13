@@ -79,6 +79,7 @@ export interface CreateOrgFormData {
   address?: {
     line1?: string;
     line2?: string;
+    city?: string;
     pincode?: number;
   };
   website?: string;

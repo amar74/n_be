@@ -40,19 +40,25 @@ export function useAuth() {
   const authenticateWithBackend = async (supabaseToken: string) => {
     // Prevent multiple simultaneous attempts
     if (backendAuthAttempted.current && !backendAuthFailed.current) {
-      console.info('Backend auth already attempted and successful');
+      console.log('🔄 useAuth: Backend auth already attempted and successful');
+      return true;
+    }
+
+    // Check if already authenticated with valid user data
+    if (isAuthenticated && backendUser && !backendAuthFailed.current) {
+      console.log('🔄 useAuth: Already authenticated with valid backend user, skipping');
       return true;
     }
 
     // If we've failed before, allow retry but with some delay
     if (backendAuthFailed.current) {
-      console.info('Backend auth failed previously - retrying...');
+      console.log('🔄 useAuth: Backend auth failed previously - retrying...');
     }
 
     backendAuthAttempted.current = true;
 
     try {
-      console.info('Attempting backend authentication...');
+      console.log('🔄 useAuth: Attempting backend authentication...');
 
       // Step 1: Exchange Supabase token for backend auth token
       const authResponse = await authApi.verifySupabaseToken(supabaseToken);
@@ -69,17 +75,17 @@ export function useAuth() {
       const userData = await authApi.getMe();
       if (!userData) return false;
       // Step 4: Update state and storage with fresh data
-      console.log('useAuth: Setting backend user from API', { userData });
+      console.log('🔄 useAuth: Setting backend user from API', { userData });
       setBackendUser(userData);
       setIsAuthenticated(true);
       setError(null);
 
-      console.info('Backend authentication successful');
+      console.log('✅ useAuth: Backend authentication successful');
       // Reset failure tracking on success
       backendAuthFailed.current = false;
       return true;
     } catch (error: any) {
-      console.error('Backend authentication failed:', error);
+      console.error('❌ useAuth: Backend authentication failed:', error);
       const errorMessage =
         error.response?.data?.message || error.message || 'Authentication failed';
       setError(errorMessage);
@@ -106,44 +112,68 @@ export function useAuth() {
   // Initialize authentication
   useEffect(() => {
     let isMounted = true;
+    let initializationPromise: Promise<void> | null = null;
 
     const initializeAuth = async () => {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
+      // Prevent multiple simultaneous initialization attempts
+      if (initializationPromise) {
+        console.log('🔄 useAuth: Initialization already in progress, waiting...');
+        return initializationPromise;
+      }
 
-        if (error) {
-          console.error('Session error:', error);
+      // Skip initialization if already complete
+      if (initialAuthComplete) {
+        console.log('🔄 useAuth: Auth already initialized, skipping');
+        return;
+      }
+
+      initializationPromise = (async () => {
+        try {
+          console.log('🔄 useAuth: Starting authentication initialization');
+          
+          const {
+            data: { session },
+            error,
+          } = await supabase.auth.getSession();
+
+          if (error) {
+            console.error('Session error:', error);
+            clearAuthData();
+            if (isMounted) {
+              setInitialAuthComplete(true);
+            }
+            return;
+          }
+
+          if (!isMounted) return;
+
+          setSession(session);
+          setUser(session?.user ?? null);
+
+          if (session) {
+            console.log('🔄 useAuth: Session found, authenticating with backend');
+            const success = await authenticateWithBackend(session.access_token);
+            if (!success) {
+              // Backend auth failed, but don't clear Supabase session
+              // Let the user be redirected to login by the layout component
+              console.warn('⚠️ useAuth: Backend authentication failed, user needs to re-login');
+            }
+          } else {
+            console.log('🔄 useAuth: No session found');
+          }
+        } catch (error) {
+          console.error('❌ useAuth: Auth initialization failed:', error);
           clearAuthData();
+        } finally {
           if (isMounted) {
+            console.log('✅ useAuth: Authentication initialization complete');
             setInitialAuthComplete(true);
           }
-          return;
+          initializationPromise = null;
         }
+      })();
 
-        if (!isMounted) return;
-
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session) {
-          const success = await authenticateWithBackend(session.access_token);
-          if (!success) {
-            // Backend auth failed, but don't clear Supabase session
-            // Let the user be redirected to login by the layout component
-            console.warn('Backend authentication failed, user needs to re-login');
-          }
-        }
-      } catch (error) {
-        console.error('Auth initialization failed:', error);
-        clearAuthData();
-      } finally {
-        if (isMounted) {
-          setInitialAuthComplete(true);
-        }
-      }
+      return initializationPromise;
     };
 
     initializeAuth();
@@ -154,19 +184,30 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
-      console.log('Auth state change:', event, !!session);
+      console.log('🔄 useAuth: Auth state change:', event, !!session);
 
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        // Reset backend auth tracking for new sign-ins
+        // For SIGNED_IN events, we need to authenticate regardless
+        // For TOKEN_REFRESHED, only if not already authenticated
         if (event === 'SIGNED_IN') {
+          console.log('🔄 useAuth: New sign-in detected, resetting backend auth tracking');
           backendAuthAttempted.current = false;
           backendAuthFailed.current = false;
+          await authenticateWithBackend(session.access_token);
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Only authenticate with backend if not already authenticated
+          if (!isAuthenticated || !backendUser || backendAuthFailed.current) {
+            console.log('🔄 useAuth: Backend authentication needed for token refresh');
+            await authenticateWithBackend(session.access_token);
+          } else {
+            console.log('🔄 useAuth: User already authenticated, skipping backend auth for token refresh');
+          }
         }
-        await authenticateWithBackend(session.access_token);
       } else if (event === 'SIGNED_OUT') {
+        console.log('🔄 useAuth: Sign-out detected, clearing auth data');
         clearAuthData();
       }
     });

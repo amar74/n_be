@@ -1,0 +1,218 @@
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { useOrganizations } from '@/hooks/useOrganizations';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { scraperApi, ApiError } from '@/services/api/scraperApi';
+import { supabase } from '@/lib/supabase';
+import { apiClient } from '@/services/api/client';
+import { CreateOrgFormData } from '@/types/orgs';
+import { FORM_DEFAULT_VALUES, WEBSITE_ANALYSIS_DELAY } from './CreateOrganizationPage.constants';
+
+export function useCreateOrganizationPage() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user, initialAuthComplete, isAuthenticated } = useAuth();
+  const { createOrganization, isCreating: isSubmitting } = useOrganizations();
+  
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAISuggestions, setShowAISuggestions] = useState(false);
+  
+  // Use refs to prevent unnecessary re-renders and debounce API calls
+  const analysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentWebsiteRef = useRef<string>('');
+
+  const form = useForm<CreateOrgFormData>({
+    defaultValues: FORM_DEFAULT_VALUES,
+  });
+
+  const {
+    handleSubmit,
+    setValue,
+    watch,
+    control,
+    formState: { errors },
+  } = form;
+
+  const websiteValue = watch('website');
+
+  const analyzeWebsite = useCallback(async (website: string) => {
+    if (!website || !website.includes('.')) return;
+
+    // Prevent duplicate analysis of the same website
+    if (currentWebsiteRef.current === website) {
+      console.log('🔄 CreateOrganizationPage: Skipping duplicate website analysis for:', website);
+      return;
+    }
+
+    currentWebsiteRef.current = website;
+    setIsAnalyzing(true);
+
+    try {
+      console.log('🔄 CreateOrganizationPage: Starting website analysis for:', website);
+      const scrapeResult = await scraperApi.scraper([website]);
+      const result = scrapeResult.results[0];
+
+      if (result.error) {
+        throw new Error(`Scraping failed: ${result.error}`);
+      }
+
+      const info = result.info;
+
+      if (info?.address) {
+        const { line1, line2, city, state, pincode } = info.address;
+        setValue(
+          'address',
+          {
+            line1: line1 || '',
+            line2: line2 || '',
+            city: city || state || '',
+            pincode: pincode ? Number(pincode) : undefined,
+          },
+          { shouldValidate: true }
+        );
+      }
+
+      if (info?.name) {
+        setValue('name', info.name, { shouldValidate: true });
+      }
+
+      setShowAISuggestions(true);
+      toast({
+        title: '🔍 Website Analysis Complete',
+        description: 'We auto-filled fields using real data from the website.',
+      });
+      console.log('✅ CreateOrganizationPage: Website analysis completed successfully');
+    } catch (error) {
+      console.error('❌ CreateOrganizationPage: Website analysis failed:', error);
+      if (error instanceof ApiError) {
+        toast({
+          title: 'Scraper Error',
+          description: `API error: ${error.detail?.[0]?.msg || 'Unknown error'}`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Analysis Failed',
+          description: (error as Error).message || 'An unknown error occurred.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [setValue, toast]);
+
+  const handleWebsiteChange = useCallback((value: string) => {
+    setValue('website', value, { shouldValidate: true });
+
+    // Clear any existing timeout
+    if (analysisTimeoutRef.current) {
+      clearTimeout(analysisTimeoutRef.current);
+    }
+
+    // Reset suggestions when website changes
+    if (value !== currentWebsiteRef.current) {
+      setShowAISuggestions(false);
+    }
+
+    if (value.includes('.') && value.length > 5) {
+      console.log('🔄 CreateOrganizationPage: Scheduling website analysis with delay:', WEBSITE_ANALYSIS_DELAY);
+      analysisTimeoutRef.current = setTimeout(() => {
+        analyzeWebsite(value);
+      }, WEBSITE_ANALYSIS_DELAY);
+    }
+  }, [setValue, analyzeWebsite]);
+
+  const handleSubmitForm = useCallback(async (data: CreateOrgFormData) => {
+    if (!data.name?.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Organization name is required.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (data.website && data.website.trim() && !data.website.startsWith('http')) {
+      data.website = `https://${data.website}`;
+    }
+
+    try {
+      console.log('🔄 CreateOrganizationPage: Starting organization creation');
+      const organizationData: CreateOrgFormData = {
+        name: data.name.trim(),
+        address:
+          data.address?.line1 || data.address?.line2 || data.address?.city || data.address?.pincode
+            ? {
+                line1: data.address.line1?.trim() || '',
+                line2: data.address.line2?.trim() || undefined,
+                city: data.address.city?.trim() || undefined,
+                pincode: data.address.pincode || undefined,
+              }
+            : undefined,
+        website: data.website?.trim() || undefined,
+        contact:
+          data.contact?.email || data.contact?.phone
+            ? {
+                email: data.contact.email?.trim() || undefined,
+                phone: data.contact.phone?.trim() || undefined,
+              }
+            : undefined,
+      };
+
+      await createOrganization(organizationData);
+      console.log('✅ CreateOrganizationPage: Organization created successfully, navigating to home');
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('❌ CreateOrganizationPage: Organization creation failed:', error);
+      // Error handling is done in the centralized hook
+    }
+  }, [createOrganization, navigate, toast]);
+
+  const handleSignOut = useCallback(async () => {
+    console.log('🔄 CreateOrganizationPage: Starting sign out process');
+    try {
+      await supabase.auth.signOut();
+      localStorage.removeItem('authToken');
+      delete apiClient.defaults.headers.common['Authorization'];
+      console.log('✅ CreateOrganizationPage: Sign out completed, navigating to login');
+      navigate('/auth/login', { replace: true });
+    } catch (error) {
+      console.error('❌ CreateOrganizationPage: Sign out failed:', error);
+      // Still navigate to login even if sign out fails
+      navigate('/auth/login', { replace: true });
+    }
+  }, [navigate]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (analysisTimeoutRef.current) {
+        clearTimeout(analysisTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return {
+    // Form state
+    form,
+    control,
+    errors,
+    websiteValue,
+    isSubmitting,
+    isAnalyzing,
+    showAISuggestions,
+    user,
+
+    // Auth state
+    isAuthLoading: !initialAuthComplete,
+    isAuthenticated,
+
+    // Form handlers
+    handleSubmit: handleSubmit(handleSubmitForm),
+    handleWebsiteChange,
+    handleSignOut,
+  };
+}
