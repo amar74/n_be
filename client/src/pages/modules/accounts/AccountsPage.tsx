@@ -16,34 +16,31 @@ function AccountsPage() {
   } = useAccountsPage();
 
   return (
-    <div className="bg-[#f5f3f2] min-h-screen font-['Inter',_system-ui,_-apple-system,_sans-serif]">
-      {/* Main Content Area - accounting for sidebar */}
-      <div className="ml-0 min-h-screen">
-        <div className="flex flex-col gap-7 left-0 top-0 w-full px-0 py-0">
-          {/* Header Section */}
-          <div className="px-0 pt-0 pb-0">
-            <AccountsHeader 
-              onCreateAccount={handleCreateAccount}
-              onExport={handleExport}
-            />
-          </div>
+    <div className="w-full h-full font-['Inter',_system-ui,_-apple-system,_sans-serif]">
+      <div className="flex flex-col gap-7 w-full p-6">
+        {/* Header Section */}
+        <div>
+          <AccountsHeader 
+            onCreateAccount={handleCreateAccount}
+            onExport={handleExport}
+          />
+        </div>
 
-          {/* Stats Cards Section */}
-          <div className="px-0">
-            <AccountsStats 
-              stats={stats}
-              onStatClick={handleStatClick}
-            />
-          </div>
+        {/* Stats Cards Section */}
+        <div>
+          <AccountsStats 
+            stats={stats}
+            onStatClick={handleStatClick}
+          />
+        </div>
 
-          {/* Accounts List Section */}
-          <div className="px-0 pt-[48px]">
-            <AccountsList 
-              accounts={accounts}
-              isLoading={isLoading}
-              onAccountClick={handleAccountClick}
-            />
-          </div>
+        {/* Accounts List Section */}
+        <div className="pt-[48px]">
+          <AccountsList 
+            accounts={accounts}
+            isLoading={isLoading}
+            onAccountClick={handleAccountClick}
+          />
         </div>
       </div>
     </div>

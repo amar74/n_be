@@ -74,9 +74,9 @@ export default function MainLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen flex flex-col bg-gray-50">
       <Navigation />
-      <main className="flex-1 min-h-0 flex flex-col">
+      <main className="flex-1 overflow-hidden">
         <Outlet />
       </main>
       <Toaster />

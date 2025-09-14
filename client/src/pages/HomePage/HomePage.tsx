@@ -35,12 +35,12 @@ function HomePage() {
   }
 
     return (
-      <div className="min-h-screen bg-[#F5F3F2] flex font-['Inter',_'Poppins',_system-ui,_-apple-system,_sans-serif]">
+      <div className="flex h-full bg-[#F5F3F2] font-['Inter',_'Poppins',_system-ui,_-apple-system,_sans-serif]">
         {/* Sidebar */}
         <DashboardSidebar />
         
         {/* Main Content Area */}
-        <div className="ml-[20px] min-h-screen">
+        <div className="flex-1 ml-[20px] overflow-y-auto overflow-x-hidden min-h-full">
           {/* Content will be rendered here via Outlet */}
           <Outlet />
         </div>

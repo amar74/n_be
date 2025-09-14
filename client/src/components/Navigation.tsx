@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/useToast';
 import logo from '@/assets/logo.png';
 import john from '@/assets/john.png';
+import ElementSpacePlaceholder from './ElementSpacePlaceholder';
 
 export default function Navigation() {
   const location = useLocation();
@@ -78,7 +79,7 @@ export default function Navigation() {
 
   return (
     <>
-      <header className="px-6 py-4 flex items-center justify-between bg-[#F5F3F2]">
+      <header className="px-6 py-4 flex items-center justify-between bg-[#F5F3F2] flex-shrink-0">
         {/* Left side - Logo */}
         <div className="flex items-center">
           <div className="flex items-center gap-3">

@@ -44,11 +44,11 @@ export function AccountsHeader({ onCreateAccount, onExport }: AccountsHeaderProp
           </div>
 
           {/* CTA Buttons */}
-          <div className="content-stretch flex gap-3 items-start justify-start relative shrink-0">
+          <div className="flex flex-wrap gap-3 items-start justify-start">
             {/* All Accounts Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <div className="bg-white box-border content-stretch flex h-[46px] items-center justify-between px-5 py-3 relative rounded-[24px] shrink-0 w-[205px] cursor-pointer hover:shadow-md transition-shadow">
+                <div className="bg-white box-border flex h-[46px] items-center justify-between px-5 py-3 relative rounded-[24px] min-w-[180px] cursor-pointer hover:shadow-md transition-shadow">
                   <div aria-hidden="true" className="absolute border border-[#525151] border-solid inset-[-1px] pointer-events-none rounded-[25px]" />
                   <div className="content-stretch flex gap-2 items-center justify-start relative shrink-0">
                     <Building className="relative shrink-0 size-5 text-gray-600" />
@@ -70,7 +70,7 @@ export function AccountsHeader({ onCreateAccount, onExport }: AccountsHeaderProp
             {/* Actions Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <div className="bg-white box-border content-stretch flex h-[46px] items-center justify-between px-5 py-6 relative rounded-[24px] shrink-0 w-[161px] cursor-pointer hover:shadow-md transition-shadow">
+                <div className="bg-white box-border flex h-[46px] items-center justify-between px-5 py-3 relative rounded-[24px] min-w-[140px] cursor-pointer hover:shadow-md transition-shadow">
                   <div aria-hidden="true" className="absolute border border-[#525151] border-solid inset-[-1px] pointer-events-none rounded-[25px]" />
                   <div className="font-['Inter:Semi_Bold',_sans-serif] font-semibold leading-[0] not-italic relative shrink-0 text-[#0f0901] text-[14px] text-nowrap">
                     <p className="leading-[normal] whitespace-pre">Actions</p>
@@ -89,7 +89,7 @@ export function AccountsHeader({ onCreateAccount, onExport }: AccountsHeaderProp
             </DropdownMenu>
 
             {/* Client Survey Button */}
-            <div className="bg-[rgba(255,255,255,0)] box-border content-stretch flex gap-2.5 h-[46px] items-center justify-center px-4 py-2 relative rounded-[100px] shrink-0 w-[175px] cursor-pointer hover:shadow-md transition-shadow">
+            <div className="bg-[rgba(255,255,255,0)] box-border flex gap-2.5 h-[46px] items-center justify-center px-4 py-2 relative rounded-[100px] min-w-[150px] cursor-pointer hover:shadow-md transition-shadow">
               <div aria-hidden="true" className="absolute border border-black border-solid inset-0 pointer-events-none rounded-[100px]" />
               <FileText className="relative shrink-0 size-6 text-black" />
               <div className="font-['Inter:Medium',_sans-serif] font-medium leading-[0] not-italic relative shrink-0 text-[14px] text-black text-nowrap">
@@ -100,7 +100,7 @@ export function AccountsHeader({ onCreateAccount, onExport }: AccountsHeaderProp
             {/* Create Account Button */}
             <div 
               onClick={onCreateAccount}
-              className="bg-[#0f0901] box-border content-stretch flex gap-2.5 h-[46px] items-center justify-center px-4 py-2 relative rounded-[100px] shrink-0 w-[175px] cursor-pointer hover:shadow-md transition-shadow"
+              className="bg-[#0f0901] box-border flex gap-2.5 h-[46px] items-center justify-center px-4 py-2 relative rounded-[100px] min-w-[150px] cursor-pointer hover:shadow-md transition-shadow"
             >
               <Plus className="relative shrink-0 size-6 text-white" />
               <div className="font-['Inter:Medium',_sans-serif] font-medium leading-[0] not-italic relative shrink-0 text-[14px] text-nowrap text-white">
