@@ -13,7 +13,7 @@ import AuthLayout from '@layouts/AuthLayout';
 import AdminLayout from '@layouts/AdminLayout';
 import AdminSigninPage from '@pages/AdminSigninPage';
 import AdminDashboardPage from '@/pages/admin/DashboardPage';
-import Accounts from '@/pages/modules/Accounts';
+import AccountsPage from '@/pages/modules/accounts/AccountsPage';
 import AccountDetails from '@/pages/modules/AccountDetails';
 import AccountEdit from '@/pages/modules/AccountEdit';
 import NotesPage from '@/pages/modules/notes/NotesPage';
@@ -63,7 +63,7 @@ const router = createBrowserRouter([
           },
           {
             path: 'module/accounts',
-            element: <Accounts />,
+            element: <AccountsPage />,
           },
           {
             path: 'module/accounts/:id',

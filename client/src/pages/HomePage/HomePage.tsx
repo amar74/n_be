@@ -40,7 +40,7 @@ function HomePage() {
         <DashboardSidebar />
         
         {/* Main Content Area */}
-        <div className="ml-[260px] min-h-screen">
+        <div className="ml-[20px] min-h-screen">
           {/* Content will be rendered here via Outlet */}
           <Outlet />
         </div>

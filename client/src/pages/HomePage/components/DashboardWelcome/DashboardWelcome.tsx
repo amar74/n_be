@@ -2,7 +2,7 @@ import { memo } from 'react';
 
 function DashboardWelcome() {
   return (
-    <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-18">
+    <div className="w-full  mx-auto px-6 sm:px-8 lg:px-12 py-18">
       {/* Welcome Section */}
       <div className="mb-8 text-center">
         <h2 className="text-3xl font-semibold text-[#ED8A09] mb-4 leading-tight">
