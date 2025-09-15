@@ -4,6 +4,38 @@ import { z } from "zod";
 import { HTTPValidationError } from "./common";
 import { ValidationError } from "./common";
 
+const Permission = z.enum(["view", "edit"]);
+const UserPermissionCreateRequest = z
+  .object({
+    userid: z.string().uuid(),
+    accounts: z.array(Permission).optional(),
+    opportunities: z.array(Permission).optional(),
+    proposals: z.array(Permission).optional(),
+  })
+  .passthrough();
+const UserPermissionResponse = z
+  .object({
+    userid: z.string().uuid(),
+    accounts: z.array(Permission),
+    opportunities: z.array(Permission),
+    proposals: z.array(Permission),
+  })
+  .passthrough();
+const UserPermissionUpdateRequest = z
+  .object({
+    accounts: z.union([z.array(Permission), z.null()]),
+    opportunities: z.union([z.array(Permission), z.null()]),
+    proposals: z.union([z.array(Permission), z.null()]),
+  })
+  .partial()
+  .passthrough();
+const UserPermissions = z
+  .object({
+    accounts: z.array(Permission),
+    opportunities: z.array(Permission),
+    proposals: z.array(Permission),
+  })
+  .passthrough();
 const UserInfo = z
   .object({
     id: z.string().uuid(),
@@ -12,52 +44,22 @@ const UserInfo = z
     role: z.string(),
   })
   .passthrough();
-const UserPermissions = z
-  .object({
-    accounts: z.array(z.string()),
-    opportunities: z.array(z.string()),
-    proposals: z.array(z.string()),
-  })
-  .passthrough();
 const UserWithPermissionsResponse = z
   .object({ user: UserInfo, permissions: UserPermissions })
   .passthrough();
 const UserWithPermissionsResponseModel = z
   .object({ data: z.array(UserWithPermissionsResponse) })
   .passthrough();
-const UserPermissionResponse = z
-  .object({
-    userid: z.string().uuid(),
-    accounts: z.array(z.string()),
-    opportunities: z.array(z.string()),
-    proposals: z.array(z.string()),
-  })
-  .passthrough();
-const UserPermissionCreateRequest = z
-  .object({
-    userid: z.string().uuid(),
-    accounts: z.array(z.string()).optional(),
-    opportunities: z.array(z.string()).optional(),
-    proposals: z.array(z.string()).optional(),
-  })
-  .passthrough();
-const UserPermissionUpdateRequest = z
-  .object({
-    accounts: z.union([z.array(z.string()), z.null()]),
-    opportunities: z.union([z.array(z.string()), z.null()]),
-    proposals: z.union([z.array(z.string()), z.null()]),
-  })
-  .partial()
-  .passthrough();
 
 export const schemas = {
-  UserInfo,
+  Permission,
+  UserPermissionCreateRequest,
+  UserPermissionResponse,
+  UserPermissionUpdateRequest,
   UserPermissions,
+  UserInfo,
   UserWithPermissionsResponse,
   UserWithPermissionsResponseModel,
-  UserPermissionResponse,
-  UserPermissionCreateRequest,
-  UserPermissionUpdateRequest,
 };
 
 const endpoints = makeApi([

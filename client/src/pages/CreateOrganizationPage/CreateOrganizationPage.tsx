@@ -81,7 +81,7 @@ function CreateOrganizationPage() {
             <div>
               <h2 className="text-lg font-bold text-gray-900 mb-1">Organization Details</h2>
               <p className="text-xs text-[#A7A7A7] pb-2 border-b border-[#A7A7A7]">
-                Provide information about your organization. Our AI will help auto-complete field where possible.
+                Provide information about your organization. Our AI will help auto-complete fields where possible.
               </p>
             </div>
 

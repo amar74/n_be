@@ -197,6 +197,7 @@ export function useOrganizations() {
           line1: data.address.line1 || '',
           line2: data.address.line2 || null,
           pincode: data.address.pincode || null,
+          city: null,
         } : null,
         website: data.website || null,
         contact: data.contact ? {

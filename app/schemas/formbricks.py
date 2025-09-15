@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
 class BillingLimits(BaseModel):
     monthly: dict
@@ -86,6 +86,55 @@ class CreateFormBricksProjectResponse(BaseModel):
 
 class FormbricksLoginTokenResponse(BaseModel):
     token: str
+
+    model_config = {
+        "from_attributes": True}
+
+
+
+class Survey(BaseModel):
+    id: str
+    environment_id: str
+    createdAt: str
+    updatedAt: str
+    name: str
+
+class SurveyListResponse(BaseModel):
+    """Client-friendly list shape used by our API.
+
+    - ListResponse: flattened array under a named key (e.g., surveys) that our
+      clients consume directly. It abstracts away upstream payload wrappers.
+    - ServerResponse (below): mirrors the upstream Formbricks payload, which
+      wraps results under a top-level `data` field. We keep both to avoid
+      leaking upstream shapes into our public API.
+    """
+
+    surveys: List[Survey]
+
+    model_config = {
+        "from_attributes": True}
+
+
+class ServerResponse(BaseModel):
+    """Upstream Formbricks list response wrapper.
+
+    - ServerResponse: raw shape from Formbricks with top-level `data` array.
+    - ListResponse (see SurveyListResponse): normalized shape we return.
+    """
+
+    data: List[dict]
+
+    model_config = {
+        "from_attributes": True}
+
+
+class SurveyCreateRequest(BaseModel):
+    """Payload to create a new Formbricks survey.
+
+    Only requires name; server applies defaults for other fields.
+    """
+
+    name: str
 
     model_config = {
         "from_attributes": True}

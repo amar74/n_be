@@ -8,6 +8,7 @@ const AddressCreate = z
   .object({
     line1: z.string().min(1).max(255),
     line2: z.union([z.string(), z.null()]).optional(),
+    city: z.union([z.string(), z.null()]).optional(),
     pincode: z.union([z.number(), z.null()]).optional(),
   })
   .passthrough();
@@ -35,6 +36,7 @@ const AddressResponse = z
   .object({
     line1: z.string().min(1).max(255),
     line2: z.union([z.string(), z.null()]).optional(),
+    city: z.union([z.string(), z.null()]).optional(),
     pincode: z.union([z.number(), z.null()]).optional(),
     address_id: z.string().uuid(),
   })

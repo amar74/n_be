@@ -8,6 +8,7 @@ const AddressCreateResquest = z
   .object({
     line1: z.string(),
     line2: z.union([z.string(), z.null()]),
+    city: z.union([z.string(), z.null()]),
     pincode: z.union([z.number(), z.null()]),
   })
   .passthrough();
@@ -45,6 +46,7 @@ const AddressCreateResponse = z
     id: z.string().uuid(),
     line1: z.string(),
     line2: z.union([z.string(), z.null()]).optional(),
+    city: z.union([z.string(), z.null()]).optional(),
     pincode: z.union([z.number(), z.null()]).optional(),
   })
   .passthrough();
