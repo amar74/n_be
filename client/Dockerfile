@@ -24,7 +24,8 @@ COPY . .
 # Expose Vite env vars to the build step
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
-    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY \
+    VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
 RUN pnpm run build
 
 # Use a lightweight Node.js image to serve static files without nginx

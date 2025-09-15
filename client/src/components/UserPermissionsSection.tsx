@@ -20,8 +20,9 @@ const PERMISSIONS = [
   { key: 'proposals', label: 'Proposals' },
 ];
 const ACTIONS = ['view', 'edit'];
+type PermissionAction = 'view' | 'edit';
 
-type PermissionState = Record<string, { [K in PermissionCategory]: string[] }>;
+type PermissionState = Record<string, { [K in PermissionCategory]: PermissionAction[] }>;
 
 export default function UserPermissionsSection() {
   const [permissions, setPermissions] = useState<PermissionState>({});
@@ -75,7 +76,7 @@ export default function UserPermissionsSection() {
       ...prev,
       [userid]: {
         ...prev[userid],
-        [perm]: prev[userid]?.[perm]?.includes(action)
+        [perm]: prev[userid]?.[perm]?.includes(action as PermissionAction)
           ? prev[userid][perm].filter(a => a !== action)
           : [...(prev[userid]?.[perm] || []), action],
       },
@@ -270,7 +271,7 @@ export default function UserPermissionsSection() {
                         ACTIONS.map(action => (
                           <TableCell key={perm.key + action} className="text-center">
                             <Checkbox
-                              checked={permissions[userWithPermission.user.id]?.[perm.key as PermissionCategory]?.includes(action) || false}
+                              checked={permissions[userWithPermission.user.id]?.[perm.key as PermissionCategory]?.includes(action as PermissionAction) || false}
                               onCheckedChange={() => handleCheck(userWithPermission.user.id, perm.key as PermissionCategory, action)}
                               className="data-[state=checked]:bg-[#0D9488] data-[state=checked]:border-[#0D9488]"
                             />
