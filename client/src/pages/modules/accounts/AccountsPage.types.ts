@@ -47,4 +47,4 @@ export interface FilterState {
 }
 
 // Re-export from the modal component
-export type { CreateAccountFormData, CreateAccountModalProps } from './components/CreateAccountModal/CreateAccountModal.types';
+export type { CreateAccountModalProps } from './components/CreateAccountModal/CreateAccountModal.types';

@@ -1,11 +1,11 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sparkles, Globe } from 'lucide-react';
-import { CreateAccountFormData } from '../../CreateAccountModal.types';
+import { AccountCreate } from '@/types/accounts';
 
 interface CompanyWebsiteFormProps {
-  value: string | undefined;
-  onChange: (field: keyof CreateAccountFormData, value: string) => void;
+  value: string | null | undefined;
+  onChange: (field: keyof AccountCreate, value: string) => void;
 }
 
 export function CompanyWebsiteForm({ value, onChange }: CompanyWebsiteFormProps) {
@@ -27,7 +27,7 @@ export function CompanyWebsiteForm({ value, onChange }: CompanyWebsiteFormProps)
           type="url"
           placeholder="https://your-company.com"
           value={value || ''}
-          onChange={(e) => onChange('companyWebsite', e.target.value)}
+          onChange={(e) => onChange('company_website', e.target.value)}
           className="pl-10 h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl text-[#2277f6] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0"
         />
       </div>

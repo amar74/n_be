@@ -5,9 +5,7 @@ import {
   AccountUpdate,
   AccountDetailResponse,
   AccountListResponse,
-  ContactCreate,
   ContactResponse,
-  CreateAccountFormData,
   UpdateAccountFormData,
   ContactFormData,
 } from '@/types/accounts';
@@ -22,17 +20,15 @@ class AccountsApiService {
     page?: number;    // Changed from 'offset' to 'page' per API.md
     size?: number;    // Changed from 'limit' to 'size' per API.md
   }): Promise<AccountListResponse> {
-    const searchParams = new URLSearchParams();
+    // Filter out undefined values and 'all' tier
+    const cleanParams: Record<string, string | number> = {};
+    
+    if (params?.search) cleanParams.search = params.search;
+    if (params?.tier && params.tier !== 'all') cleanParams.tier = params.tier;
+    if (params?.page) cleanParams.page = params.page;
+    if (params?.size) cleanParams.size = params.size;
 
-    if (params?.search) searchParams.append('search', params.search);
-    if (params?.tier && params.tier !== 'all') searchParams.append('tier', params.tier);
-    if (params?.page) searchParams.append('page', params.page.toString());
-    if (params?.size) searchParams.append('size', params.size.toString());
-
-    const queryString = searchParams.toString();
-    const url = queryString ? `${this.baseURL}?${queryString}` : this.baseURL;
-
-    const response = await apiClient.get(url);
+    const response = await apiClient.get('/accounts/', { params: cleanParams });
     return response.data;
   }
 
@@ -43,43 +39,11 @@ class AccountsApiService {
   }
 
   // Create new account - following API.md spec
-  async createAccount(data: CreateAccountFormData): Promise<{ status_code: number; account_id: string; message: string }> {
+  async createAccount(data: AccountCreate): Promise<{ status_code: number; account_id: string; message: string }> {
     // Transform form data to API format per API.md
-    const createData: any = {
-      client_name: data.client_name,
-      company_website: data.company_website || null,
-      client_address: {
-        line1: data.client_address.line1,
-        line2: data.client_address.line2 || null,
-        pincode: data.client_address.pincode || null,
-      },
-      client_type: data.client_type,
-      market_sector: data.market_sector || null,
-    };
-
-    // Add primary contact if provided in the contacts array
-    if (data.contacts && data.contacts.length > 0) {
-      createData.primary_contact = {
-        name: data.contacts[0].name,
-        email: data.contacts[0].email,
-        phone: data.contacts[0].phone,
-        title: data.contacts[0].title || null,
-      };
-      
-      // Add secondary contacts if there are more than one contact
-      if (data.contacts.length > 1) {
-        createData.secondary_contacts = data.contacts.slice(1).map(contact => ({
-          name: contact.name,
-          email: contact.email,
-          phone: contact.phone,
-          title: contact.title || null,
-        }));
-      }
-    }
-
-    console.log('Transformed data for API:', createData);
+    console.log('Transformed data for API:', data);
     try {
-      const response = await apiClient.post(this.baseURL, createData);
+      const response = await apiClient.post(this.baseURL, data);
       return response.data;
     } catch (error: any) {
       console.error('API Error Details:', {
@@ -98,7 +62,7 @@ class AccountsApiService {
     data: UpdateAccountFormData
   ): Promise<{ status_code: number; message: string }> {
     // Transform form data to API format - send only provided fields per API.md
-    const updateData: any = {};
+    const updateData: Partial<AccountUpdate> = {};
 
     if (data.client_name !== undefined) updateData.client_name = data.client_name;
     if (data.company_website !== undefined)

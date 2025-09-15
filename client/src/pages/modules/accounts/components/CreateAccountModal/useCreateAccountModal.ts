@@ -1,17 +1,18 @@
 import { useState, useCallback } from 'react';
-import { CreateAccountFormData, validateForm } from './CreateAccountModal.schema';
+import { validateForm } from './CreateAccountModal.schema';
 import { INITIAL_FORM_DATA } from './CreateAccountModal.constants';
 import { UseCreateAccountModalReturn } from './CreateAccountModal.types';
+import { AccountCreate } from '@/types/accounts';
 
 export function useCreateAccountModal(
-  onSubmit: (data: CreateAccountFormData) => void,
+  onSubmit: (data: AccountCreate) => void,
   onClose: () => void
 ): UseCreateAccountModalReturn {
-  const [formData, setFormData] = useState<CreateAccountFormData>(INITIAL_FORM_DATA);
+  const [formData, setFormData] = useState<AccountCreate>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleInputChange = useCallback((field: keyof CreateAccountFormData, value: string) => {
+  const handleInputChange = useCallback((field: keyof AccountCreate, value: string | object) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error when user starts typing
@@ -46,7 +47,7 @@ export function useCreateAccountModal(
     
     try {
       await onSubmit(formData);
-      resetForm();
+      // resetForm();
     } catch (error) {
       console.error('Form submission error:', error);
       // Handle submission error if needed

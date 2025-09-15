@@ -1,20 +1,24 @@
-import { CreateAccountFormData } from './CreateAccountModal.schema';
+import { AccountCreate } from '@/types/accounts';
+
+export enum ClientType {
+  TIER_1 = 'tier_1',
+  TIER_2 = 'tier_2',
+  TIER_3 = 'tier_3'
+}
 
 export interface CreateAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateAccountFormData) => void;
+  onSubmit: (data: AccountCreate) => void;
   isLoading?: boolean;
 }
 
 export interface UseCreateAccountModalReturn {
-  formData: CreateAccountFormData;
+  formData: AccountCreate;
   errors: Record<string, string>;
   isSubmitting: boolean;
-  handleInputChange: (field: keyof CreateAccountFormData, value: string) => void;
+  handleInputChange: (field: keyof AccountCreate, value: string | object) => void;
   handleSubmit: (e: React.FormEvent) => void;
   handleClose: () => void;
   resetForm: () => void;
 }
-
-export { CreateAccountFormData };

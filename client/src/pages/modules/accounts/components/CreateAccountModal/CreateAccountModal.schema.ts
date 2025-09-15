@@ -1,45 +1,36 @@
 import { z } from 'zod';
-import { MARKET_SECTORS, CLIENT_TYPES, HOSTING_AREAS, MSA_OPTIONS, US_STATES } from './CreateAccountModal.constants';
+import { schemas } from '@/types/generated/accounts';
+import { AccountCreate } from '@/types/accounts';
 
-export const createAccountSchema = z.object({
-  companyWebsite: z.string().default(''),
-  clientName: z.string().min(1, 'Client Name is required').trim(),
-  clientAddress1: z.string().min(1, 'Client Address 1 is required').trim(),
-  clientAddress2: z.string().default(''),
-  city: z.string().min(1, 'City is required').trim(),
-  state: z.string().min(1, 'State is required'),
-  zipCode: z.string().default(''),
-  primaryContact: z.string().default(''),
-  contactEmail: z.string().refine((val) => val === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), 'Please enter a valid email address').default(''),
-  clientMarketSector: z.string().min(1, 'Client Market Sector is required'),
-  clientType: z.string().min(1, 'Client Type is required'),
-  hostingArea: z.string().default(''),
-  msaInPlace: z.string().default(''),
-});
+export const createAccountSchema = schemas.AccountCreate;
 
-export type CreateAccountFormData = z.infer<typeof createAccountSchema>;
-
-export const validateField = (field: keyof CreateAccountFormData, value: any): string | null => {
+export const validateField = (field: keyof AccountCreate, value: any): string | null => {
   try {
-    const fieldSchema = createAccountSchema.shape[field];
-    fieldSchema.parse(value);
+    // Type-safe field access
+    const schema = createAccountSchema.shape[field as keyof typeof createAccountSchema.shape];
+    if (!schema) {
+      return 'Invalid field';
+    }
+    
+    // Parse the value
+    schema.parse(value);
     return null;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return error.errors[0]?.message || 'Invalid value';
+      return error.issues[0]?.message || 'Invalid value';
     }
     return 'Invalid value';
   }
 };
 
-export const validateForm = (data: Partial<CreateAccountFormData>): Record<string, string> => {
+export const validateForm = (data: Partial<AccountCreate>): Record<string, string> => {
   const errors: Record<string, string> = {};
   
   try {
     createAccountSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      error.errors.forEach((err) => {
+      error.issues.forEach((err) => {
         if (err.path.length > 0) {
           errors[err.path[0] as string] = err.message;
         }

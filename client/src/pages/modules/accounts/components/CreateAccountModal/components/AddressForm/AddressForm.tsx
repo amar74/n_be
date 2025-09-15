@@ -1,16 +1,23 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CreateAccountFormData } from '../../CreateAccountModal.types';
+import { AccountCreate } from '@/types/accounts';
 import { US_STATES } from '../../CreateAccountModal.constants';
 
 interface AddressFormProps {
-  formData: CreateAccountFormData;
+  formData: AccountCreate;
   errors: Record<string, string>;
-  onChange: (field: keyof CreateAccountFormData, value: string) => void;
+  onChange: (field: keyof AccountCreate, value: string | object) => void;
 }
 
 export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
+  const handleAddressChange = (field: keyof AccountCreate['client_address'], value: string) => {
+    onChange('client_address', {
+      ...formData.client_address,
+      [field]: field === 'pincode' ? (value ? parseInt(value, 10) : null) : value,
+    });
+  };
+
   return (
     <>
       {/* Client Name */}
@@ -20,14 +27,14 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
         </Label>
         <Input
           placeholder="Company Name"
-          value={formData.clientName}
-          onChange={(e) => onChange('clientName', e.target.value)}
+          value={formData.client_name}
+          onChange={(e) => onChange('client_name', e.target.value)}
           className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
-            errors.clientName ? 'border-red-500' : ''
+            errors.client_name ? 'border-red-500' : ''
           }`}
         />
-        {errors.clientName && (
-          <span className="text-red-500 text-sm">{errors.clientName}</span>
+        {errors.client_name && (
+          <span className="text-red-500 text-sm">{errors.client_name}</span>
         )}
       </div>
 
@@ -39,14 +46,14 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
           </Label>
           <Input
             placeholder="Billing address (auto-fill by AI)"
-            value={formData.clientAddress1}
-            onChange={(e) => onChange('clientAddress1', e.target.value)}
+            value={formData.client_address.line1}
+            onChange={(e) => handleAddressChange('line1', e.target.value)}
             className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
-              errors.clientAddress1 ? 'border-red-500' : ''
+              errors['client_address.line1'] ? 'border-red-500' : ''
             }`}
           />
-          {errors.clientAddress1 && (
-            <span className="text-red-500 text-sm">{errors.clientAddress1}</span>
+          {errors['client_address.line1'] && (
+            <span className="text-red-500 text-sm">{errors['client_address.line1']}</span>
           )}
         </div>
         <div className="flex-1 flex flex-col gap-3">
@@ -55,8 +62,8 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
           </Label>
           <Input
             placeholder="Billing address (auto-fill by AI)"
-            value={formData.clientAddress2}
-            onChange={(e) => onChange('clientAddress2', e.target.value)}
+            value={formData.client_address.line2 || ''}
+            onChange={(e) => handleAddressChange('line2', e.target.value)}
             className="h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0"
           />
         </div>
@@ -70,23 +77,26 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
           </Label>
           <Input
             placeholder="City Name"
-            value={formData.city}
-            onChange={(e) => onChange('city', e.target.value)}
+            value={formData.client_address.city || ''}
+            onChange={(e) => handleAddressChange('city', e.target.value)}
             className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
-              errors.city ? 'border-red-500' : ''
+              errors['client_address.city'] ? 'border-red-500' : ''
             }`}
           />
-          {errors.city && (
-            <span className="text-red-500 text-sm">{errors.city}</span>
+          {errors['client_address.city'] && (
+            <span className="text-red-500 text-sm">{errors['client_address.city']}</span>
           )}
         </div>
         <div className="flex-1 flex flex-col gap-3">
           <Label className="text-base sm:text-lg font-medium text-[#0f0901] capitalize">
             State *
           </Label>
-          <Select value={formData.state} onValueChange={(value) => onChange('state', value)}>
+          <Select 
+            value={formData.client_address.state?.toString() || ''}
+            onValueChange={(value) => handleAddressChange('state', value)}
+          >
             <SelectTrigger className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
-              errors.state ? 'border-red-500' : ''
+              errors['client_address.state'] ? 'border-red-500' : ''
             }`}>
               <SelectValue placeholder="Select State" />
             </SelectTrigger>
@@ -98,8 +108,8 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
               ))}
             </SelectContent>
           </Select>
-          {errors.state && (
-            <span className="text-red-500 text-sm">{errors.state}</span>
+          {errors['client_address.state'] && (
+            <span className="text-red-500 text-sm">{errors['client_address.state']}</span>
           )}
         </div>
         <div className="flex-1 flex flex-col gap-3">
@@ -108,8 +118,8 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
           </Label>
           <Input
             placeholder="Zip Code"
-            value={formData.zipCode}
-            onChange={(e) => onChange('zipCode', e.target.value)}
+            value={formData.client_address.pincode?.toString() || ''}
+            onChange={(e) => handleAddressChange('pincode', e.target.value)}
             className="h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0"
           />
         </div>

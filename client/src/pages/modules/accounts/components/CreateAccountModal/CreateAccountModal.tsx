@@ -78,7 +78,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-6">
               {/* Company Website Section */}
               <CompanyWebsiteForm 
-                value={formData.companyWebsite}
+                value={formData.company_website}
                 onChange={handleInputChange}
               />
 

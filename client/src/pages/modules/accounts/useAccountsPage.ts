@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useAccounts } from '@/hooks/useAccounts';
-import { AccountData, AccountStatsData, FilterState, CreateAccountFormData } from './AccountsPage.types';
-import { MOCK_ACCOUNTS } from './AccountsPage.constants';
+import { AccountStatsData, FilterState } from './AccountsPage.types';
+import { AccountCreate, AccountListItem } from '@/types/accounts';
+import { ClientType } from './components/CreateAccountModal/CreateAccountModal.types';
 
 export function useAccountsPage() {
   const navigate = useNavigate();
@@ -16,45 +17,52 @@ export function useAccountsPage() {
   });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // Use the existing accounts hook (if available) or fallback to mock data
+  // Use the real accounts hook
   const {
     useAccountsList,
     createAccount,
     deleteAccount,
     isCreating,
     isDeleting,
-  } = useAccounts?.() || {};
+  } = useAccounts();
 
-  // For now, use mock data - replace with real API call later
-  const accounts: AccountData[] = MOCK_ACCOUNTS;
-  const isLoading = false;
+  // Use real API data with current filters
+  const accountsQuery = useAccountsList({
+    search: filters.search || undefined,
+    tier: filters.tier !== 'all' ? filters.tier : undefined,
+  });
 
-  // Filter accounts based on current filters
-  const filteredAccounts = useMemo(() => {
-    return accounts.filter((account) => {
-      const matchesSearch = filters.search === '' || 
-        account.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        account.clientMarketSector.toLowerCase().includes(filters.search.toLowerCase()) ||
-        account.location.toLowerCase().includes(filters.search.toLowerCase());
+  const accounts = accountsQuery?.data?.accounts || [];
+  const isLoading = accountsQuery?.isLoading || false;
 
-      const matchesTier = filters.tier === 'all' || 
-        (filters.tier === 'tire_1' && account.clientType === 'Tire 1') ||
-        (filters.tier === 'tire_2' && account.clientType === 'Tire 2') ||
-        (filters.tier === 'tire_3' && account.clientType === 'Tire 3');
+  // API handles filtering, so we use accounts directly
+  const filteredAccounts = accounts;
 
-      return matchesSearch && matchesTier;
-    });
-  }, [accounts, filters]);
-
-  // Calculate stats from filtered accounts
+  // Calculate stats from accounts data
   const stats: AccountStatsData = useMemo(() => {
+    if (filteredAccounts.length === 0) {
+      return {
+        totalAccounts: 0,
+        aiHealthScore: 0,
+        highRiskCount: 0,
+        growingCount: 0,
+        totalValue: '$0',
+      };
+    }
+
     const totalAccounts = filteredAccounts.length;
     const aiHealthScore = Math.round(
-      filteredAccounts.reduce((sum, acc) => sum + (acc.aiHealthScore || 0), 0) / totalAccounts
+      filteredAccounts.reduce((sum, acc) => sum + (acc.ai_health_score || 0), 0) / totalAccounts
     );
-    const highRiskCount = filteredAccounts.filter(acc => acc.riskLevel === 'high').length;
-    const growingCount = filteredAccounts.filter(acc => acc.healthTrend === 'up').length;
-    const totalValue = '$92.6M'; // Calculated from all accounts
+    // Since these fields don't exist in AccountListItem, we'll set them to 0
+    const highRiskCount = 0;
+    const growingCount = 0;
+    
+    // Calculate total value from actual account values
+    const totalValueNumber = filteredAccounts.reduce((sum, acc) => {
+      return sum + (acc.total_value || 0);
+    }, 0);
+    const totalValue = `$${totalValueNumber.toFixed(1)}M`;
 
     return {
       totalAccounts,
@@ -78,44 +86,41 @@ export function useAccountsPage() {
     setIsCreateModalOpen(true);
   };
 
-  const handleCreateAccountSubmit = async (formData: CreateAccountFormData) => {
+  const handleCreateAccountSubmit = async (formData: AccountCreate) => {
     try {
-      // TODO: Replace with actual API call when backend is ready
-      // For now, we'll simulate account creation with mock data
-      const newAccount: AccountData = {
-        accountId: `ACC-${String(accounts.length + 1).padStart(3, '0')}`,
-        name: formData.clientName,
-        clientMarketSector: formData.clientMarketSector,
-        location: `${formData.city}, ${formData.state}`,
-        internalContact: formData.primaryContact || 'Contact TBD',
-        hostingArea: formData.hostingArea || 'Office TBD',
-        clientType: formData.clientType as 'Tire 1' | 'Tire 2' | 'Tire 3',
-        msaInPlace: formData.msaInPlace === 'Yes',
-        totalOpportunities: 0,
-        totalValue: '$0',
-        lastContact: new Date().toISOString().split('T')[0],
-        aiHealthScore: Math.floor(Math.random() * 40) + 60, // Random score between 60-100
-        healthTrend: 'stable' as const,
-        riskLevel: 'low' as const,
-        website: formData.companyWebsite,
-      };
-
-      // In a real implementation, this would be:
-      // await createAccount(newAccount);
+      console.log('🚀 handleCreateAccountSubmit: Form data received:', formData);
       
-      // For now, just show success message
+      // Transform the form data to match the API expected format
+      // Client type is already in the correct format since we're using the enum
+
+      
+      console.log('🔄 handleCreateAccountSubmit: Transformed API data:', formData);
+      
+      // Use the real API call
+      await createAccount(formData);
+      
+      // Only close modal and show success message if API call succeeds
       toast({
         title: 'Account Created Successfully',
-        description: `${formData.clientName} has been added to your accounts.`,
+        description: `${formData.client_name} has been added to your accounts.`,
       });
-
       setIsCreateModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error creating account:', error);
+      
+      // Show more specific error message from API if available
+      const errorMessage = error.response?.data?.detail?.[0]?.msg 
+        || error.response?.data?.message 
+        || 'There was an error creating the account. Please try again.';
+      
       toast({
         title: 'Error Creating Account',
-        description: 'There was an error creating the account. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
+      
+      // Re-throw error so the form component can handle it
+      throw error;
     }
   };
 

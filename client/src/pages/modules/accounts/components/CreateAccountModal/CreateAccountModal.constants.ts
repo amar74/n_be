@@ -1,3 +1,5 @@
+import { ClientType } from './CreateAccountModal.types';
+
 export const MARKET_SECTORS = [
   'Transportation',
   'Infrastructure', 
@@ -8,7 +10,14 @@ export const MARKET_SECTORS = [
   'Government',
 ] as const;
 
-export const CLIENT_TYPES = ['Tire 1', 'Tire 2', 'Tire 3'] as const;
+
+export const CLIENT_TYPES = Object.values(ClientType);
+
+export const CLIENT_TYPE_DISPLAY: Record<ClientType, string> = {
+  [ClientType.TIER_1]: 'Tier 1',
+  [ClientType.TIER_2]: 'Tier 2',
+  [ClientType.TIER_3]: 'Tier 3',
+} as const;
 
 export const HOSTING_AREAS = [
   'Northeast Office',
@@ -31,17 +40,22 @@ export const US_STATES = [
 ] as const;
 
 export const INITIAL_FORM_DATA = {
-  companyWebsite: '',
-  clientName: '',
-  clientAddress1: '',
-  clientAddress2: '',
-  city: '',
-  state: '',
-  zipCode: '',
-  primaryContact: '',
-  contactEmail: '',
-  clientMarketSector: '',
-  clientType: '',
-  hostingArea: '',
-  msaInPlace: '',
+  client_name: '',
+  company_website: '',
+  client_address: {
+    line1: '',
+    line2: null,
+    city: null,
+    pincode: null,
+  },
+  primary_contact: {
+    name: '',
+    email: '',
+    phone: '',
+    title: null,
+  },
+  secondary_contacts: [],
+  client_type: 'tier_1' as const,
+  market_sector: '',
+  notes: '',
 };

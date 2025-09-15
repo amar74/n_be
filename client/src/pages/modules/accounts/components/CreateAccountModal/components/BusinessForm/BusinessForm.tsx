@@ -1,12 +1,12 @@
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CreateAccountFormData } from '../../CreateAccountModal.types';
-import { MARKET_SECTORS, CLIENT_TYPES, HOSTING_AREAS, MSA_OPTIONS } from '../../CreateAccountModal.constants';
+import { AccountCreate, ClientType } from '@/types/accounts';
+import { MARKET_SECTORS, CLIENT_TYPES, CLIENT_TYPE_DISPLAY } from '../../CreateAccountModal.constants';
 
 interface BusinessFormProps {
-  formData: CreateAccountFormData;
+  formData: AccountCreate;
   errors: Record<string, string>;
-  onChange: (field: keyof CreateAccountFormData, value: string) => void;
+  onChange: (field: keyof AccountCreate, value: string) => void;
 }
 
 export function BusinessForm({ formData, errors, onChange }: BusinessFormProps) {
@@ -18,9 +18,9 @@ export function BusinessForm({ formData, errors, onChange }: BusinessFormProps) 
           <Label className="text-base sm:text-lg font-medium text-[#0f0901] capitalize">
             Client Market Sector *
           </Label>
-          <Select value={formData.clientMarketSector} onValueChange={(value) => onChange('clientMarketSector', value)}>
+          <Select value={formData.market_sector || ''} onValueChange={(value) => onChange('market_sector', value)}>
             <SelectTrigger className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
-              errors.clientMarketSector ? 'border-red-500' : ''
+              errors.market_sector ? 'border-red-500' : ''
             }`}>
               <SelectValue placeholder="Select" />
             </SelectTrigger>
@@ -32,69 +32,31 @@ export function BusinessForm({ formData, errors, onChange }: BusinessFormProps) 
               ))}
             </SelectContent>
           </Select>
-          {errors.clientMarketSector && (
-            <span className="text-red-500 text-sm">{errors.clientMarketSector}</span>
+          {errors.market_sector && (
+            <span className="text-red-500 text-sm">{errors.market_sector}</span>
           )}
         </div>
         <div className="flex-1 flex flex-col gap-3">
           <Label className="text-base sm:text-lg font-medium text-[#0f0901] capitalize">
             Client type *
           </Label>
-          <Select value={formData.clientType} onValueChange={(value) => onChange('clientType', value)}>
+          <Select value={formData.client_type} onValueChange={(value) => onChange('client_type', value)}>
             <SelectTrigger className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
-              errors.clientType ? 'border-red-500' : ''
+              errors.client_type ? 'border-red-500' : ''
             }`}>
-              <SelectValue placeholder="Select tire" />
+              <SelectValue placeholder="Select tier" />
             </SelectTrigger>
             <SelectContent className="bg-white">
               {CLIENT_TYPES.map((type) => (
                 <SelectItem key={type} value={type}>
-                  {type}
+                  {CLIENT_TYPE_DISPLAY[type]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {errors.clientType && (
-            <span className="text-red-500 text-sm">{errors.clientType}</span>
+          {errors.client_type && (
+            <span className="text-red-500 text-sm">{errors.client_type}</span>
           )}
-        </div>
-      </div>
-
-      {/* Hosting Area and MSA */}
-      <div className="flex flex-col sm:flex-row gap-4 sm:gap-7">
-        <div className="flex-1 flex flex-col gap-3">
-          <Label className="text-base sm:text-lg font-medium text-[#0f0901] capitalize">
-            Hosting Area/Office
-          </Label>
-          <Select value={formData.hostingArea} onValueChange={(value) => onChange('hostingArea', value)}>
-            <SelectTrigger className="h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0">
-              <SelectValue placeholder="Select office" />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-              {HOSTING_AREAS.map((area) => (
-                <SelectItem key={area} value={area}>
-                  {area}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex-1 flex flex-col gap-3">
-          <Label className="text-base sm:text-lg font-medium text-[#0f0901] capitalize">
-            MSA in place
-          </Label>
-          <Select value={formData.msaInPlace} onValueChange={(value) => onChange('msaInPlace', value)}>
-            <SelectTrigger className="h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-              {MSA_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
       </div>
     </>

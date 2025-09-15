@@ -1,2 +1,2 @@
 export { CreateAccountModal } from './CreateAccountModal';
-export type { CreateAccountModalProps, CreateAccountFormData } from './CreateAccountModal.types';
+export type { CreateAccountModalProps } from './CreateAccountModal.types';

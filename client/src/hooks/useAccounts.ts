@@ -3,13 +3,12 @@ import { createQueryKeys } from '@/lib/query-client';
 import { accountsApi } from '@/services/api/accountsApi';
 import { useToast } from './use-toast';
 import type {
-  CreateAccountFormData,
   UpdateAccountFormData,
   ContactFormData,
   AccountDetailResponse,
   AccountListResponse,
-  ContactsResponse,
   AccountListItem,
+  AccountCreate,
 } from '@/types/accounts';
 
 // Query keys following Development.md patterns
@@ -110,13 +109,13 @@ export function useAccounts() {
   // CREATE - Create new account - following API.md spec
   const createAccountMutation = useMutation({
     mutationFn: async (
-      data: CreateAccountFormData
+      data: AccountCreate
     ): Promise<{ status_code: number; account_id: string; message: string }> => {
       return await accountsApi.createAccount(data);
     },
     onSuccess: data => {
       // Invalidate accounts list to show new account
-      queryClient.invalidateQueries({ queryKey: accountsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: accountsKeys.list() });
 
       // Invalidate the specific account to fetch fresh data
       queryClient.invalidateQueries({ queryKey: accountsKeys.detail(data.account_id) });
@@ -156,7 +155,7 @@ export function useAccounts() {
       queryClient.invalidateQueries({ queryKey: accountsKeys.detail(variables.accountId) });
 
       // Also invalidate accounts list to reflect any changes
-      queryClient.invalidateQueries({ queryKey: accountsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: accountsKeys.list() });
 
       toast({
         title: 'Account Updated',
@@ -182,7 +181,7 @@ export function useAccounts() {
       queryClient.removeQueries({ queryKey: accountsKeys.detail(accountId) });
 
       // Invalidate list to show account removal
-      queryClient.invalidateQueries({ queryKey: accountsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: accountsKeys.list() });
 
       toast({
         title: 'Account Deleted',
@@ -315,7 +314,7 @@ export function useAccounts() {
     },
     onSuccess: (data, { accountId }) => {
       // Invalidate account details and contacts to refresh the data
-      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(accountId) });
+      queryClient.invalidateQueries({ queryKey: accountsKeys.detail(accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.all });
 
