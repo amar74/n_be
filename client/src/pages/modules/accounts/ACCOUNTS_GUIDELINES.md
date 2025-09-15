@@ -20,7 +20,18 @@ Following the CreateOrganizationPage pattern:
     ├── AccountsStats/                 # Info cards section
     ├── AccountsList/                  # Accounts grid/list
     ├── AccountCard/                   # Individual account card
-    └── CreateAccountModal/            # Create account form modal (TODO)
+    └── CreateAccountModal/            # Create account form modal
+        ├── CreateAccountModal.tsx     # Main modal component (custom overlay)
+        ├── CreateAccountModal.types.ts # TypeScript interfaces
+        ├── CreateAccountModal.constants.ts # Static data and options
+        ├── CreateAccountModal.schema.ts # Zod validation schema
+        ├── useCreateAccountModal.ts   # Business logic hook
+        ├── index.ts                   # Exports
+        └── components/                # Form section components
+            ├── CompanyWebsiteForm/    # Website input with AI indicator
+            ├── AddressForm/           # Client name and address fields
+            ├── ContactForm/           # Contact information fields
+            └── BusinessForm/          # Market sector and business info
 ```
 
 ## Figma Design References
@@ -134,8 +145,79 @@ Following the CreateOrganizationPage pattern:
 - Fallback to mock data during development
 - Compatible with current API structure
 
+## CreateAccountModal Component
+
+### Architecture (Following CreateOrganizationPage Pattern)
+- **No Dialog Component**: Custom modal overlay built from scratch
+- **Modular Structure**: Broken down into separate files and components
+- **Zod Validation**: Schema-based validation with real-time error feedback
+- **Custom Hook**: Business logic separated into `useCreateAccountModal`
+- **Component Composition**: Form sections as separate reusable components
+
+### Design Specifications
+- **Modal Size**: `max-w-2xl` (responsive width), `max-h-[90vh]` (viewport constrained)
+- **Background**: White with rounded-[36px] corners
+- **Shadow**: `shadow-[0px_4px_12px_0px_rgba(191,191,191,0.48)]`
+- **Padding**: 32px (p-8) - optimized for mobile and desktop
+- **Backdrop**: Semi-transparent dark overlay (`bg-black/50`)
+- **Overflow**: `overflow-y-auto` for scrolling when content exceeds viewport
+- **Keyboard Support**: ESC key to close, body scroll lock when open
+
+### Header Section
+- **Title**: "Create New Account" in `#ed8a09`, responsive (text-2xl sm:text-3xl)
+- **Subtitle**: "Add a new client account to your portfolio" in `#a7a7a7`, responsive (text-sm sm:text-base)
+- **Close Button**: X icon in top-right corner
+
+### Form Layout (Responsive)
+- **Company Website**: Full width with Sparkles icon and Globe input icon
+- **Input Fields**: Responsive height (h-12 sm:h-14), rounded-[14px] or rounded-[16px]
+- **Background**: `#f3f3f3` default, white on focus
+- **Border**: `#e6e6e6` default, `#ff7b00` on focus
+- **Text**: Responsive (text-sm sm:text-base) font-medium, `#a7a7a7` placeholders
+- **Labels**: Responsive (text-base sm:text-lg) font-medium, `#0f0901` color, capitalized
+- **Layout**: Stacks vertically on mobile, side-by-side on desktop (flex-col sm:flex-row)
+
+### Field Groups
+1. **Company Website**: Full width with AI smart population indicator
+2. **Client Name**: Full width, required field
+3. **Address**: Two columns (Address 1*, Address 2)
+4. **Location**: Three columns (City*, State*, Zip Code)
+5. **Contact**: Two columns (Primary Contact, Contact Email)
+6. **Business**: Two columns (Market Sector*, Client Type*)
+7. **Operations**: Two columns (Hosting Area/Office, MSA in Place)
+
+### Validation Rules
+- **Required Fields**: Client Name, Address 1, City, State, Market Sector, Client Type
+- **Email Validation**: Standard email format validation
+- **Error Display**: Red border and error message below field
+- **Real-time Validation**: Clear errors on user input
+
+### Action Buttons
+- **Cancel**: Outline button, 148px width, 56px height, rounded-[16px]
+- **Create Account**: Filled button, `#0f0901` background, white text
+- **Loading State**: "Creating..." text with disabled state
+
+### Form Data Structure
+```typescript
+interface CreateAccountFormData {
+  companyWebsite: string;
+  clientName: string;
+  clientAddress1: string;
+  clientAddress2: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  primaryContact: string;
+  contactEmail: string;
+  clientMarketSector: string;
+  clientType: 'Tire 1' | 'Tire 2' | 'Tire 3' | '';
+  hostingArea: string;
+  msaInPlace: string;
+}
+```
+
 ## TODO Items
-1. Implement CreateAccountModal component
+1. ✅ Implement CreateAccountModal component
 2. Add search/filter functionality to header
 3. Integrate with real API data
 4. Add loading states and error handling

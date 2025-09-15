@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { AccountsHeader } from './components/AccountsHeader';
 import { AccountsStats } from './components/AccountsStats';
 import { AccountsList } from './components/AccountsList';
+import { CreateAccountModal } from './components/CreateAccountModal';
 import { useAccountsPage } from './useAccountsPage';
 
 function AccountsPage() {
@@ -9,10 +10,14 @@ function AccountsPage() {
     accounts,
     stats,
     isLoading,
+    isCreateModalOpen,
     handleCreateAccount,
+    handleCreateAccountSubmit,
     handleAccountClick,
     handleExport,
     handleStatClick,
+    setIsCreateModalOpen,
+    isCreating,
   } = useAccountsPage();
 
   return (
@@ -43,6 +48,14 @@ function AccountsPage() {
           />
         </div>
       </div>
+
+      {/* Create Account Modal */}
+      <CreateAccountModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateAccountSubmit}
+        isLoading={isCreating}
+      />
     </div>
   );
 }

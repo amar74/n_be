@@ -45,3 +45,6 @@ export interface FilterState {
   search: string;
   tier: 'all' | 'tire_1' | 'tire_2' | 'tire_3';
 }
+
+// Re-export from the modal component
+export type { CreateAccountFormData, CreateAccountModalProps } from './components/CreateAccountModal/CreateAccountModal.types';

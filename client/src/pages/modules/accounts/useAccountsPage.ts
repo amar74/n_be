@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useAccounts } from '@/hooks/useAccounts';
-import { AccountData, AccountStatsData, FilterState } from './AccountsPage.types';
+import { AccountData, AccountStatsData, FilterState, CreateAccountFormData } from './AccountsPage.types';
 import { MOCK_ACCOUNTS } from './AccountsPage.constants';
 
 export function useAccountsPage() {
@@ -78,6 +78,47 @@ export function useAccountsPage() {
     setIsCreateModalOpen(true);
   };
 
+  const handleCreateAccountSubmit = async (formData: CreateAccountFormData) => {
+    try {
+      // TODO: Replace with actual API call when backend is ready
+      // For now, we'll simulate account creation with mock data
+      const newAccount: AccountData = {
+        accountId: `ACC-${String(accounts.length + 1).padStart(3, '0')}`,
+        name: formData.clientName,
+        clientMarketSector: formData.clientMarketSector,
+        location: `${formData.city}, ${formData.state}`,
+        internalContact: formData.primaryContact || 'Contact TBD',
+        hostingArea: formData.hostingArea || 'Office TBD',
+        clientType: formData.clientType as 'Tire 1' | 'Tire 2' | 'Tire 3',
+        msaInPlace: formData.msaInPlace === 'Yes',
+        totalOpportunities: 0,
+        totalValue: '$0',
+        lastContact: new Date().toISOString().split('T')[0],
+        aiHealthScore: Math.floor(Math.random() * 40) + 60, // Random score between 60-100
+        healthTrend: 'stable' as const,
+        riskLevel: 'low' as const,
+        website: formData.companyWebsite,
+      };
+
+      // In a real implementation, this would be:
+      // await createAccount(newAccount);
+      
+      // For now, just show success message
+      toast({
+        title: 'Account Created Successfully',
+        description: `${formData.clientName} has been added to your accounts.`,
+      });
+
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Error Creating Account',
+        description: 'There was an error creating the account. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleAccountClick = (accountId: string) => {
     navigate(`/module/accounts/${accountId}`);
   };
@@ -106,6 +147,7 @@ export function useAccountsPage() {
     handleSearchChange,
     handleTierChange,
     handleCreateAccount,
+    handleCreateAccountSubmit,
     handleAccountClick,
     handleExport,
     handleStatClick,
