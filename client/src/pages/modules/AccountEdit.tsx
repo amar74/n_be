@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useAccounts } from '@/hooks/useAccounts';
+import { useAccountContacts, useAccountDetail, useAccounts } from '@/hooks/useAccounts';
 import { AccountDetailResponse, UpdateAccountFormData, ContactFormData } from '@/types/accounts';
 import { ArrowLeft, Building2, Save, X, Award, Edit, Users, Mail, Phone, Plus } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
@@ -46,8 +46,6 @@ const AccountEdit: React.FC = () => {
 
   // Use the new useAccounts hook
   const {
-    useAccount,
-    useAccountContacts,
     updateAccount,
     addContact,
     updateContact,
@@ -61,8 +59,8 @@ const AccountEdit: React.FC = () => {
   } = useAccounts();
 
   // Use the account data from the hook
-  const { data: account, isLoading, error } = useAccount(id);
-  const { data: contactsResponse } = useAccountContacts(id);
+  const { accountDetail: account, isAccountDetailLoading: isLoading, accountDetailError: error } = useAccountDetail(id || '');
+  const { accountContacts: contactsResponse } = useAccountContacts(id || '');
   console.log('AccountEdit Debug:', { account, contactsResponse });
   const [editForm, setEditForm] = useState<UpdateAccountFormData>({});
 

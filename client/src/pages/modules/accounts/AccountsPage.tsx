@@ -4,6 +4,7 @@ import { AccountsStats } from './components/AccountsStats';
 import { AccountsList } from './components/AccountsList';
 import { CreateAccountModal } from './components/CreateAccountModal';
 import { useAccountsPage } from './useAccountsPage';
+import { ClientType } from '@/types/accounts';
 
 function AccountsPage() {
   const {
@@ -18,6 +19,7 @@ function AccountsPage() {
     handleStatClick,
     setIsCreateModalOpen,
     isCreating,
+    handleTierChange
   } = useAccountsPage();
 
   return (
@@ -28,6 +30,7 @@ function AccountsPage() {
           <AccountsHeader 
             onCreateAccount={handleCreateAccount}
             onExport={handleExport}
+            onFilterChange={handleTierChange}
           />
         </div>
 

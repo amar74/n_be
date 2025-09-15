@@ -6,13 +6,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ClientType } from '../CreateAccountModal/CreateAccountModal.types';
 
 interface AccountsHeaderProps {
   onCreateAccount: () => void;
   onExport: (format: string) => void;
+  onFilterChange: (filter: ClientType | 'all') => void;
 }
 
-export function AccountsHeader({ onCreateAccount, onExport }: AccountsHeaderProps) {
+export function AccountsHeader({ onCreateAccount, onExport, onFilterChange, }: AccountsHeaderProps) {
   return (
     <div className="content-stretch flex flex-col gap-7 items-start justify-start relative w-full">
       {/* Breadcrumbs */}
@@ -60,10 +62,10 @@ export function AccountsHeader({ onCreateAccount, onExport }: AccountsHeaderProp
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-                <DropdownMenuItem>All Accounts</DropdownMenuItem>
-                <DropdownMenuItem>Tier 1 Accounts</DropdownMenuItem>
-                <DropdownMenuItem>Tier 2 Accounts</DropdownMenuItem>
-                <DropdownMenuItem>Tier 3 Accounts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFilterChange('all')}>All Accounts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFilterChange(ClientType.TIER_1)}>Tier 1 Accounts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFilterChange(ClientType.TIER_2)}>Tier 2 Accounts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFilterChange(ClientType.TIER_3)}>Tier 3 Accounts</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 

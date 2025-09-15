@@ -5,6 +5,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { AccountStatsData, FilterState } from './AccountsPage.types';
 import { AccountCreate, AccountListItem } from '@/types/accounts';
 import { ClientType } from './components/CreateAccountModal/CreateAccountModal.types';
+import { tr } from 'date-fns/locale';
 
 export function useAccountsPage() {
   const navigate = useNavigate();
@@ -19,28 +20,24 @@ export function useAccountsPage() {
 
   // Use the real accounts hook
   const {
-    useAccountsList,
+    isLoading,
+    accountsList,
     createAccount,
-    deleteAccount,
+    fetchAccounts,
     isCreating,
     isDeleting,
-  } = useAccounts();
+  } = useAccounts({eager: true});
 
+  const accounts = accountsList?.accounts || [];
   // Use real API data with current filters
-  const accountsQuery = useAccountsList({
-    search: filters.search || undefined,
-    tier: filters.tier !== 'all' ? filters.tier : undefined,
-  });
+ 
 
-  const accounts = accountsQuery?.data?.accounts || [];
-  const isLoading = accountsQuery?.isLoading || false;
 
   // API handles filtering, so we use accounts directly
-  const filteredAccounts = accounts;
 
   // Calculate stats from accounts data
   const stats: AccountStatsData = useMemo(() => {
-    if (filteredAccounts.length === 0) {
+    if (accounts.length === 0) {
       return {
         totalAccounts: 0,
         aiHealthScore: 0,
@@ -50,16 +47,16 @@ export function useAccountsPage() {
       };
     }
 
-    const totalAccounts = filteredAccounts.length;
+    const totalAccounts = accounts.length;
     const aiHealthScore = Math.round(
-      filteredAccounts.reduce((sum, acc) => sum + (acc.ai_health_score || 0), 0) / totalAccounts
+      accounts.reduce((sum, acc) => sum + (acc.ai_health_score || 0), 0) / totalAccounts
     );
     // Since these fields don't exist in AccountListItem, we'll set them to 0
     const highRiskCount = 0;
     const growingCount = 0;
     
     // Calculate total value from actual account values
-    const totalValueNumber = filteredAccounts.reduce((sum, acc) => {
+    const totalValueNumber = accounts.reduce((sum, acc) => {
       return sum + (acc.total_value || 0);
     }, 0);
     const totalValue = `$${totalValueNumber.toFixed(1)}M`;
@@ -71,7 +68,7 @@ export function useAccountsPage() {
       growingCount,
       totalValue,
     };
-  }, [filteredAccounts]);
+  }, [accounts]);
 
   // Handlers
   const handleSearchChange = (search: string) => {
@@ -79,6 +76,7 @@ export function useAccountsPage() {
   };
 
   const handleTierChange = (tier: FilterState['tier']) => {
+    fetchAccounts(tier === 'all' ? undefined : { tier });
     setFilters(prev => ({ ...prev, tier }));
   };
 
@@ -88,14 +86,6 @@ export function useAccountsPage() {
 
   const handleCreateAccountSubmit = async (formData: AccountCreate) => {
     try {
-      console.log('🚀 handleCreateAccountSubmit: Form data received:', formData);
-      
-      // Transform the form data to match the API expected format
-      // Client type is already in the correct format since we're using the enum
-
-      
-      console.log('🔄 handleCreateAccountSubmit: Transformed API data:', formData);
-      
       // Use the real API call
       await createAccount(formData);
       
@@ -106,9 +96,7 @@ export function useAccountsPage() {
       });
       setIsCreateModalOpen(false);
     } catch (error: any) {
-      console.error('Error creating account:', error);
-      
-      // Show more specific error message from API if available
+      // Show specific error message from API if available
       const errorMessage = error.response?.data?.detail?.[0]?.msg 
         || error.response?.data?.message 
         || 'There was an error creating the account. Please try again.';
@@ -136,13 +124,12 @@ export function useAccountsPage() {
   };
 
   const handleStatClick = (statId: string) => {
-    // Handle stat card clicks - could filter or navigate
-    console.log('Stat clicked:', statId);
+    // TODO: Implement stat card click handling (filtering or navigation)
   };
 
   return {
     // Data
-    accounts: filteredAccounts,
+    accounts,
     stats,
     filters,
     isLoading,

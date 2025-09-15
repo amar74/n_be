@@ -1,3 +1,5 @@
+import { ClientType } from '@/types/accounts';
+
 export interface AccountData {
   accountId: string;
   name: string;
@@ -43,7 +45,7 @@ export interface AccountStatsData {
 
 export interface FilterState {
   search: string;
-  tier: 'all' | 'tire_1' | 'tire_2' | 'tire_3';
+  tier: 'all' | ClientType;
 }
 
 // Re-export from the modal component

@@ -61,7 +61,7 @@ export function AccountsStats({ stats, onStatClick }: AccountsStatsProps) {
             <div className="h-[97px] overflow-clip relative w-full flex items-center p-4">
               {/* Icon Section */}
               <div className="bg-[#f3f3f3] flex items-center justify-center p-3 rounded-full size-14 flex-shrink-0">
-                <Icon className="size-7 text-gray-600" />
+                <Icon className="size-7 text-orange-500" />
               </div>
               
               {/* Text Section */}

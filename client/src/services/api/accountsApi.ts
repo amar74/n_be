@@ -43,7 +43,7 @@ class AccountsApiService {
     // Transform form data to API format per API.md
     console.log('Transformed data for API:', data);
     try {
-      const response = await apiClient.post(this.baseURL, data);
+      const response = await apiClient.post('/accounts/', data);
       return response.data;
     } catch (error: any) {
       console.error('API Error Details:', {
