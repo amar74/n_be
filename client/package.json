@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "generate:dev": "tsx generate.ts --url http://127.0.0.1:8000/openapi.json",
     "generate:dev:docker": "tsx generate.ts --url http://host.docker.internal:8000/openapi.json",
-    "generate:prod": "tsx generate.ts --url https://api.megapolis.com/openapi.json",
+    "generate:prod": "tsx generate.ts --url https://megapolis-api-production.up.railway.app/openapi.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit"
