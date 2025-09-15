@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { STORAGE_CONSTANTS } from '@/constants/storageConstants';
 
 // Base API configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -18,8 +19,8 @@ export const apiClient: AxiosInstance = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Add JWT token if available (following Development.md pattern)
-    const token = localStorage.getItem('authToken');
+    // Add JWT token if available (using storage constants)
+    const token = localStorage.getItem(STORAGE_CONSTANTS.AUTH_TOKEN);
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -59,9 +60,15 @@ apiClient.interceptors.response.use(
       );
     }
 
-    // Handle 401 errors by clearing token and redirecting to login (per Development.md)
+    // Handle 401 errors by clearing auth data and redirecting to login
     if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
+      // Clear all auth-related data
+      localStorage.clear()
+      
+      // Clear axios default headers
+      delete apiClient.defaults.headers.common['Authorization'];
+      
+      // Redirect to correct login path
       window.location.href = '/auth/login';
     }
 
