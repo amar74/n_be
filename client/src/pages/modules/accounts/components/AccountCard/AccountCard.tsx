@@ -1,4 +1,4 @@
-import { User, MapPin, Building } from 'lucide-react';
+import { User, MapPin, Buildings, Sparkle, Cpu, TrendUp } from 'phosphor-react';
 import { AccountListItem } from '@/types/accounts';
 
 interface AccountCardProps {
@@ -62,12 +62,35 @@ export function AccountCard({ account, onClick }: AccountCardProps) {
               </div>
               <div className="bg-[#f3f3f3] flex items-center justify-center p-3 rounded-[28px] size-14 flex-shrink-0">
                 <div aria-hidden="true" className="absolute border border-[#e6e6e6] border-solid inset-0 pointer-events-none rounded-[28px]" />
-                <div className="size-7">
-                  {/* Action icon placeholder */}
-                </div>
+                  <Sparkle className="text-orange-400" size={24} weight='fill'/>
               </div>
             </div>
 
+            {/* Health Score and Risk Badges */}
+            <div className="flex flex-wrap gap-3 items-center w-full">
+              {/* Health Score Badge */}
+              <div className={`${colors.bg} flex gap-2 items-center px-3 py-1 rounded-full border-[1px] border-[#5f936f] relative`}>
+                <div aria-hidden="true" className={`absolute ${colors.border} border-solid inset-0 pointer-events-none rounded-full`} />
+                <div className="size-[18px]">
+                  {/* Health icon placeholder */}
+                  <Cpu size={18} weight="fill" className="text-purple-500" />
+                </div>
+                <span className={`font-['Inter:Semi_Bold',_sans-serif] font-semibold ${colors.text} text-[14px] whitespace-nowrap`}>
+                  {account.ai_health_score || 92}%
+                </span>
+                <div className="size-[18px]">
+                  <TrendUp size={18} className="text-[#5f936f]" />       
+                </div>
+              </div>
+
+              {/* Risk Level Badge */}
+              <div className={`${colors.bg} flex gap-2 items-center px-3 py-1 border-[1px] border-[#5f936f] rounded-full relative`}>
+                <div aria-hidden="true" className={`absolute ${colors.border} border-solid inset-0 pointer-events-none rounded-full`} />
+                <span className={`font-['Inter:Semi_Bold',_sans-serif] font-semibold ${colors.text} text-[14px] whitespace-nowrap capitalize`}>
+                  Low risk
+                </span>
+              </div>
+            </div>
             {/* Health Score Badge */}
             {account.ai_health_score !== null && (
               <div className="flex flex-wrap gap-3 items-center w-full">
@@ -105,8 +128,17 @@ export function AccountCard({ account, onClick }: AccountCardProps) {
                     {account.client_address.line1}
                   </span>
                 </div>
+                <div className="bg-gray-400 h-3.5 w-px hidden sm:block" />
               </>
             )}
+
+            <div className="flex gap-2 items-center min-w-0">
+              <Buildings className="size-5 text-gray-400 flex-shrink-0" />
+              <span className="font-['Inter:Medium',_sans-serif] font-medium text-[14px] text-gray-400 truncate">
+                {/* TODO: get this data from account */}
+                West Coast Office
+              </span>
+            </div>
           </div>
 
           {/* Tier and Sector */}
@@ -136,6 +168,12 @@ export function AccountCard({ account, onClick }: AccountCardProps) {
               <span className={`font-['Inter:Semi_Bold',_sans-serif] font-semibold ${colors.text} text-[28px] whitespace-nowrap`}>
                 ${account.total_value?.toLocaleString() || '0'}
               </span>
+              <div className={`${colors.bg} flex gap-2 items-center px-3 py-1 rounded-full relative`}>
+                <div aria-hidden="true" className={`absolute ${colors.border} border-solid inset-0 pointer-events-none rounded-full`} />
+                <span className={`font-['Inter:Semi_Bold',_sans-serif} font-semibold ${colors.text} text-[14px] whitespace-nowrap`}>
+                  +15.3% Growth
+                </span>
+              </div>
             </div>
             <div className="w-full">
               <span className="font-['Inter:Medium',_sans-serif] font-medium text-[#0f0901] text-[18px]">
