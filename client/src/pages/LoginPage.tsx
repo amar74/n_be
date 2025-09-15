@@ -13,6 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { LoginCredentials, LoginFormData } from '@/types/auth';
 import { LoginFormSchema } from '@/types/auth';
 import { useToast } from '@/hooks/useToast';
+import { STORAGE_CONSTANTS } from '@/constants/storageConstants';
 import Frame from '@assets/Frame.png';
 
 export default function LoginPage() {
@@ -100,7 +101,7 @@ export default function LoginPage() {
       } else {
         // Handle "remember me" functionality if needed
         if (data.rememberMe) {
-          localStorage.setItem('rememberMe', 'true');
+          localStorage.setItem(STORAGE_CONSTANTS.REMEMBER_ME, 'true');
         }
 
         console.info('Showing success toast using global service'); // Debug log

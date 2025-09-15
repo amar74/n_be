@@ -172,7 +172,7 @@ export function useCreateOrganizationPage() {
     console.log('🔄 CreateOrganizationPage: Starting sign out process');
     try {
       await supabase.auth.signOut();
-      localStorage.removeItem('authToken');
+      localStorage.clear();
       delete apiClient.defaults.headers.common['Authorization'];
       console.log('✅ CreateOrganizationPage: Sign out completed, navigating to login');
       navigate('/auth/login', { replace: true });
