@@ -890,8 +890,8 @@ export function Accounts() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FCFCFC] font-['Inter',_system-ui,_-apple-system,_sans-serif]">
-      <div className="max-w-7xl mx-auto px-8 sm:px-12 lg:px-16 py-12">
+    <div className="min-h-screen font-['Inter',_system-ui,_-apple-system,_sans-serif]">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-12">
         {/* Back Button */}
         <div className="mb-12">
           <Link
