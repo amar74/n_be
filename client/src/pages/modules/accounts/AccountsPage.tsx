@@ -23,7 +23,7 @@ function AccountsPage() {
   } = useAccountsPage();
 
   return (
-    <div className="w-full h-full font-['Inter',_system-ui,_-apple-system,_sans-serif]">
+    <div className="w-full h-full font-inter">
       <div className="flex flex-col gap-7 w-full p-6">
         {/* Header Section */}
         <div>

@@ -15,6 +15,7 @@ import AdminSigninPage from '@pages/AdminSigninPage';
 import AdminDashboardPage from '@/pages/admin/DashboardPage';
 import AccountsPage from '@/pages/modules/accounts/AccountsPage';
 import AccountDetails from '@/pages/modules/AccountDetails';
+import AccountDetailsPage from '@/pages/modules/accounts/AccountDetailsPage';
 import AccountEdit from '@/pages/modules/AccountEdit';
 import NotesPage from '@/pages/modules/notes/NotesPage';
 import NoteDetailsPage from '@/pages/modules/notes/NoteDetailsPage';
@@ -69,7 +70,7 @@ const router = createBrowserRouter([
           },
           {
             path: 'module/accounts/:id',
-            element: <AccountDetails />,
+            element: <AccountDetailsPage />,
           },
           {
             path: 'module/accounts/:id/edit',
