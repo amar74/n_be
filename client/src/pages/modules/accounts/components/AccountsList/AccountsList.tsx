@@ -27,7 +27,7 @@ export function AccountsList({ accounts, isLoading, onAccountClick }: AccountsLi
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 w-full items-start">
-      {accounts.slice(0, 3).map((account) => (
+      {accounts.map((account) => (
         <div key={account.account_id} className="min-w-0 h-full">
           <AccountCard 
             account={account} 
