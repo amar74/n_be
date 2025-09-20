@@ -127,7 +127,7 @@ function CreateOrganizationPage() {
                         </div>
                         {websiteValue &&
                           websiteValue.includes('.') &&
-                          !isAnalyzing &&
+                          isAnalyzing &&
                           !showAISuggestions && (
                             <div className="flex items-center gap-2 text-sm text-purple-600">
                               <Sparkles className="h-4 w-4" />
