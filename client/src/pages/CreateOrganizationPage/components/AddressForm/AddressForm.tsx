@@ -2,9 +2,12 @@ import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input';
 import { MapPin } from 'lucide-react';
 import { PlacesAutocomplete } from '@/components/ui/places-autocomplete';
+import { useFormContext } from 'react-hook-form';
 import type { AddressFormProps } from '../../CreateOrganizationPage.types';
 
-export function AddressForm({ control, isSubmitting, showAISuggestions }: AddressFormProps) {
+export function AddressForm({ isSubmitting, showAISuggestions }: Omit<AddressFormProps, 'control'>) {
+  const { control, setValue } = useFormContext();
+  
   return (
     <div className="space-y-4">
       <h3 className="font-semibold">Address</h3>
@@ -38,24 +41,39 @@ export function AddressForm({ control, isSubmitting, showAISuggestions }: Addres
                       c.types.includes('locality'))?.long_name;
                     const pincode = components.find((c: google.maps.GeocoderAddressComponent) => 
                       c.types.includes('postal_code'))?.long_name;
-                    
+                    const city = components.find((c: google.maps.GeocoderAddressComponent) => 
+                      c.types.includes('administrative_area_level_3'))?.long_name;
+
                     // Set line1 (street address)
-                    const line1 = [streetNumber, route].filter(Boolean).join(' ');
-                    control.setValue('address.line1', line1, { shouldValidate: true });
+                    const line1Components = [streetNumber, route].filter(Boolean);
+                    const line1 = line1Components.join(' ');
                     
-                    // Set line2 (sublocality)
-                    if (sublocality) {
-                      control.setValue('address.line2', sublocality, { shouldValidate: true });
+                    // Get additional address components
+                    const premise = components.find((c: google.maps.GeocoderAddressComponent) => 
+                      c.types.includes('premise'))?.long_name;
+                    const subpremise = components.find((c: google.maps.GeocoderAddressComponent) => 
+                      c.types.includes('subpremise'))?.long_name;
+                    
+                    // Set line1
+                    if (line1) {
+                      setValue('address.line1', line1, { shouldValidate: true });
                     }
                     
-                    // Set city (locality)
-                    if (locality) {
-                      control.setValue('address.city', locality, { shouldValidate: true });
+                    // Set line2 (combine subpremise, premise, and sublocality)
+                    const line2Components = [subpremise, premise, sublocality].filter(Boolean);
+                    if (line2Components.length > 0) {
+                      setValue('address.line2', line2Components.join(', '), { shouldValidate: true });
+                    }
+                    
+                    // Set city (prefer administrative_area_level_3, fallback to locality)
+                    const cityValue = city || locality;
+                    if (cityValue) {
+                      setValue('address.city', cityValue, { shouldValidate: true });
                     }
                     
                     // Set pincode if available
                     if (pincode) {
-                      control.setValue('address.pincode', parseInt(pincode), { shouldValidate: true });
+                      setValue('address.pincode', parseInt(pincode), { shouldValidate: true });
                     }
                   }
                 }}

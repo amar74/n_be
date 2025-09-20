@@ -177,7 +177,6 @@ function CreateOrganizationPage() {
 
                 {/* Address Form */}
                 <AddressForm 
-                  control={control}
                   isSubmitting={isSubmitting}
                   showAISuggestions={showAISuggestions}
                 />
