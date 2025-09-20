@@ -70,6 +70,7 @@ class AccountsApiService {
       updateData.client_address = data.client_address ? {
         line1: data.client_address.line1 || '',
         line2: data.client_address.line2 || null,
+        city: data.client_address.city || null,
         pincode: data.client_address.pincode || null,
       } : null;
     }
