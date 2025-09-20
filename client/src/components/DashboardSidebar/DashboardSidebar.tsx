@@ -1,88 +1,27 @@
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Target, 
-  Building2, 
-  FileText, 
-  Users, 
-  FileCheck, 
-  Calendar, 
-  Calculator, 
-  ShoppingCart, 
-  BarChart3,
-  LogOut
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useDashboardSidebar } from './useDashboardSidebar';
-import { memo } from 'react';
+import { NAVIGATION_ITEMS } from './DashboardSidebar.constants';
+import { memo, useCallback } from 'react';
 
 function DashboardSidebar() {
   const location = useLocation();
   const { handleLogout } = useDashboardSidebar();
 
-  const navigationItems = [
-    {
-      id: 'opportunities',
-      name: 'Opportunities',
-      path: '/opportunities',
-      icon: Target,
-    },
-    {
-      id: 'accounts',
-      name: 'Accounts',
-      path: '/module/accounts',
-      icon: Building2,
-    },
-    {
-      id: 'proposals',
-      name: 'Proposals',
-      path: '/proposals',
-      icon: FileText,
-    },
-    {
-      id: 'resources',
-      name: 'Resources',
-      path: '/resources',
-      icon: Users,
-    },
-    {
-      id: 'contracts',
-      name: 'Contracts',
-      path: '/contracts',
-      icon: FileCheck,
-    },
-    {
-      id: 'projects',
-      name: 'Projects',
-      path: '/projects',
-      icon: Calendar,
-    },
-    {
-      id: 'finance',
-      name: 'Finance',
-      path: '/finance',
-      icon: Calculator,
-    },
-    {
-      id: 'procurement',
-      name: 'Procurements',
-      path: '/procurement',
-      icon: ShoppingCart,
-    },
-    {
-      id: 'kpi',
-      name: "KPI's",
-      path: '/kpis',
-      icon: BarChart3,
-    },
-  ];
 
-  const isActiveRoute = (path: string) => {
+  const isActiveRoute = useCallback((path: string) => {
+    // For accounts module, check if current path starts with /module/accounts
+    if (path === '/module/accounts') {
+      return location.pathname.startsWith('/module/accounts');
+    }
+    // For other routes, use exact match for now (can be extended later)
     return location.pathname === path;
-  };
+  }, [location.pathname]);
 
   return (
     <div className="bg-white box-border content-stretch flex flex-col gap-44 items-start justify-start overflow-clip pb-7 pt-0 px-0 relative rounded-br-[28px] rounded-tr-[28px] size-full w-[260px] h-screen fixed left-0">
       <div className="content-stretch flex flex-col gap-2 items-start justify-start relative shrink-0 w-full">
-        {navigationItems.map((item) => {
+        {NAVIGATION_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = isActiveRoute(item.path);
           
