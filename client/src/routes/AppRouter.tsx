@@ -157,6 +157,10 @@ const router = createBrowserRouter([
         path: '/client-surveys/:environmentId/:surveyId',
         element: <ShowSurveyResponses />,
       },
+      {
+        path: '/organization/create',
+        element: <CreateOrganizationPage />,
+      },
     ],
   },
   {
@@ -200,11 +204,6 @@ const router = createBrowserRouter([
   {
     path: '/invite/accept',
     element: <AcceptInvitePage />,
-  },
-  // Organization creation route
-  {
-    path: '/organization/create',
-    element: <CreateOrganizationPage />,
   },
 
   //testUI

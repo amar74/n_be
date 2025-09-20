@@ -8,6 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { scraperApi, ApiError } from '@/services/api/scraperApi';
 import { supabase } from '@/lib/supabase';
 import { apiClient } from '@/services/api/client';
+import { authApi } from '@/services/api/authApi';
+import { authManager } from '@/services/auth/AuthManager';
 import { CreateOrgFormData } from '@/types/orgs';
 import { FORM_DEFAULT_VALUES, WEBSITE_ANALYSIS_DELAY } from './CreateOrganizationPage.constants';
 import { CreateOrganizationSchema, CreateOrganizationFormData } from './CreateOrganizationPage.schema';
@@ -155,12 +157,26 @@ export function useCreateOrganizationPage() {
       };
 
       await createOrganization(organizationData);
-      navigate('/', { replace: true });
+      
+      // Refresh backend user data to get updated org_id
+      // This is needed because MainLayout checks backendUser.org_id for routing
+      try {
+        const updatedUserData = await authApi.getMe();
+        authManager.setAuthState(true, updatedUserData);
+        localStorage.setItem('userInfo', JSON.stringify(updatedUserData));
+        
+        // Navigate after state is updated
+        navigate('/', { replace: true });
+      } catch (error) {
+        console.error('❌ Failed to refresh user data after org creation:', error);
+        // Fallback to page reload if refresh fails
+        window.location.href = '/';
+      }
     } catch (error) {
       console.error('❌ CreateOrganizationPage: Organization creation failed:', error);
       // Error handling is done in the centralized hook
     }
-  }, [createOrganization, navigate, toast]);
+  }, [createOrganization]);
 
   const handleSignOut = useCallback(async () => {
     try {

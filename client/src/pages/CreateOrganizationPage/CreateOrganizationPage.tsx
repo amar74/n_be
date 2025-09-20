@@ -29,7 +29,7 @@ function CreateOrganizationPage() {
   // Show loading during auth initialization to prevent flicker
   if (isAuthLoading) {
     return (
-      <div className="min-h-screen bg-[#FCFCFC] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F5F3F2] flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
           <p className="text-gray-600 text-sm">Initializing...</p>
@@ -41,7 +41,7 @@ function CreateOrganizationPage() {
   // Redirect if not authenticated (shouldn't happen, but safety check)
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#FCFCFC] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F5F3F2] flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
           <p className="text-gray-600 text-sm">Redirecting...</p>
@@ -51,10 +51,10 @@ function CreateOrganizationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FCFCFC] font-['Inter',_system-ui,_-apple-system,_sans-serif]">
-      <main className="flex-1 flex flex-col items-center px-6 py-4 pt-2">
-        {/* Title Section */}
-        <div className="text-center mb-3 max-w-xl">
+    <div className="h-full bg-[#F5F3F2] font-['Inter',_system-ui,_-apple-system,_sans-serif] flex flex-col">
+      <main className="flex flex-col items-center px-6 py-4 pt-2 h-full">
+        {/* Title Section - Fixed */}
+        <div className="text-center mb-3 max-w-xl flex-shrink-0">
           <h1 className="text-2xl font-bold text-orange-500 mb-2">
             Create Your Organization
           </h1>
@@ -64,8 +64,8 @@ function CreateOrganizationPage() {
           </p>
         </div>
 
-        {/* Form Field */}
-        <div className="w-full max-w-3xl p-6 rounded-3xl bg-white shadow-md">
+        {/* Form Field - Scrollable */}
+        <div className="w-full max-w-3xl p-6 rounded-3xl bg-white shadow-md flex-1 overflow-y-auto">
           {/* Progress Indicator */}
           <div className="flex items-center justify-center gap-4 mb-8">
             <div className="flex items-center gap-2">

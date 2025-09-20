@@ -121,80 +121,83 @@ export function AddressForm({ isSubmitting, showAISuggestions }: Omit<AddressFor
         )}
       />
 
-      {/* City */}
-      <FormField
-        control={control}
-        name="address.city"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-sm font-medium">
-              City
-            </FormLabel>
-            <FormControl>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  {...field}
-                  value={field.value || ''}
-                  placeholder="Enter city"
-                  className={`pl-10 border 
-                    placeholder-shown:border-gray-300 
-                    focus:border-orange-300 
-                    not-placeholder-shown:border-orange-300 
-                    focus:outline-none focus:ring-0 focus-visible:ring-0 ${
-                      showAISuggestions && field.value ? 'bg-green-50 border-green-200' : ''
-                    }`}
-                  disabled={isSubmitting}
-                />
+      {/* City and Postal Code on same line */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* City */}
+        <FormField
+          control={control}
+          name="address.city"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-sm font-medium">
+                City
+              </FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    {...field}
+                    value={field.value || ''}
+                    placeholder="Enter city"
+                    className={`pl-10 border 
+                      placeholder-shown:border-gray-300 
+                      focus:border-orange-300 
+                      not-placeholder-shown:border-orange-300 
+                      focus:outline-none focus:ring-0 focus-visible:ring-0 ${
+                        showAISuggestions && field.value ? 'bg-green-50 border-green-200' : ''
+                      }`}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </FormControl>
+              <div className="h-4 mt-0.5">
+                <FormMessage className="text-red-500 text-xs" />
               </div>
-            </FormControl>
-            <div className="h-4 mt-0.5">
-              <FormMessage className="text-red-500 text-xs" />
-            </div>
-          </FormItem>
-        )}
-      />
+            </FormItem>
+          )}
+        />
 
-      {/* Postal Code */}
-      <FormField
-        control={control}
-        name="address.pincode"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-sm font-medium">
-              Postal Code
-            </FormLabel>
-            <FormControl>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  {...field}
-                  value={field.value || ''}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="Enter postal code (5-6 digits)"
-                  className="pl-10 border 
-                    placeholder-shown:border-gray-300 
-                    focus:border-orange-300 
-                    not-placeholder-shown:border-orange-300 
-                    focus:outline-none focus:ring-0 focus-visible:ring-0"
-                  disabled={isSubmitting}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                    const numValue = value ? parseInt(value) : undefined;
-                    field.onChange(numValue);
-                  }}
-                  maxLength={6}
-                />
+        {/* Postal Code */}
+        <FormField
+          control={control}
+          name="address.pincode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-sm font-medium">
+                Postal Code
+              </FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    {...field}
+                    value={field.value || ''}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="Enter postal code (5-6 digits)"
+                    className="pl-10 border 
+                      placeholder-shown:border-gray-300 
+                      focus:border-orange-300 
+                      not-placeholder-shown:border-orange-300 
+                      focus:outline-none focus:ring-0 focus-visible:ring-0"
+                    disabled={isSubmitting}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                      const numValue = value ? parseInt(value) : undefined;
+                      field.onChange(numValue);
+                    }}
+                    maxLength={6}
+                  />
+                </div>
+              </FormControl>
+              <div className="h-4 mt-0.5">
+                <FormMessage className="text-red-500 text-xs" />
               </div>
-            </FormControl>
-            <div className="h-4 mt-0.5">
-              <FormMessage className="text-red-500 text-xs" />
-            </div>
-          </FormItem>
-        )}
-      />
+            </FormItem>
+          )}
+        />
+      </div>
     </div>
   );
 }
