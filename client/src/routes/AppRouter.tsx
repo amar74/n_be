@@ -22,6 +22,14 @@ import NoteDetailsPage from '@/pages/modules/notes/NoteDetailsPage';
 import NoteEditPage from '@/pages/modules/notes/NoteEditPage';
 import NoteCreatePage from '@/pages/modules/notes/NoteCreatePage';
 import AccountsUserPermissions from '@/pages/modules/AccountsUserPermissions';
+import OpportunitiesPage from '@/pages/modules/opportunities/OpportunitiesPage';
+import ProposalsPage from '@/pages/modules/proposals/ProposalsPage';
+import ResourcesPage from '@/pages/modules/resources/ResourcesPage';
+import ContractsPage from '@/pages/modules/contracts/ContractsPage';
+import ProjectsPage from '@/pages/modules/projects/ProjectsPage';
+import FinancePage from '@/pages/modules/finance/FinancePage';
+import ProcurementPage from '@/pages/modules/procurement/ProcurementPage';
+import KpisPage from '@/pages/modules/kpis/KpisPage';
 import OrganizationUpdatePage from '@/pages/OrganizationUpdatePage';
 import ClientSurveys from '@/pages/client-surveys';
 import SignInPage from '@/pages/testUI/SignInPage';
@@ -65,6 +73,10 @@ const router = createBrowserRouter([
             element: <DashboardWelcome />,
           },
           {
+            path: 'module/opportunities',
+            element: <OpportunitiesPage />,
+          },
+          {
             path: 'module/accounts',
             element: <AccountsPage />,
           },
@@ -75,6 +87,34 @@ const router = createBrowserRouter([
           {
             path: 'module/accounts/:id/edit',
             element: <AccountEdit />,
+          },
+          {
+            path: 'module/proposals',
+            element: <ProposalsPage />,
+          },
+          {
+            path: 'module/resources',
+            element: <ResourcesPage />,
+          },
+          {
+            path: 'module/contracts',
+            element: <ContractsPage />,
+          },
+          {
+            path: 'module/projects',
+            element: <ProjectsPage />,
+          },
+          {
+            path: 'module/finance',
+            element: <FinancePage />,
+          },
+          {
+            path: 'module/procurement',
+            element: <ProcurementPage />,
+          },
+          {
+            path: 'module/kpis',
+            element: <KpisPage />,
           },
           {
             path: 'module/notes',

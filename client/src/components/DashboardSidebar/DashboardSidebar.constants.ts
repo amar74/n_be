@@ -15,7 +15,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     id: 'opportunities',
     name: 'Opportunities',
-    path: '/opportunities',
+    path: '/module/opportunities',
     icon: Target,
   },
   {
@@ -27,43 +27,43 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     id: 'proposals',
     name: 'Proposals',
-    path: '/proposals',
+    path: '/module/proposals',
     icon: FileText,
   },
   {
     id: 'resources',
     name: 'Resources',
-    path: '/resources',
+    path: '/module/resources',
     icon: Users,
   },
   {
     id: 'contracts',
     name: 'Contracts',
-    path: '/contracts',
+    path: '/module/contracts',
     icon: FileCheck,
   },
   {
     id: 'projects',
     name: 'Projects',
-    path: '/projects',
+    path: '/module/projects',
     icon: Calendar,
   },
   {
     id: 'finance',
     name: 'Finance',
-    path: '/finance',
+    path: '/module/finance',
     icon: Calculator,
   },
   {
     id: 'procurement',
     name: 'Procurements',
-    path: '/procurement',
+    path: '/module/procurement',
     icon: ShoppingCart,
   },
   {
     id: 'kpi',
     name: "KPI's",
-    path: '/kpis',
+    path: '/module/kpis',
     icon: BarChart3,
   },
 ];

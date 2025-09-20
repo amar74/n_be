@@ -40,6 +40,36 @@ export function useBreadcrumbs() {
         }
       }
       // Add more module types as needed
+    } else {
+      // Handle direct module routes (without /module prefix)
+      const firstSegment = pathSegments[0];
+      
+      switch (firstSegment) {
+        case 'opportunities':
+          crumbs.push({ label: 'Opportunities' });
+          break;
+        case 'proposals':
+          crumbs.push({ label: 'Proposals' });
+          break;
+        case 'resources':
+          crumbs.push({ label: 'Resources' });
+          break;
+        case 'contracts':
+          crumbs.push({ label: 'Contracts' });
+          break;
+        case 'projects':
+          crumbs.push({ label: 'Projects' });
+          break;
+        case 'finance':
+          crumbs.push({ label: 'Finance' });
+          break;
+        case 'procurement':
+          crumbs.push({ label: 'Procurements' });
+          break;
+        case 'kpis':
+          crumbs.push({ label: "KPI's" });
+          break;
+      }
     }
 
     return crumbs;
