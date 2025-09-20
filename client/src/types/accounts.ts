@@ -5,7 +5,10 @@ import { schemas } from './generated/accounts';
 export type AccountCreate = z.infer<typeof schemas.AccountCreate>;
 export type AccountUpdate = z.infer<typeof schemas.AccountUpdate>;
 export type ContactCreate = z.infer<typeof schemas.ContactCreate>;
+export type ContactAddRequest = z.infer<typeof schemas.ContactAddRequest>;
+export type ContactUpdateRequest = z.infer<typeof schemas.ContactUpdateRequest>;
 export type ContactResponse = z.infer<typeof schemas.ContactResponse>;
+export type ContactListResponse = z.infer<typeof schemas.ContactListResponse>
 export type AddressCreate = z.infer<typeof schemas.AddressCreate>;
 export type ClientType = z.infer<typeof schemas.ClientType>;
 export type Contact = z.infer<typeof schemas.ContactResponse>;

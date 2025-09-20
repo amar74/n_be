@@ -7,14 +7,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ContactsForm } from '../ContactsForm';
-import { Contact, ContactFormData } from '../../ContactsTab.types';
-import { DEFAULT_CONTACT_FORM_VALUES } from '../../ContactsTab.constants';
+import { ContactResponse, ContactUpdateRequest } from '@/types/accounts';
 
 interface EditContactModalProps {
   isOpen: boolean;
-  contact: Contact | null;
+  contact: ContactResponse | null;
   onClose: () => void;
-  onSave: (contactId: string, data: ContactFormData) => Promise<any>;
+  onSave: (contactId: string, data: ContactUpdateRequest) => Promise<any>;
   isLoading?: boolean;
 }
 
@@ -25,10 +24,10 @@ export function EditContactModal({
   onSave, 
   isLoading = false 
 }: EditContactModalProps) {
-  const handleSubmit = async (formData: ContactFormData) => {
+  const handleSubmit = async (formData: ContactUpdateRequest) => {
     if (!contact) return;
     
-    await onSave(contact.id, formData);
+    await onSave(contact.contact_id, formData);
     onClose();
   };
 
@@ -36,7 +35,7 @@ export function EditContactModal({
 
   const initialData = {
     name: contact.name,
-    role: contact.role,
+    title: contact.title,
     email: contact.email,
     phone: contact.phone,
   };
@@ -59,7 +58,6 @@ export function EditContactModal({
             isLoading={isLoading}
             initialData={initialData}
             onCancel={onClose}
-            defaultFormValues={DEFAULT_CONTACT_FORM_VALUES}
           />
         </div>
       </DialogContent>

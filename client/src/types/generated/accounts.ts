@@ -2,7 +2,6 @@ import { makeApi, Zodios, type ZodiosOptions } from "@zodios/core";
 import { z } from "zod";
 
 import { HTTPValidationError } from "./common";
-import { ValidationError } from "./common";
 
 const AddressCreate = z
   .object({

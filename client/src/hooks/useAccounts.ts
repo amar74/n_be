@@ -10,6 +10,8 @@ import type {
   AccountListItem,
   AccountCreate,
   AccountUpdate,
+  ContactAddRequest,
+  ContactUpdateRequest,
 } from '@/types/accounts';
 
 // Query keys using createQueryKeys utility
@@ -217,7 +219,7 @@ export function useAccounts(options?: {
       contact,
     }: {
       accountId: string;
-      contact: ContactFormData;
+      contact: ContactAddRequest;
     }): Promise<{ status_code: number; contact_id: string; message: string }> => {
       return await accountsApi.addContact(accountId, contact);
     },
@@ -247,7 +249,7 @@ export function useAccounts(options?: {
     }: {
       accountId: string;
       contactId: string;
-      contact: ContactFormData;
+      contact: ContactUpdateRequest;
     }): Promise<{ status_code: number; message: string }> => {
       return await accountsApi.updateContact(accountId, contactId, contact);
     },

@@ -1,35 +1,19 @@
 import React from 'react';
-import { Edit, Trash2, User, Mail, Phone, Crown } from 'lucide-react';
-import { Contact } from '../../ContactsTab.types';
-import { CONTACT_ROLES } from '../../ContactsTab.constants';
+import { Edit, Trash2, User, Crown } from 'lucide-react';
+
+import { ContactResponse } from '@/types/accounts';
 
 interface ContactsListProps {
-  contacts: Contact[];
-  onEdit: (contact: Contact) => void;
+  contacts: ContactResponse[];
+  onEdit: (contact: ContactResponse) => void;
   onDelete: (contactId: string) => void;
   isLoading?: boolean;
 }
 
 export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: ContactsListProps) {
-  const getRoleLabel = (roleValue: string) => {
-    const role = CONTACT_ROLES.find(r => r.value === roleValue);
-    return role?.label || roleValue;
-  };
-
   const formatPhone = (phone: string) => {
     // Simple phone formatting - you can enhance this
     return phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
-  };
-
-  const handleDelete = (contactId: string, contactName: string, isPrimary: boolean) => {
-    if (isPrimary) {
-      alert('Primary contact cannot be deleted. Please assign a new primary contact first.');
-      return;
-    }
-    
-    if (window.confirm(`Are you sure you want to delete "${contactName}"? This action cannot be undone.`)) {
-      onDelete(contactId);
-    }
   };
 
   if (isLoading) {
@@ -77,12 +61,23 @@ export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: 
         <div className="flex flex-col gap-4 w-full">
           {contacts.map((contact) => (
             <div
-              key={contact.id}
+              key={contact.contact_id}
               className="bg-white border border-[#dddddd] rounded-[20px] p-6 hover:border-[#d0d0d0] transition-colors"
             >
               <div className="flex items-center justify-between w-full">
                 {/* Contact Information */}
-                <div className="flex gap-4 flex-1">
+                <div className="flex gap-4 flex-1 flex-wrap">
+                  {/* Title */}
+                  <div className="w-[160px] flex flex-col gap-3">
+                    <div className="font-inter font-medium text-[#a7a7a7] text-[16px] leading-normal capitalize">
+                      Title
+                    </div>
+                    <div className="bg-[#f3f3f3] border border-[#e6e6e6] rounded-[14px] h-14 px-6 py-2 flex items-center">
+                      <span className="font-inter font-semibold text-[#0f0901] text-[16px]">
+                        {contact.title || ''}
+                      </span>
+                    </div>
+                  </div>
                   {/* Name */}
                   <div className="flex-1 flex flex-col gap-3">
                     <div className="font-inter font-medium text-[#a7a7a7] text-[16px] leading-normal capitalize">
@@ -94,19 +89,6 @@ export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: 
                       </span>
                     </div>
                   </div>
-
-                  {/* Role */}
-                  <div className="flex-1 flex flex-col gap-3">
-                    <div className="font-inter font-medium text-[#a7a7a7] text-[16px] leading-normal capitalize">
-                      Role
-                    </div>
-                    <div className="bg-[#f3f3f3] border border-[#e6e6e6] rounded-[14px] h-14 px-6 py-2 flex items-center">
-                      <span className="font-inter font-semibold text-[#0f0901] text-[16px]">
-                        {getRoleLabel(contact.role)}
-                      </span>
-                    </div>
-                  </div>
-
                   {/* Email */}
                   <div className="flex-1 flex flex-col gap-3">
                     <div className="font-inter font-medium text-[#a7a7a7] text-[16px] leading-normal capitalize">
@@ -118,7 +100,6 @@ export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: 
                       </span>
                     </div>
                   </div>
-
                   {/* Phone */}
                   <div className="flex-1 flex flex-col gap-3">
                     <div className="font-inter font-medium text-[#a7a7a7] text-[16px] leading-normal capitalize">
@@ -148,7 +129,8 @@ export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: 
                     `}>
                       {contact.status === 'primary' && <Crown className="h-4 w-4" />}
                       <span className="font-inter font-semibold text-[14px] capitalize">
-                        {contact.status}
+                        {/* {contact.status} */}
+                        Primary
                       </span>
                     </div>
 
@@ -163,7 +145,7 @@ export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: 
                       </button>
                       {contact.status !== 'primary' && (
                         <button
-                          onClick={() => handleDelete(contact.id, contact.name, contact.status === 'primary')}
+                          onClick={() => onDelete(contact.contact_id)}
                           className="bg-[#fee2e2] hover:bg-[#fecaca] border border-[#fca5a5] rounded-[8px] p-2 transition-colors"
                           title="Delete Contact"
                         >

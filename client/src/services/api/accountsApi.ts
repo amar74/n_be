@@ -7,6 +7,9 @@ import {
   AccountListResponse,
   ContactResponse,
   ContactFormData,
+  ContactAddRequest,
+  ContactUpdateRequest,
+  ContactListResponse,
 } from '@/types/accounts';
 
 class AccountsApiService {
@@ -104,24 +107,15 @@ class AccountsApiService {
   // Add secondary contact to account - following API.md spec
   async addContact(
     accountId: string,
-    contact: ContactFormData
+    contact: ContactAddRequest
   ): Promise<{ status_code: number; contact_id: string; message: string }> {
-    // Wrap contact data in "contact" object per API.md
-    const requestData = {
-      contact: {
-        name: contact.name,
-        email: contact.email,
-        phone: contact.phone,
-        title: contact.title || null,
-      }
-    };
 
-    const response = await apiClient.post(`${this.baseURL}/${accountId}/contacts`, requestData);
+    const response = await apiClient.post(`${this.baseURL}/${accountId}/contacts`, contact);
     return response.data;
   }
 
   // Get all contacts for account - following API.md spec
-  async getContacts(accountId: string): Promise<{ contacts: ContactResponse[] }> {
+  async getContacts(accountId: string): Promise<ContactListResponse> {
     const response = await apiClient.get(`${this.baseURL}/${accountId}/contacts`);
     return response.data;
   }
@@ -130,7 +124,7 @@ class AccountsApiService {
   async updateContact(
     accountId: string,
     contactId: string,
-    contact: ContactFormData
+    contact: ContactUpdateRequest
   ): Promise<{ status_code: number; message: string }> {
     const contactData = {
       name: contact.name,
@@ -190,10 +184,12 @@ class AccountsApiService {
       // Step 4: Add the old primary contact as a new secondary contact (if it existed)
       if (currentPrimary && typeof currentPrimary === 'object') {
         await this.addContact(accountId, {
-          name: currentPrimary.name,
-          email: currentPrimary.email,
-          phone: currentPrimary.phone,
-          title: currentPrimary.title || undefined,
+          contact: {
+            name: currentPrimary.name,
+            email: currentPrimary.email,
+            phone: currentPrimary.phone,
+            title: currentPrimary.title || undefined,
+          }
         });
       }
 

@@ -1,9 +1,11 @@
-import React from 'react';
 import { ContactsForm } from './components/ContactsForm';
 import { ContactsList } from './components/ContactsList';
 import { EditContactModal } from './components/EditContactModal';
-import { useAccountContacts } from './useAccountContacts';
-import { ContactsTabProps } from './ContactsTab.types';
+import { useContacts } from './useContacts';
+
+export interface ContactsTabProps {
+  accountId: string;
+}
 
 export function ContactsTab({ accountId }: ContactsTabProps) {
   const {
@@ -11,13 +13,12 @@ export function ContactsTab({ accountId }: ContactsTabProps) {
     contacts,
     editingContact,
     showEditModal,
-    defaultFormValues,
     
     // State
-    isLoading,
-    isCreating,
-    isUpdating,
-    isDeleting,
+    isContactsLoading: isLoading,
+    isAddingContact: isCreating,
+    isUpdatingContact: isUpdating,
+    isDeletingContact: isDeleting,
     
     // Actions
     createContact,
@@ -25,7 +26,7 @@ export function ContactsTab({ accountId }: ContactsTabProps) {
     cancelEdit,
     saveEdit,
     deleteContact,
-  } = useAccountContacts(accountId);
+  } = useContacts(accountId);
 
   return (
     <div className="flex flex-col gap-8 w-full">
@@ -33,7 +34,6 @@ export function ContactsTab({ accountId }: ContactsTabProps) {
       <ContactsForm
         onSubmit={createContact}
         isLoading={isCreating}
-        defaultFormValues={defaultFormValues}
       />
 
       {/* Contacts List */}

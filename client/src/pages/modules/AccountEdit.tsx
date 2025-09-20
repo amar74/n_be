@@ -217,11 +217,12 @@ const AccountEdit: React.FC = () => {
       await addContact({
         accountId: account.account_id,
         contact: {
+          contact:{
           name: contactForm.name.trim(),
           email: contactForm.email.trim(),
           phone: contactForm.phone.trim(),
           title: contactForm.title?.trim() || undefined,
-        },
+        }},
       });
 
       toast({

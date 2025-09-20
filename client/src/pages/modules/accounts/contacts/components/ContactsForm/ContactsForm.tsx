@@ -1,39 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, User, Mail, Phone } from 'lucide-react';
-import { ContactFormData } from '../../ContactsTab.types';
-import { CONTACT_ROLES } from '../../ContactsTab.constants';
+import { User, Mail, Phone } from 'lucide-react';
+import { ContactCreate, ContactResponse, ContactUpdateRequest } from '@/types/accounts';
 
 interface ContactsFormProps {
-  onSubmit: (contact: ContactFormData) => Promise<any>;
+  onSubmit: (contact: ContactCreate) => Promise<any>;
   isLoading?: boolean;
-  initialData?: Partial<ContactFormData>;
+  initialData?: ContactCreate;
   onCancel?: () => void;
-  defaultFormValues: ContactFormData;
 }
 
 export function ContactsForm({ 
   onSubmit, 
   isLoading = false, 
-  initialData = {}, 
+  initialData = {email: '', phone: '', name: '', title: ''}, 
   onCancel,
-  defaultFormValues 
 }: ContactsFormProps) {
-  const [formData, setFormData] = useState<ContactFormData>({
-    ...defaultFormValues,
-    ...initialData,
-  });
+  const [formData, setFormData] = useState<ContactCreate>(initialData);
+console.log(formData);
 
   useEffect(() => {
     setFormData({
-      ...defaultFormValues,
       ...initialData,
     });
-  }, [initialData, defaultFormValues]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
+    if (!formData.name?.trim() || !formData.email?.trim() || !formData.phone?.trim()) {
       return;
     }
 
@@ -42,14 +36,14 @@ export function ContactsForm({
       
       // Reset form if it's a create operation (no initial data)
       if (!initialData.name) {
-        setFormData(defaultFormValues);
+        setFormData({email: '', phone: '', name: '', title: ''});
       }
     } catch (error) {
       // Error handling is done in the hook
     }
   };
 
-  const handleChange = (field: keyof ContactFormData, value: string) => {
+  const handleChange = (field: keyof ContactResponse, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
@@ -77,6 +71,21 @@ export function ContactsForm({
         <form onSubmit={handleSubmit} className="flex flex-col gap-6 w-full">
           {/* Row 1: Name + Role */}
           <div className="flex gap-4 w-full">
+             <div className="w-[260px] flex flex-col gap-3">
+              <label className="font-inter font-medium text-[#a7a7a7] text-[16px] leading-normal">
+                Role *
+              </label>
+              <div className="relative">
+              <input
+                type="text"
+                value={formData?.title || ''}
+                onChange={(e) => handleChange('title', e.target.value)}
+                placeholder="Enter title"
+                required
+                className="bg-white border border-[#e6e6e6] w-full rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none"
+              />
+              </div>
+            </div>
             {/* Name */}
             <div className="flex-1 flex flex-col gap-3">
               <label className="font-inter font-medium text-[#a7a7a7] text-[16px] leading-normal">
@@ -84,36 +93,14 @@ export function ContactsForm({
               </label>
               <input
                 type="text"
-                value={formData.name}
+                value={formData?.name || ''}
                 onChange={(e) => handleChange('name', e.target.value)}
                 placeholder="Enter contact name"
                 required
                 className="bg-white border border-[#e6e6e6] rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none"
               />
             </div>
-
-            {/* Role */}
-            <div className="w-[280px] flex flex-col gap-3">
-              <label className="font-inter font-medium text-[#a7a7a7] text-[16px] leading-normal">
-                Role *
-              </label>
-              <div className="relative">
-                <select
-                  value={formData.role}
-                  onChange={(e) => handleChange('role', e.target.value)}
-                  required
-                  className="bg-white border border-[#e6e6e6] rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] w-full appearance-none cursor-pointer focus:border-[#ff7b00] focus:outline-none"
-                >
-                  {CONTACT_ROLES.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-6 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#6c6c6c] pointer-events-none" />
-              </div>
-            </div>
-          </div>
+          </div> 
 
           {/* Row 2: Email + Phone */}
           <div className="flex gap-4 w-full">
@@ -125,7 +112,7 @@ export function ContactsForm({
               </label>
               <input
                 type="email"
-                value={formData.email}
+                value={formData?.email || ''}
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="Enter email address"
                 required
@@ -141,7 +128,7 @@ export function ContactsForm({
               </label>
               <input
                 type="tel"
-                value={formData.phone}
+                value={formData?.phone || ''}
                 onChange={(e) => handleChange('phone', e.target.value)}
                 placeholder="(555) 123-4567"
                 required
@@ -166,7 +153,7 @@ export function ContactsForm({
             )}
             <button
               type="submit"
-              disabled={isLoading || !formData.name.trim() || !formData.email.trim() || !formData.phone.trim()}
+              disabled={isLoading || !formData.name?.trim() || !formData.email?.trim() || !formData.phone?.trim()}
               className="bg-[#0f0901] rounded-[16px] h-14 flex items-center justify-center px-8 py-2 min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="font-inter font-medium text-white text-[14px] leading-[24px]">
