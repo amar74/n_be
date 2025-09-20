@@ -32,6 +32,7 @@ export interface RecentActivityItem {
   color?: string;
 }
 
+
 export interface AccountDetailsPageProps {
   // Add any props if needed
 }
@@ -62,6 +63,5 @@ export interface AccountDetailsState {
   isEditing: boolean;
   activeTab: TabType;
   formData: AccountFormData | null;
-  recentActivity: RecentActivityItem[];
 }
 

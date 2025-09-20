@@ -3,6 +3,7 @@ import { TabNavigation } from './components/TabNavigation';
 import { AccountStatsCards } from './components/AccountStatsCards';
 import { AccountInformationForm } from './components/AccountInformationForm';
 import { RecentActivity } from './components/RecentActivity';
+import { NotesTab } from './notes';
 import { useAccountDetailsPage } from './useAccountDetailsPage';
 
 function AccountDetailsPage() {
@@ -102,20 +103,44 @@ function AccountDetailsPage() {
         <AccountStatsCards stats={statsCards} />
 
         {/* Main Content */}
-        <div className="flex gap-7 items-start justify-start w-full">
-          {/* Account Information Form */}
-          <AccountInformationForm
-            formData={formData}
-            accountId={account.account_id}
-            isEditing={isEditing}
-            isUpdating={isUpdating}
-            onFormChange={handleFormChange}
-            onSave={handleSaveChanges}
-            onCancel={handleEditToggle}
-          />
+        <div className={`w-full ${activeTab === 'overview' ? 'flex gap-7 items-start justify-start' : ''}`}>
+          {/* Tab Content */}
+          <div className={activeTab === 'overview' ? 'flex-1' : 'w-full'}>
+            {activeTab === 'overview' && (
+              <AccountInformationForm
+                formData={formData}
+                accountId={account.account_id}
+                isEditing={isEditing}
+                isUpdating={isUpdating}
+                onFormChange={handleFormChange}
+                onSave={handleSaveChanges}
+                onCancel={handleEditToggle}
+              />
+            )}
+            
+            {activeTab === 'notes' && (
+              <NotesTab accountId={account.account_id} />
+            )}
+            
+            {/* Placeholder for other tabs */}
+            {!['overview', 'notes'].includes(activeTab) && (
+              <div className="bg-neutral-50 border border-[#f0f0f0] rounded-[28px] p-6 w-full">
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <h3 className="font-inter font-semibold text-[#0f0901] text-[18px] mb-2">
+                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Tab
+                  </h3>
+                  <p className="font-inter font-medium text-[#a7a7a7] text-[16px]">
+                    This tab is coming soon. Stay tuned for updates!
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
 
-          {/* Recent Activity Sidebar */}
-          <RecentActivity activities={recentActivity} />
+          {/* Recent Activity Sidebar - Only show on Overview tab */}
+          {activeTab === 'overview' && (
+            <RecentActivity activities={recentActivity} />
+          )}
         </div>
       </div>
     </div>
