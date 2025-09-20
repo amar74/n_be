@@ -53,7 +53,6 @@ export default function Navigation() {
         navigate('/auth/login', { replace: true });
       }
     } catch (err) {
-      console.error('Sign out error:', err);
       toast.error('Sign Out Failed', {
         description: 'An unexpected error occurred while signing out.',
         duration: 4000,

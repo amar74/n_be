@@ -36,7 +36,6 @@ export default function LoginPage() {
 
   // Test toast on component mount to verify global Sonner is working
   useEffect(() => {
-    console.info('LoginPage mounted, testing global toast...');
     const timer = setTimeout(() => {
       toast.info('Login page loaded', {
         description: 'Enter your credentials to sign in.',
@@ -62,7 +61,6 @@ export default function LoginPage() {
       const { data: authResponse, error } = await signIn(credentials.email, credentials.password);
 
       if (error) {
-        console.info('Login error:', error.message); // Debug log
 
         // Check if it's invalid credentials error
         const isInvalidCredentials =
@@ -83,7 +81,6 @@ export default function LoginPage() {
           });
 
           // Show error toast using global toast service
-          console.info('Showing error toast for invalid credentials'); // Debug log
           presets.authError();
         } else {
           // For other errors, just highlight email field
@@ -92,7 +89,6 @@ export default function LoginPage() {
             message: error.message,
           });
 
-          console.info('Showing error toast for other error'); // Debug log
           toast.error('Sign In Failed', {
             description: error.message,
             duration: 4000,
@@ -104,16 +100,13 @@ export default function LoginPage() {
           localStorage.setItem(STORAGE_CONSTANTS.REMEMBER_ME, 'true');
         }
 
-        console.info('Showing success toast using global service'); // Debug log
 
         // Show success toast using global service - will persist across navigation
         presets.authSuccess('Welcome back!');
 
-        console.log('Success toast created via global service');
 
         // Add a small delay to allow the toast to show before navigation
         setTimeout(() => {
-          console.log('Navigating to home page...');
           navigate('/', { replace: true });
         }, 500); // 0.5 seconds delay - enough for toast to show
       }

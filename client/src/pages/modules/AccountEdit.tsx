@@ -61,7 +61,6 @@ const AccountEdit: React.FC = () => {
   // Use the account data from the hook
   const { accountDetail: account, isAccountDetailLoading: isLoading, accountDetailError: error } = useAccountDetail(id || '');
   const { accountContacts: contactsResponse } = useAccountContacts(id || '');
-  console.log('AccountEdit Debug:', { account, contactsResponse });
   const [editForm, setEditForm] = useState<AccountUpdate>({});
 
   // Contact management state

@@ -71,11 +71,6 @@ export default function OrganizationUpdatePage() {
   // Update form when organization data is loaded
   useEffect(() => {
     if (organization) {
-      console.log('🔄 OrganizationUpdatePage: Loading organization data into form', {
-        orgId: organization.id,
-        orgName: organization.name,
-      });
-
       // Update both form and formData state
       const organizationData = {
         name: organization.name,
@@ -120,11 +115,6 @@ export default function OrganizationUpdatePage() {
     }
 
     try {
-      console.log('🚀 OrganizationUpdatePage: Starting organization update', {
-        orgId: organization.id,
-        orgName: data.name,
-      });
-
       // Transform data to match the backend expected format
       const updateData: UpdateOrgFormData = {
         name: data.name?.trim(),
@@ -146,14 +136,11 @@ export default function OrganizationUpdatePage() {
 
       await updateOrganization({ orgId: organization.id, data: updateData });
 
-      console.log('✅ OrganizationUpdatePage: Organization updated successfully');
-
       toast.success('Organization updated successfully.');
 
       // Navigate back to organization page
       navigate('/organization');
     } catch (error: unknown) {
-      console.error('❌ OrganizationUpdatePage: Failed to update organization:', error);
       // Error handling is already done in the centralized hook
     }
   };

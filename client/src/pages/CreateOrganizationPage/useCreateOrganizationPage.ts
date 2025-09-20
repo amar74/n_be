@@ -46,7 +46,6 @@ export function useCreateOrganizationPage() {
 
     // Prevent duplicate analysis of the same website
     if (currentWebsiteRef.current === website) {
-      console.log('🔄 CreateOrganizationPage: Skipping duplicate website analysis for:', website);
       return;
     }
 
@@ -54,7 +53,6 @@ export function useCreateOrganizationPage() {
     setIsAnalyzing(true);
 
     try {
-      console.log('🔄 CreateOrganizationPage: Starting website analysis for:', website);
       const scrapeResult = await scraperApi.scraper([website]);
       const result = scrapeResult.results[0];
 
@@ -87,7 +85,6 @@ export function useCreateOrganizationPage() {
         title: '🔍 Website Analysis Complete',
         description: 'We auto-filled fields using real data from the website.',
       });
-      console.log('✅ CreateOrganizationPage: Website analysis completed successfully');
     } catch (error) {
       console.error('❌ CreateOrganizationPage: Website analysis failed:', error);
       if (error instanceof ApiError) {
@@ -122,7 +119,6 @@ export function useCreateOrganizationPage() {
     }
 
     if (value.includes('.') && value.length > 5) {
-      console.log('🔄 CreateOrganizationPage: Scheduling website analysis with delay:', WEBSITE_ANALYSIS_DELAY);
       analysisTimeoutRef.current = setTimeout(() => {
         analyzeWebsite(value);
       }, WEBSITE_ANALYSIS_DELAY);
@@ -137,7 +133,6 @@ export function useCreateOrganizationPage() {
     }
 
     try {
-      console.log('🔄 CreateOrganizationPage: Starting organization creation');
       const organizationData: CreateOrgFormData = {
         name: data.name.trim(),
         address:
@@ -160,7 +155,6 @@ export function useCreateOrganizationPage() {
       };
 
       await createOrganization(organizationData);
-      console.log('✅ CreateOrganizationPage: Organization created successfully, navigating to home');
       navigate('/', { replace: true });
     } catch (error) {
       console.error('❌ CreateOrganizationPage: Organization creation failed:', error);
@@ -169,12 +163,10 @@ export function useCreateOrganizationPage() {
   }, [createOrganization, navigate, toast]);
 
   const handleSignOut = useCallback(async () => {
-    console.log('🔄 CreateOrganizationPage: Starting sign out process');
     try {
       await supabase.auth.signOut();
       localStorage.clear();
       delete apiClient.defaults.headers.common['Authorization'];
-      console.log('✅ CreateOrganizationPage: Sign out completed, navigating to login');
       navigate('/auth/login', { replace: true });
     } catch (error) {
       console.error('❌ CreateOrganizationPage: Sign out failed:', error);

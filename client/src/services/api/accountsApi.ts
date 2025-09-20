@@ -40,17 +40,10 @@ class AccountsApiService {
   // Create new account - following API.md spec
   async createAccount(data: AccountCreate): Promise<{ status_code: number; account_id: string; message: string }> {
     // Transform form data to API format per API.md
-    console.log('Transformed data for API:', data);
     try {
       const response = await apiClient.post('/accounts/', data);
       return response.data;
     } catch (error: any) {
-      console.error('API Error Details:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: error.config,
-      });
       throw error;
     }
   }
@@ -78,23 +71,17 @@ class AccountsApiService {
     if (data.market_sector !== undefined) updateData.market_sector = data.market_sector || null;
     if (data.notes !== undefined) updateData.notes = data.notes || null;
 
-    console.log('Attempting to update account:', accountId, 'with data:', updateData);
 
     try {
       const response = await apiClient.put(`${this.baseURL}/${accountId}`, updateData);
       return response.data;
     } catch (error: any) {
-      console.error('PUT request failed:', error);
-
       // If CORS blocks PUT, try using PATCH method instead
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        console.log('PUT blocked by CORS, trying PATCH method...');
-
         try {
           const response = await apiClient.patch(`${this.baseURL}/${accountId}`, updateData);
           return response.data;
         } catch (patchError: any) {
-          console.log('PATCH also failed, trying POST with method override...');
 
           // Last resort: POST with method override
           const response = await apiClient.post(`${this.baseURL}/${accountId}`, {
@@ -215,7 +202,6 @@ class AccountsApiService {
         message: 'Contact promoted to primary successfully'
       };
     } catch (error: any) {
-      console.error('Error in promoteContactToPrimary:', error);
       throw error;
     }
   }
@@ -275,7 +261,6 @@ class AccountsApiService {
           : undefined,
       };
     } catch (error) {
-      console.error('Error enriching account data:', error);
       throw error;
     }
   }
@@ -293,7 +278,6 @@ class AccountsApiService {
       const response = await apiClient.get(`${this.baseURL}/${accountId}/ai-insights`);
       return response.data;
     } catch (error) {
-      console.error('Error getting AI insights:', error);
       throw error;
     }
   }
@@ -307,7 +291,6 @@ class AccountsApiService {
       const response = await apiClient.post(`${this.baseURL}/${accountId}/generate-report`);
       return response.data;
     } catch (error) {
-      console.error('Error generating account report:', error);
       throw error;
     }
   }

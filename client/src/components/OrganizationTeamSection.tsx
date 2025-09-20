@@ -81,10 +81,6 @@ export default function OrganizationTeamSection() {
   const userRole = authState.user?.role;
   const isAdmin = typeof userRole === 'string' && userRole.toLowerCase() === 'admin';
 
-  console.log('Current user from authState:', authState.user);
-  console.log('Current user role from authState:', userRole);
-  console.log('Is admin:', isAdmin);
-
   const handleInviteMember = (e: React.FormEvent) => {
     e.preventDefault();
 
