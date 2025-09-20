@@ -17,21 +17,6 @@ interface AccountsHeaderProps {
 export function AccountsHeader({ onCreateAccount, onExport, onFilterChange, }: AccountsHeaderProps) {
   return (
     <div className="content-stretch flex flex-col gap-7 items-start justify-start relative w-full">
-      {/* Breadcrumbs */}
-      <div className="content-stretch flex gap-1 items-center justify-start relative shrink-0 w-full">
-        <div className="font-['Inter:Medium',_sans-serif] font-medium leading-[0] not-italic relative shrink-0 text-[#a7a7a7] text-[16px] text-nowrap">
-          <p className="leading-[normal] whitespace-pre">Dashboard</p>
-        </div>
-        <div className="flex h-[20px] items-center justify-center relative shrink-0 w-[20px]">
-          <div className="flex-none rotate-[270deg]">
-            <ChevronDown className="relative size-5 text-[#a7a7a7]" />
-          </div>
-        </div>
-        <div className="font-['Inter:Medium',_sans-serif] font-medium leading-[0] not-italic relative shrink-0 text-[#0f0901] text-[16px] text-nowrap">
-          <p className="leading-[normal] whitespace-pre">Accounts</p>
-        </div>
-      </div>
-
       {/* Header Content */}
       <div className="content-stretch flex flex-col h-[85px] items-start justify-between relative shrink-0 w-full">
         <div className="content-stretch flex items-end justify-between relative shrink-0 w-full">
