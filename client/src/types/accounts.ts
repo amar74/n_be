@@ -51,19 +51,6 @@ export interface CreateAccountFormData {
   contacts?: ContactFormData[]; // First contact becomes primary, rest become secondary
 }
 
-// Update account form data
-export interface UpdateAccountFormData {
-  client_name?: string;
-  company_website?: string;
-  client_address?: {
-    line1?: string;
-    line2?: string;
-    pincode?: number;
-  };
-  client_type?: ClientType;
-  market_sector?: string;
-  notes?: string;
-}
 
 // API Response types
 export interface CreateAccountResponse {

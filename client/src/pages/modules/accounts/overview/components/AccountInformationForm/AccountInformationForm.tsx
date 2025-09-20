@@ -1,7 +1,8 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
-import { AccountFormData } from '../../AccountDetailsPage.types';
-import { CLIENT_TYPES, US_STATES, FORM_FIELD_LABELS } from '../../AccountDetailsPage.constants';
+import { AccountFormData } from '../../../AccountDetailsPage.types';
+import { CLIENT_TYPES, FORM_FIELD_LABELS } from '../../../AccountDetailsPage.constants';
+import { US_STATES } from '../../../components/CreateAccountModal/CreateAccountModal.constants';
 
 interface AccountInformationFormProps {
   formData: AccountFormData;
@@ -131,14 +132,15 @@ export function AccountInformationForm({
 
           {/* Row 3: Address */}
           <div className="flex flex-col gap-3 h-[87px] w-full">
-            {renderField('client_address', 'text')}
+            {renderField('client_address_line1', 'text')}
+            {renderField('client_address_line2', 'text')}
           </div>
 
           {/* Row 4: City + State + Zip Code */}
           <div className="flex gap-7 w-full">
-            {renderField('city', 'text')}
-            {renderField('state', 'select', US_STATES)}
-            {renderField('zip_code', 'text')}
+            {renderField('client_address_city', 'text')}
+            {renderField('client_address_state', 'select', US_STATES.map((state) => ({ value: state, label: state })))}
+            {renderField('client_address_zip_code', 'text')}
           </div>
 
           {/* Row 5: Website + Hosting Area + MSA */}

@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAccountContacts, useAccountDetail, useAccounts } from '@/hooks/useAccounts';
-import { AccountDetailResponse, UpdateAccountFormData, ContactFormData } from '@/types/accounts';
+import {  AccountUpdate, ContactFormData } from '@/types/accounts';
 import { ArrowLeft, Building2, Save, X, Award, Edit, Users, Mail, Phone, Plus } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
 
@@ -62,7 +62,7 @@ const AccountEdit: React.FC = () => {
   const { accountDetail: account, isAccountDetailLoading: isLoading, accountDetailError: error } = useAccountDetail(id || '');
   const { accountContacts: contactsResponse } = useAccountContacts(id || '');
   console.log('AccountEdit Debug:', { account, contactsResponse });
-  const [editForm, setEditForm] = useState<UpdateAccountFormData>({});
+  const [editForm, setEditForm] = useState<AccountUpdate>({});
 
   // Contact management state
   const [showAddContactModal, setShowAddContactModal] = useState(false);
@@ -633,6 +633,7 @@ const AccountEdit: React.FC = () => {
                           ...prev,
                           client_address: {
                             ...prev.client_address,
+                            line1: prev.client_address?.line1 || '',
                             line2: e.target.value,
                           },
                         }))
@@ -653,6 +654,7 @@ const AccountEdit: React.FC = () => {
                           ...prev,
                           client_address: {
                             ...prev.client_address,
+                            line1: prev.client_address?.line1 || '',
                             pincode: e.target.value ? parseInt(e.target.value) : undefined,
                           },
                         }))

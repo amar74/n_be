@@ -6,7 +6,6 @@ import {
   AccountDetailResponse,
   AccountListResponse,
   ContactResponse,
-  UpdateAccountFormData,
   ContactFormData,
 } from '@/types/accounts';
 
@@ -59,7 +58,7 @@ class AccountsApiService {
   // Update existing account - following API.md spec
   async updateAccount(
     accountId: string,
-    data: UpdateAccountFormData
+    data: AccountUpdate
   ): Promise<{ status_code: number; message: string }> {
     // Transform form data to API format - send only provided fields per API.md
     const updateData: Partial<AccountUpdate> = {};

@@ -41,7 +41,7 @@ export const ACCOUNT_DETAILS_TABS: Tab[] = [
     label: 'Financial',
     icon: 'DollarSign',
   },
-] as const;
+];
 
 export const MOCK_RECENT_ACTIVITY: RecentActivityItem[] = [
   {
@@ -65,40 +65,26 @@ export const MOCK_RECENT_ACTIVITY: RecentActivityItem[] = [
     icon: 'CheckCircle',
     color: '#8b5cf6',
   },
-] as const;
+];
 
 export const CLIENT_TYPES = [
   { value: 'tier_1', label: 'Tier 1' },
   { value: 'tier_2', label: 'Tier 2' },
   { value: 'tier_3', label: 'Tier 3' },
-] as const;
-
-export const US_STATES = [
-  { value: 'AL', label: 'Alabama' },
-  { value: 'AK', label: 'Alaska' },
-  { value: 'AZ', label: 'Arizona' },
-  { value: 'AR', label: 'Arkansas' },
-  { value: 'CA', label: 'California' },
-  { value: 'CO', label: 'Colorado' },
-  { value: 'CT', label: 'Connecticut' },
-  { value: 'DE', label: 'Delaware' },
-  { value: 'FL', label: 'Florida' },
-  { value: 'GA', label: 'Georgia' },
-  // Add more states as needed
-] as const;
+];
 
 export const FORM_FIELD_LABELS = {
   client_name: 'Client Name',
   client_type: 'Client Type',
   market_sector: 'Market Sector',
-  client_address: 'Address',
-  city: 'City',
-  state: 'State',
-  zip_code: 'Zip Code',
+  client_address_line1: 'Address Line 1',
+  client_address_line2: 'Address Line 2',
+  client_address_city: 'City',
+  client_address_state: 'State',
+  client_address_zip_code: 'Zip Code',
   company_website: 'Website',
   hosting_area: 'Hosting Area',
   msa_in_place: 'MSA in Place',
   account_approver: 'Account Approver',
   approval_date_time: 'Approval Date & Time',
 } as const;
-

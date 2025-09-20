@@ -4,12 +4,12 @@ import { createQueryKeys } from '@/lib/query-client';
 import { accountsApi } from '@/services/api/accountsApi';
 import { useToast } from './use-toast';
 import type {
-  UpdateAccountFormData,
   ContactFormData,
   AccountDetailResponse,
   AccountListResponse,
   AccountListItem,
   AccountCreate,
+  AccountUpdate,
 } from '@/types/accounts';
 
 // Query keys using createQueryKeys utility
@@ -167,7 +167,7 @@ export function useAccounts(options?: {
       data,
     }: {
       accountId: string;
-      data: UpdateAccountFormData;
+      data: AccountUpdate;
     }): Promise<{ status_code: number; message: string }> => {
       return await accountsApi.updateAccount(accountId, data);
     },

@@ -37,7 +37,7 @@ export const US_STATES = [
   'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania',
   'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
   'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
-] as const;
+];
 
 export const INITIAL_FORM_DATA = {
   client_name: '',

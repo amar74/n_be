@@ -1,6 +1,5 @@
-import React from 'react';
 import { DollarSign, Target, Calendar, Award } from 'lucide-react';
-import { AccountStatsCard } from '../../AccountDetailsPage.types';
+import { AccountStatsCard } from '../../../AccountDetailsPage.types';
 
 const iconMap = {
   DollarSign,

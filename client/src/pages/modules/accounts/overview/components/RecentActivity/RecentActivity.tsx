@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileText, Calendar, CheckCircle } from 'lucide-react';
-import { RecentActivityItem } from '../../AccountDetailsPage.types';
+import { RecentActivityItem } from '../../../AccountDetailsPage.types';
 
 const iconMap = {
   FileText,

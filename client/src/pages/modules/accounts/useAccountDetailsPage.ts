@@ -21,23 +21,15 @@ export function useAccountDetailsPage() {
 
   // Initialize form data when account loads
   useEffect(() => {
-    if (account && !formData) {
+    if (account && !formData) {      
       setFormData({
         client_name: account.client_name || '',
         client_type: account.client_type || '',
         market_sector: account.market_sector || '',
-        client_address: typeof account.client_address === 'string' 
-          ? account.client_address 
-          : account.client_address?.line1 || '',
-        city: typeof account.client_address === 'object' && account.client_address
-          ? String(account.client_address?.city || '') 
-          : '',
-        state: typeof account.client_address === 'object' && account.client_address
-          ? String(account.client_address?.state || '') 
-          : '',
-        zip_code: typeof account.client_address === 'object' 
-          ? String(account.client_address?.pincode || '') 
-          : '',
+        client_address_line1: account.client_address?.line1 || '',
+        client_address_line2: account.client_address?.line2,
+        client_address_city: account.client_address?.city,
+        client_address_zip_code: account.client_address?.pincode ? String(account.client_address.pincode) : '',
         company_website: account.company_website || '',
         hosting_area: '',
         msa_in_place: false,
@@ -48,7 +40,6 @@ export function useAccountDetailsPage() {
   }, [account, formData]);
 
   // Computed values
-
   const statsCards: AccountStatsCard[] = useMemo(() => {
     if (!account) return [];
     
@@ -95,18 +86,10 @@ export function useAccountDetailsPage() {
           client_name: account.client_name || '',
           client_type: account.client_type || '',
           market_sector: account.market_sector || '',
-          client_address: typeof account.client_address === 'string' 
-            ? account.client_address 
-            : account.client_address?.line1 || '',
-          city: typeof account.client_address === 'object' && account.client_address
-            ? String(account.client_address?.city || '') 
-            : '',
-          state: typeof account.client_address === 'object' && account.client_address
-            ? String(account.client_address?.state || '') 
-            : '',
-          zip_code: typeof account.client_address === 'object' 
-            ? String(account.client_address?.pincode || '') 
-            : '',
+          client_address_line1: account.client_address?.line1 || '',
+          client_address_line2: account.client_address?.line2,
+          client_address_city: account.client_address?.city,
+          client_address_zip_code: account.client_address?.pincode ? String(account.client_address.pincode) : '',
           company_website: account.company_website || '',
           hosting_area: '',
           msa_in_place: false,
@@ -138,9 +121,11 @@ export function useAccountDetailsPage() {
           client_type: formData.client_type as any,
           market_sector: formData.market_sector,
           client_address: {
-            line1: formData.client_address,
-            line2: '',
-            pincode: parseInt(formData.zip_code) || 0,
+            line1: formData.client_address_line1,
+            line2: formData.client_address_line2 || undefined,
+            city: formData.client_address_city || undefined,
+            state: formData.client_address_state,
+            pincode: formData.client_address_zip_code ? parseInt(formData.client_address_zip_code) : undefined,
           },
           company_website: formData.company_website || undefined,
           notes: undefined,

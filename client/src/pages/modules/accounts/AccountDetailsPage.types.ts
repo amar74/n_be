@@ -32,21 +32,17 @@ export interface RecentActivityItem {
   color?: string;
 }
 
-
-export interface AccountDetailsPageProps {
-  // Add any props if needed
-}
-
 export interface AccountFormData {
   client_name: string;
   client_type: string;
   market_sector: string;
-  client_address: string;
-  city: string;
-  state: string;
-  zip_code: string;
-  company_website?: string;
-  hosting_area?: string;
+  client_address_line1: string;
+  client_address_line2?: string | null;
+  client_address_city?: string | null;
+  client_address_state?: string | null;
+  client_address_zip_code?: string | null;
+  company_website: string;
+  hosting_area: string;
   msa_in_place: boolean;
   account_approver?: string;
   approval_date_time?: string;

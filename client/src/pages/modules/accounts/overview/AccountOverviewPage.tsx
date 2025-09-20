@@ -1,9 +1,9 @@
 import { memo } from 'react';
-import { TabNavigation } from './components/TabNavigation';
 import { AccountStatsCards } from './components/AccountStatsCards';
 import { AccountInformationForm } from './components/AccountInformationForm';
 import { RecentActivity } from './components/RecentActivity';
-import { useAccountDetailsPage } from './useAccountDetailsPage';
+import { useAccountDetailsPage } from '../useAccountDetailsPage';
+import { TabNavigation } from '../components/TabNavigation';
 
 function AccountDetailsPage() {
   const {
