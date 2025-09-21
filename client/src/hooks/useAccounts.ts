@@ -352,12 +352,28 @@ export function useAccounts(options?: {
           'client_name',
           'client_type',
           'market_sector',
-          'client_address_line1',
-          'client_address_line2',
-          'client_address_city',
-          'client_address_zip_code',
+          'line1',
+          'line2',
+          'city',
+          'pincode',
           'company_website'
         ]);
+        if(errors.line1){
+          errors.client_address_line1 = errors.line1;
+          delete errors.line1;
+        }
+        if(errors.line2){
+          errors.client_address_line2 = errors.line2;
+          delete errors.line2;
+        }
+        if(errors.city){
+          errors.client_address_city = errors.city;
+          delete errors.city;
+        }
+        if(errors.pincode){
+          errors.client_address_zip_code = errors.pincode;
+          delete errors.pincode;
+        }
         setCreateErrors(errors);
       }
     } else {
@@ -374,12 +390,29 @@ export function useAccounts(options?: {
           'client_name',
           'client_type',
           'market_sector',
-          'client_address_line1',
-          'client_address_line2',
-          'client_address_city',
-          'client_address_zip_code',
+          'line1',
+          'line2',
+          'city',
+          'pincode',
           'company_website'
         ]);
+
+        if(errors.line1){
+          errors.client_address_line1 = errors.line1;
+          delete errors.line1;
+        }
+        if(errors.line2){
+          errors.client_address_line2 = errors.line2;
+          delete errors.line2;
+        }
+        if(errors.city){
+          errors.client_address_city = errors.city;
+          delete errors.city;
+        }
+        if(errors.pincode){
+          errors.client_address_zip_code = errors.pincode;
+          delete errors.pincode;
+        }
         setUpdateErrors(errors);
       }
     } else {

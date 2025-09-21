@@ -30,7 +30,6 @@ function AccountsPage() {
         <div>
           <AccountsHeader 
             onCreateAccount={handleCreateAccount}
-            onExport={handleExport}
             onFilterChange={handleTierChange}
           />
         </div>

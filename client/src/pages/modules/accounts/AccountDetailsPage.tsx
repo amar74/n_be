@@ -86,7 +86,8 @@ function AccountDetailsPage() {
                   {account.account_id}
                 </p>
               </div>
-              <button
+             {activeTab === 'overview' && (
+             <button
                 onClick={handleEditToggle}
                 className="bg-[#0f0901] border border-[#0f0901] rounded-[16px] h-14 flex items-center justify-center px-6 py-2 w-[148px]"
               >
@@ -94,6 +95,7 @@ function AccountDetailsPage() {
                   {isEditing ? 'Cancel Edit' : 'Edit Account'}
                 </span>
               </button>
+              )}
             </div>
           </div>
         </div>
