@@ -11,9 +11,10 @@ interface AddressFormProps {
   onChange: (field: string, value: string | object) => void;
   onAddressChange: (field: keyof UIAddressData, value: string | number | null) => void;
   onPlaceSelect: (value: string, placeDetails?: google.maps.places.PlaceResult) => void;
+  showAISuggestions?: boolean;
 }
 
-export function AddressForm({ formData, errors, onChange, onAddressChange, onPlaceSelect }: AddressFormProps) {
+export function AddressForm({ formData, errors, onChange, onAddressChange, onPlaceSelect, showAISuggestions = false }: AddressFormProps) {
   const handleAddressChange = (field: keyof UIAddressData, value: string) => {
     const processedValue = field === 'pincode' ? (value ? parseInt(value, 10) : null) : value;
     onAddressChange(field, processedValue);
@@ -32,7 +33,7 @@ export function AddressForm({ formData, errors, onChange, onAddressChange, onPla
             onChange={(e) => onChange('client_name', e.target.value)}
           className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
             errors.client_name ? 'border-red-500' : ''
-          }`}
+          } ${showAISuggestions && formData.client_name ? 'bg-green-50 border-green-200' : ''}`}
         />
         {errors.client_name && (
           <span className="text-red-500 text-sm">{errors.client_name}</span>
@@ -51,7 +52,7 @@ export function AddressForm({ formData, errors, onChange, onAddressChange, onPla
             placeholder="Search for an address"
             className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
               errors['client_address.line1'] ? 'border-red-500' : ''
-            }`}
+            } ${showAISuggestions && formData.client_address.line1 ? 'bg-green-50 border-green-200' : ''}`}
             disabled={false}
           />
           {errors['client_address.line1'] && (
@@ -66,7 +67,9 @@ export function AddressForm({ formData, errors, onChange, onAddressChange, onPla
             placeholder="Billing address (auto-fill by AI)"
             value={formData.client_address.line2 || ''}
             onChange={(e) => handleAddressChange('line2', e.target.value)}
-            className="h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0"
+            className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
+              showAISuggestions && formData.client_address.line2 ? 'bg-green-50 border-green-200' : ''
+            }`}
           />
         </div>
       </div>
@@ -83,7 +86,7 @@ export function AddressForm({ formData, errors, onChange, onAddressChange, onPla
             onChange={(e) => handleAddressChange('city', e.target.value)}
             className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
               errors['client_address.city'] ? 'border-red-500' : ''
-            }`}
+            } ${showAISuggestions && formData.client_address.city ? 'bg-green-50 border-green-200' : ''}`}
           />
           {errors['client_address.city'] && (
             <span className="text-red-500 text-sm">{errors['client_address.city']}</span>
@@ -99,7 +102,7 @@ export function AddressForm({ formData, errors, onChange, onAddressChange, onPla
           >
             <SelectTrigger className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
               errors['client_address.state'] ? 'border-red-500' : ''
-            }`}>
+            } ${showAISuggestions && formData.client_address.state ? 'bg-green-50 border-green-200' : ''}`}>
               <SelectValue placeholder="Select State" />
             </SelectTrigger>
             <SelectContent className="bg-white">
@@ -122,7 +125,9 @@ export function AddressForm({ formData, errors, onChange, onAddressChange, onPla
             placeholder="Zip Code"
             value={formData.client_address.pincode?.toString() || ''}
             onChange={(e) => handleAddressChange('pincode', e.target.value)}
-            className="h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0"
+            className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
+              showAISuggestions && formData.client_address.pincode ? 'bg-green-50 border-green-200' : ''
+            }`}
           />
         </div>
       </div>

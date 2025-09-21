@@ -49,9 +49,12 @@ export interface UseCreateAccountModalReturn {
   formData: UIAccountFormData;
   errors: Record<string, string>;
   isSubmitting: boolean;
+  isAnalyzing: boolean;
+  showAISuggestions: boolean;
   handleInputChange: (field: string, value: string | object) => void;
   handleAddressChange: (field: keyof UIAddressData, value: string | number | null) => void;
   handlePlaceSelect: (value: string, placeDetails?: google.maps.places.PlaceResult) => void;
+  handleWebsiteChange: (value: string) => void;
   handleSubmit: (e: React.FormEvent) => void;
   handleClose: () => void;
   resetForm: () => void;

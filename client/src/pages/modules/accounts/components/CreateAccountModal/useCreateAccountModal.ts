@@ -1,17 +1,26 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { validateForm } from './CreateAccountModal.schema';
-import { INITIAL_FORM_DATA, US_STATES } from './CreateAccountModal.constants';
+import { INITIAL_FORM_DATA, US_STATES, WEBSITE_ANALYSIS_DELAY } from './CreateAccountModal.constants';
 import { UseCreateAccountModalReturn, UIAccountFormData, UIAddressData } from './CreateAccountModal.types';
 import { AccountCreate } from '@/types/accounts';
+import { scraperApi, ApiError } from '@/services/api/scraperApi';
+import { useToast } from '@/hooks/use-toast';
 
 export function useCreateAccountModal(
   onSubmit: (data: AccountCreate) => void,
   onClose: () => void,
   backendErrors: Record<string, string> = {}
 ): UseCreateAccountModalReturn {
+  const { toast } = useToast();
   const [formData, setFormData] = useState<UIAccountFormData>(INITIAL_FORM_DATA);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAISuggestions, setShowAISuggestions] = useState(false);
+  
+  // Use refs to prevent unnecessary re-renders and debounce API calls
+  const analysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentWebsiteRef = useRef<string>('');
 
   const handleInputChange = useCallback((field: string, value: string | object) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -116,10 +125,119 @@ export function useCreateAccountModal(
     }
   }, [handleAddressChange]);
 
+  const analyzeWebsite = useCallback(async (website: string) => {
+    if (!website || !website.includes('.')) return;
+
+    // Prevent duplicate analysis of the same website
+    if (currentWebsiteRef.current === website) {
+      return;
+    }
+
+    currentWebsiteRef.current = website;
+    setIsAnalyzing(true);
+
+    try {
+      const scrapeResult = await scraperApi.scraper([website]);
+      const result = scrapeResult.results[0];
+
+      if (result.error) {
+        throw new Error(`Scraping failed: ${result.error}`);
+      }
+
+      const info = result.info;
+
+      if (info?.address) {
+        const { line1, line2, city, state, pincode } = info.address;
+        
+        // Update address fields
+        if (line1) {
+          handleAddressChange('line1', line1);
+        }
+        if (line2) {
+          handleAddressChange('line2', line2);
+        }
+        if (city) {
+          handleAddressChange('city', city);
+        }
+        if (state) {
+          // Map Google state names to US_STATES array (case-insensitive matching)
+          const matchedState = US_STATES.find(usState => 
+            usState.toLowerCase() === state.toLowerCase()
+          );
+          if (matchedState) {
+            handleAddressChange('state', matchedState);
+          }
+        }
+        if (pincode) {
+          const numericPincode = parseInt(pincode, 10);
+          if (!isNaN(numericPincode)) {
+            handleAddressChange('pincode', numericPincode);
+          }
+        }
+      }
+
+      if (info?.name) {
+        handleInputChange('client_name', info.name);
+      }
+
+      setShowAISuggestions(true);
+      toast({
+        title: '🔍 Website Analysis Complete',
+        description: 'We auto-filled fields using real data from the website.',
+      });
+    } catch (error) {
+      console.debug('❌ CreateAccountModal: Website analysis failed:', error);
+      if (error instanceof ApiError) {
+        toast({
+          title: 'Scraper Error',
+          description: `API error: ${error.detail?.[0]?.msg || 'Unknown error'}`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Analysis Failed',
+          description: (error as Error).message || 'An unknown error occurred.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [handleInputChange, handleAddressChange, toast]);
+
+  const handleWebsiteChange = useCallback((value: string) => {
+    handleInputChange('company_website', value);
+
+    // Clear any existing timeout
+    if (analysisTimeoutRef.current) {
+      clearTimeout(analysisTimeoutRef.current);
+    }
+
+    // Reset suggestions when website changes
+    if (value !== currentWebsiteRef.current) {
+      setShowAISuggestions(false);
+    }
+
+    if (value.includes('.') && value.length > 5) {
+      analysisTimeoutRef.current = setTimeout(() => {
+        analyzeWebsite(value);
+      }, WEBSITE_ANALYSIS_DELAY);
+    }
+  }, [handleInputChange, analyzeWebsite]);
+
   const resetForm = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
     setValidationErrors({});
     setIsSubmitting(false);
+    setIsAnalyzing(false);
+    setShowAISuggestions(false);
+    currentWebsiteRef.current = '';
+    
+    // Clear any pending timeout
+    if (analysisTimeoutRef.current) {
+      clearTimeout(analysisTimeoutRef.current);
+      analysisTimeoutRef.current = null;
+    }
   }, []);
 
   const handleClose = useCallback(() => {
@@ -166,6 +284,15 @@ export function useCreateAccountModal(
     }
   }, [backendErrors]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (analysisTimeoutRef.current) {
+        clearTimeout(analysisTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Combine validation and backend errors
   const errors = { ...validationErrors };
 
@@ -173,9 +300,12 @@ export function useCreateAccountModal(
     formData,
     errors,
     isSubmitting,
+    isAnalyzing,
+    showAISuggestions,
     handleInputChange,
     handleAddressChange,
     handlePlaceSelect,
+    handleWebsiteChange,
     handleSubmit,
     handleClose,
     resetForm,

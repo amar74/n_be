@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 import { CreateAccountModalProps } from './CreateAccountModal.types';
 import { useCreateAccountModal } from './useCreateAccountModal';
 import { CompanyWebsiteForm } from './components/CompanyWebsiteForm';
@@ -13,9 +13,12 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
     formData,
     errors,
     isSubmitting,
+    isAnalyzing,
+    showAISuggestions,
     handleInputChange,
     handleAddressChange,
     handlePlaceSelect,
+    handleWebsiteChange,
     handleSubmit,
     handleClose,
   } = useCreateAccountModal(onSubmit, onClose, backendErrors);
@@ -81,7 +84,9 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
               {/* Company Website Section */}
               <CompanyWebsiteForm 
                 value={formData.company_website || ''}
-                onChange={handleInputChange}
+                onChange={handleWebsiteChange}
+                isAnalyzing={isAnalyzing}
+                showAISuggestions={showAISuggestions}
               />
 
               {/* Address and Client Info */}
@@ -91,6 +96,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
                 onChange={handleInputChange}
                 onAddressChange={handleAddressChange}
                 onPlaceSelect={handlePlaceSelect}
+                showAISuggestions={showAISuggestions}
               />
 
               {/* Contact Fields */}
@@ -106,6 +112,19 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
                 errors={errors}
                 onChange={handleInputChange}
               />
+
+              {/* AI Suggestions Info */}
+              {showAISuggestions && (
+                <div className="bg-purple-50 border border-purple-200 rounded-md p-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm font-medium text-purple-900">AI Suggestions Applied</span>
+                  </div>
+                  <p className="text-xs text-purple-700">
+                    We've automatically filled in some fields based on your website. Please review and adjust as needed.
+                  </p>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-2 justify-between">

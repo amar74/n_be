@@ -39,6 +39,8 @@ export const US_STATES = [
   'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
 ];
 
+export const WEBSITE_ANALYSIS_DELAY = 1500; // milliseconds
+
 export const INITIAL_FORM_DATA = {
   client_name: '',
   company_website: null,
