@@ -1,7 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import { AccountFormData } from '../../AccountDetailsPage.types';
 import { CLIENT_TYPES, FORM_FIELD_LABELS } from '../../AccountDetailsPage.constants';
-import { US_STATES } from '../CreateAccountModal/CreateAccountModal.constants';
+import { MARKET_SECTORS, US_STATES } from '../CreateAccountModal/CreateAccountModal.constants';
 
 interface AccountInformationFormProps {
   formData: AccountFormData;
@@ -28,7 +28,8 @@ export function AccountInformationForm({
     field: keyof AccountFormData,
     type: 'text' | 'select' | 'boolean' = 'text',
     options?: Array<{ value: string; label: string }>,
-    width: 'full' | 'narrow' = 'full'
+    width: 'full' | 'narrow' = 'full',
+    required: boolean = false
   ) => {
     const value = formData[field];
     const label = FORM_FIELD_LABELS[field];
@@ -53,7 +54,7 @@ export function AccountInformationForm({
     return (
       <div className={baseClasses}>
         <label className="font-inter font-medium text-[#a7a7a7] text-[16px] capitalize leading-normal w-full">
-          {label}
+          {label} {required && '*'}
         </label>
         
         {type === 'select' ? (
@@ -63,6 +64,7 @@ export function AccountInformationForm({
                 value={value as string}
                 onChange={(e) => onFormChange(field, e.target.value)}
                 disabled={!isEditing}
+                required={required}
                 className={`${inputClasses} appearance-none cursor-pointer font-inter font-semibold text-[#0f0901] text-[16px]`}
               >
                 {options?.map((option) => (
@@ -90,6 +92,7 @@ export function AccountInformationForm({
               value={value as string}
               onChange={(e) => onFormChange(field, e.target.value)}
               disabled={!isEditing}
+              required={required}
               className={`${inputClasses} font-inter font-semibold text-[#0f0901] text-[16px] leading-normal`}
               placeholder={isEditing ? `Enter ${label.toLowerCase()}` : ''}
             />
@@ -137,13 +140,13 @@ export function AccountInformationForm({
                 </span>
               </div>
             </div>
-            {renderField('client_name', 'text')}
+            {renderField('client_name', 'text', undefined, undefined, true)}
           </div>
 
           {/* Row 2: Client Type + Market Sector */}
           <div className="flex gap-3 w-full">
-            {renderField('client_type', 'select', CLIENT_TYPES)}
-            {renderField('market_sector', 'text')}
+            {renderField('client_type', 'select', CLIENT_TYPES, undefined, true)}
+            {renderField('market_sector', 'select', MARKET_SECTORS.map(s => ({ value: s, label: s })), undefined, true)}
           </div>
 
           {/* Row 3: Address Line 1 */}
@@ -158,23 +161,23 @@ export function AccountInformationForm({
 
           {/* Row 5: City + State + Zip Code */}
           <div className="flex gap-7 w-full">
-            {renderField('client_address_city', 'text')}
-            {renderField('client_address_state', 'select', US_STATES.map(s => ({ value: s, label: s })))}
-            {renderField('client_address_zip_code', 'text')}
+            {renderField('client_address_city', 'text', undefined, undefined, true)}
+            {/* {renderField('client_address_state', 'select', US_STATES.map(s => ({ value: s, label: s })))} */}
+            {renderField('client_address_zip_code', 'text', undefined, undefined, true)}
           </div>
 
           {/* Row 6: Website + Hosting Area + MSA */}
           <div className="flex gap-3 w-full">
-            {renderField('company_website', 'text')}
-            {renderField('hosting_area', 'text', undefined, 'narrow')}
-            {renderField('msa_in_place', 'boolean', undefined, 'narrow')}
+            {renderField('company_website', 'text', undefined, undefined, true)}
+            {/* {renderField('hosting_area', 'text', undefined, 'narrow')} */}
+            {/* {renderField('msa_in_place', 'boolean', undefined, 'narrow')} */}
           </div>
 
           {/* Row 7: Account Approver + Approval Date */}
-          <div className="flex gap-3 w-full">
+          {/* <div className="flex gap-3 w-full">
             {renderField('account_approver', 'text')}
             {renderField('approval_date_time', 'text')}
-          </div>
+          </div> */}
         </div>
 
         {/* Action Buttons */}
