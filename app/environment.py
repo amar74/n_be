@@ -128,9 +128,9 @@ def load_environment() -> Environment:
         
         # Frontend URL
         "FRONTEND_URL": pick("FRONTEND_URL", "http://localhost:5173"),
-        "FORMBRICKS_SERVER_URL": pick("FORMBRICKS_SERVER_URL", default="http://localhost:3000"),
+        "FORMBRICKS_SERVER_URL": pick("FORMBRICKS_SERVER_URL", default="https://formbricks-production-7090.up.railway.app"),
         "FORMBRICKS_ADMIN_SECRET": pick("FORMBRICKS_ADMIN_SECRET", default="your-admin-secret"),
-        "FORMBRICKS_JWT_SECRET": pick("FORMBRICKS_JWT_SECRET", default="your-jwt-secret"),
+        "FORMBRICKS_JWT_SECRET": pick("FORMBRICKS_JWT_SECRET", default="your-shared-secret"),
     }
 
     return Environment.model_validate(env)

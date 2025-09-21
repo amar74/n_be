@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ClientType } from '../CreateAccountModal/CreateAccountModal.types';
+import { Link } from 'react-router-dom';
 
 interface AccountsHeaderProps {
   onCreateAccount: () => void;
@@ -75,14 +76,14 @@ export function AccountsHeader({ onCreateAccount, onExport, onFilterChange, }: A
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Client Survey Button */}
-            <div className="bg-[rgba(255,255,255,0)] box-border flex gap-2.5 h-[46px] items-center justify-center px-4 py-2 relative rounded-[100px] min-w-[150px] cursor-pointer hover:shadow-md transition-shadow">
+            {/* Client Survey Link */}
+            <Link to="/client-surveys" className="bg-[rgba(255,255,255,0)] box-border flex gap-2.5 h-[46px] items-center justify-center px-4 py-2 relative rounded-[100px] min-w-[150px] cursor-pointer hover:shadow-md transition-shadow">
               <div aria-hidden="true" className="absolute border border-black border-solid inset-0 pointer-events-none rounded-[100px]" />
               <FileText className="relative shrink-0 size-6 text-black" />
               <div className="font-['Inter:Medium',_sans-serif] font-medium leading-[0] not-italic relative shrink-0 text-[14px] text-black text-nowrap">
                 <p className="leading-[24px] whitespace-pre">Client Survey</p>
               </div>
-            </div>
+            </Link>
 
             {/* Create Account Button */}
             <div 
