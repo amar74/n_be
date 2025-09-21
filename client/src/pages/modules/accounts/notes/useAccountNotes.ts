@@ -1,115 +1,86 @@
 import { useState, useMemo } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useNotes } from '@/hooks/useNotes';
+import { Note as APINote, NoteCreateRequest, NoteUpdateRequest } from '@/types/notes';
 import { Note, NoteFormData } from './NotesTab.types';
-import { MOCK_NOTES, DEFAULT_FORM_VALUES } from './NotesTab.constants';
+import { DEFAULT_FORM_VALUES } from './NotesTab.constants';
+import { useAuth } from '@/hooks/useAuth'; // Add this import
+
+// Convert API note to UI note
+function apiToUiNote(apiNote: APINote): Note {
+  return {
+    id: apiNote.id,
+    title: apiNote.meeting_title,
+    content: apiNote.meeting_notes,
+    category: 'general', // TODO: Map from API category when available
+    date: apiNote.meeting_datetime,
+    author: apiNote.created_by,
+    createdAt: apiNote.created_at,
+    updatedAt: apiNote.updated_at || apiNote.created_at, // Fallback to created_at if no update
+  };
+}
+
+// Convert form data to API create request
+function formToApiCreate(formData: NoteFormData): NoteCreateRequest {
+  return {
+    meeting_title: formData.title,
+    meeting_datetime: formData.date,
+    meeting_notes: formData.content,
+  };
+}
+
+// Convert form data to API update request
+function formToApiUpdate(formData: NoteFormData): NoteUpdateRequest {
+  return {
+    meeting_title: formData.title,
+    meeting_datetime: formData.date,
+    meeting_notes: formData.content,
+  };
+}
 
 export function useAccountNotes(accountId: string) {
-  const { toast } = useToast();
-  
-  // State
-  const [notes, setNotes] = useState<Note[]>(MOCK_NOTES);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // State for edit modal
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  // Computed values
+  // Use the core notes hook with pagination
+  const {
+    notes: apiNotes,
+    isLoading,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    createNote: createNoteCore,
+    updateNote: updateNoteCore,
+    deleteNote: deleteNoteCore,
+  } = useNotes(); // Use pagination params only
+
+  // Filter notes by account ID in memory
+  const accountNotes = useMemo(() => {
+    return apiNotes?.filter(note => note.account_id === accountId) || [];
+  }, [apiNotes, accountId]);
+
+  // Convert API notes to UI notes and sort by updated date
   const sortedNotes = useMemo(() => {
-    return [...notes].sort((a, b) => 
+    const uiNotes = accountNotes.map(apiToUiNote);
+    return uiNotes.sort((a, b) => 
       new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
-  }, [notes]);
+  }, [accountNotes]);
 
   // Actions
   const createNote = async (noteData: NoteFormData) => {
-    setIsCreating(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newNote: Note = {
-        id: Date.now().toString(),
-        ...noteData,
-        author: 'Current User', // In real app, get from auth context
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      setNotes(prev => [newNote, ...prev]);
-      
-      toast({
-        title: '✅ Note Created',
-        description: 'Your note has been successfully created.',
-      });
-      
-      return newNote;
-    } catch (error) {
-      console.error('Error creating note:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create note. Please try again.',
-        variant: 'destructive',
-      });
-      throw error;
-    } finally {
-      setIsCreating(false);
-    }
+    const apiData = formToApiCreate(noteData);
+    await createNoteCore(apiData);
+    // Note will be available in the list after query invalidation
   };
 
   const updateNote = async (noteId: string, noteData: NoteFormData) => {
-    setIsUpdating(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setNotes(prev => prev.map(note => 
-        note.id === noteId 
-          ? { ...note, ...noteData, updatedAt: new Date().toISOString() }
-          : note
-      ));
-      
-      toast({
-        title: '✅ Note Updated',
-        description: 'Your note has been successfully updated.',
-      });
-    } catch (error) {
-      console.error('Error updating note:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update note. Please try again.',
-        variant: 'destructive',
-      });
-      throw error;
-    } finally {
-      setIsUpdating(false);
-    }
+    const apiData = formToApiUpdate(noteData);
+    await updateNoteCore({ noteId, data: apiData });
   };
 
   const deleteNote = async (noteId: string) => {
-    setIsDeleting(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setNotes(prev => prev.filter(note => note.id !== noteId));
-      
-      toast({
-        title: '✅ Note Deleted',
-        description: 'Note has been successfully deleted.',
-      });
-    } catch (error) {
-      console.error('Error deleting note:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete note. Please try again.',
-        variant: 'destructive',
-      });
-      throw error;
-    } finally {
-      setIsDeleting(false);
-    }
+    await deleteNoteCore(noteId);
   };
 
   const startEditNote = (note: Note) => {
@@ -148,7 +119,5 @@ export function useAccountNotes(accountId: string) {
     cancelEdit,
     saveEdit,
     
-    // Default values for forms
-    defaultFormValues: DEFAULT_FORM_VALUES,
   };
 }

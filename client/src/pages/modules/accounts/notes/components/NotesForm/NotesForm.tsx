@@ -23,13 +23,6 @@ export function NotesForm({
     ...initialData,
   });
 
-  useEffect(() => {
-    setFormData({
-      ...defaultFormValues,
-      ...initialData,
-    });
-  }, [initialData, defaultFormValues]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     

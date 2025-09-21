@@ -11,7 +11,6 @@ export function NotesTab({ accountId }: NotesTabProps) {
     notes,
     editingNote,
     showEditModal,
-    defaultFormValues,
     
     // State
     isLoading,
@@ -33,7 +32,6 @@ export function NotesTab({ accountId }: NotesTabProps) {
       <NotesForm
         onSubmit={createNote}
         isLoading={isCreating}
-        defaultFormValues={defaultFormValues}
       />
 
       {/* Notes List */}
