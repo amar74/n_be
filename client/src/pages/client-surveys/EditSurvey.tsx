@@ -14,8 +14,8 @@ function EditSurvey() {
     }
 
     return (
-        <div className="flex-1 min-h-0 w-full flex flex-col">
-            <iframe className="flex-1 min-h-0 w-full" src={`https://formbricks-production-7090.up.railway.app/auth/external?jwt=${data?.token}&callbackUrl=https://formbricks-production-7090.up.railway.app/environments/${environmentId}/surveys/${surveyId}/edit`}></iframe>
+        <div className="w-full h-screen flex flex-col">
+            <iframe className="w-full flex-1 min-h-0 border-0" src={`https://formbricks-production-7090.up.railway.app/auth/external?jwt=${data?.token}&callbackUrl=https://formbricks-production-7090.up.railway.app/environments/${environmentId}/surveys/${surveyId}/edit`}></iframe>
         </div>
     )
 }
