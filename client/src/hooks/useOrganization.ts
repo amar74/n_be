@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { orgsApi } from '@/services/api/orgsApi';
+import { useToast } from '@/hooks/useToast';
 import type { OrgMembersListResponse, InviteCreateRequest, InviteResponse } from '@/types/orgs';
 
 export const organizationKeys = {
@@ -10,6 +11,7 @@ export const organizationKeys = {
 
 export function useOrganization() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Get organization members
   const membersQuery = useQuery({
@@ -26,9 +28,17 @@ export function useOrganization() {
   // Invite member mutation
   const inviteMutation = useMutation({
     mutationFn: (inviteData: InviteCreateRequest) => orgsApi.inviteMember(inviteData),
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Invalidate members list to refresh the data
       queryClient.invalidateQueries({ queryKey: organizationKeys.members() });
+      toast.success('Invitation Sent', {
+        description: 'Team member has been invited successfully'
+      });
+    },
+    onError: (error: any) => {
+      toast.error('Invitation Failed', {
+        description: error?.response?.data?.message || 'Failed to send invitation. Please try again.'
+      });
     },
   });
 

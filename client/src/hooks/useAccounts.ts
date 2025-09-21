@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback, useEffect } from 'react';
 import { createQueryKeys } from '@/lib/query-client';
 import { accountsApi } from '@/services/api/accountsApi';
-import { useToast } from './use-toast';
+import { useToast } from '@/hooks/useToast';
 import { parseBackendErrors } from '@/utils/errorParser';
 import { AxiosError } from 'axios';
 import type {
@@ -151,16 +151,13 @@ export function useAccounts(options?: {
     onSuccess: data => {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(data.account_id) });
-      toast({
-        title: 'Account Created',
-        description: data.message || 'Account created successfully',
+      toast.success('Account Created', {
+        description: data.message || 'Account created successfully'
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Creating Account',
-        description: error.response?.data?.message || 'Failed to create account',
-        variant: 'destructive',
+      toast.error('Error Creating Account', {
+        description: error.response?.data?.message || 'Failed to create account'
       });
     },
   });
@@ -179,16 +176,13 @@ export function useAccounts(options?: {
     onSuccess: async (data, variables) => {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
-      toast({
-        title: 'Account Updated',
-        description: data.message || 'Account updated successfully',
+      toast.success('Account Updated', {
+        description: data.message || 'Account updated successfully'
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Updating Account',
-        description: error.response?.data?.message || 'Failed to update account',
-        variant: 'destructive',
+      toast.error('Error Updating Account', {
+        description: error.response?.data?.message || 'Failed to update account'
       });
     },
   });
@@ -201,16 +195,13 @@ export function useAccounts(options?: {
     onSuccess: (data, accountId) => {
       queryClient.removeQueries({ queryKey: accountsQueryKeys.detail(accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
-      toast({
-        title: 'Account Deleted',
-        description: data.message || 'Account deleted successfully',
+      toast.success('Account Deleted', {
+        description: data.message || 'Account deleted successfully'
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Deleting Account',
-        description: error.response?.data?.message || 'Failed to delete account',
-        variant: 'destructive',
+      toast.error('Error Deleting Account', {
+        description: error.response?.data?.message || 'Failed to delete account'
       });
     },
   });
@@ -229,16 +220,13 @@ export function useAccounts(options?: {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
-      toast({
-        title: 'Contact Added',
-        description: data.message || 'Contact added successfully',
+      toast.success('Contact Added', {
+        description: data.message || 'Contact added successfully'
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Adding Contact',
-        description: error.response?.data?.message || 'Failed to add contact',
-        variant: 'destructive',
+      toast.error('Error Adding Contact', {
+        description: error.response?.data?.message || 'Failed to add contact'
       });
     },
   });
@@ -259,16 +247,13 @@ export function useAccounts(options?: {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
-      toast({
-        title: 'Contact Updated',
-        description: data.message || 'Contact updated successfully',
+      toast.success('Contact Updated', {
+        description: data.message || 'Contact updated successfully'
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Updating Contact',
-        description: error.response?.data?.message || 'Failed to update contact',
-        variant: 'destructive',
+      toast.error('Error Updating Contact', {
+        description: error.response?.data?.message || 'Failed to update contact'
       });
     },
   });
@@ -287,16 +272,13 @@ export function useAccounts(options?: {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
-      toast({
-        title: 'Contact Deleted',
-        description: data.message || 'Contact deleted successfully',
+      toast.success('Contact Deleted', {
+        description: data.message || 'Contact deleted successfully'
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Deleting Contact',
-        description: error.response?.data?.message || 'Failed to delete contact',
-        variant: 'destructive',
+      toast.error('Error Deleting Contact', {
+        description: error.response?.data?.message || 'Failed to delete contact'
       });
     },
   });
@@ -316,16 +298,13 @@ export function useAccounts(options?: {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
-      toast({
-        title: 'Contact Promoted',
-        description: 'Contact has been promoted to primary successfully',
+      toast.success('Contact Promoted', {
+        description: data.message || 'Contact has been promoted to primary successfully'
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Promoting Contact',
-        description: error.response?.data?.message || 'Failed to promote contact to primary',
-        variant: 'destructive',
+      toast.error('Error Promoting Contact', {
+        description: error.response?.data?.message || 'Failed to promote contact to primary'
       });
     },
   });
@@ -336,16 +315,13 @@ export function useAccounts(options?: {
       return await accountsApi.generateAccountReport(accountId);
     },
     onSuccess: (data) => {
-      toast({
-        title: 'Report Generated',
-        description: `Report generated successfully. URL: ${data.report_url}`,
+      toast.success('Report Generated', {
+        description: `Report generated successfully. URL: ${data.report_url}`
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Generating Report',
-        description: error.response?.data?.message || 'Failed to generate account report',
-        variant: 'destructive',
+      toast.error('Error Generating Report', {
+        description: error.response?.data?.message || 'Failed to generate account report'
       });
     },
   });
@@ -355,17 +331,14 @@ export function useAccounts(options?: {
     mutationFn: async (website: string) => {
       return await accountsApi.enrichAccountData(website);
     },
-    onSuccess: (data) => {
-      toast({
-        title: 'Data Enriched',
-        description: 'Account data enriched successfully',
+    onSuccess: () => {
+      toast.success('Data Enriched', {
+        description: 'Account data enriched successfully'
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Enriching Data',
-        description: error.response?.data?.message || 'Failed to enrich account data',
-        variant: 'destructive',
+      toast.error('Error Enriching Data', {
+        description: error.response?.data?.message || 'Failed to enrich account data'
       });
     },
   });

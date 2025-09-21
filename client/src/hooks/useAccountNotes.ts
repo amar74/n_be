@@ -41,31 +41,30 @@ export function useAccountNotes(accountId: string) {
   const createNoteMutation = useMutation({
     mutationFn: async (data: AccountNoteCreateRequest) => {
       if (!accountId) throw new Error('Account ID is required');
-      return accountNotesApi.createNote(accountId, data);
+      const response = await accountNotesApi.createNote(accountId, data);
+      return { message: 'Note created successfully' };
     },
-    onSuccess: () => {
+    onSuccess: (data: { message: string }) => {
       queryClient.invalidateQueries({ queryKey: accountNotesKeys.list(accountId) });
-      toast.success('Note created successfully');
+      toast.success(data.message);
     },
     onError: (error: any) => {
-      toast.error('Error Creating Note', {
-        description: error.response?.data?.message || 'Failed to create note',
-      });
+      toast.error(error.response?.data?.message || 'Failed to create note');
     },
   });
 
   // Update note mutation - simplified
   const updateNoteMutation = useMutation({
-    mutationFn: (params: { noteId: string; data: AccountNoteUpdateRequest }) =>
-      accountNotesApi.updateNote(accountId, params.noteId, params.data),
-    onSuccess: () => {
+    mutationFn: async (params: { noteId: string; data: AccountNoteUpdateRequest }) => {
+      const response = await accountNotesApi.updateNote(accountId, params.noteId, params.data);
+      return { message: 'Note updated successfully' };
+    },
+    onSuccess: (data: { message: string }) => {
       queryClient.invalidateQueries({ queryKey: accountNotesKeys.list(accountId) });
-      toast.success('Note updated successfully');
+      toast.success(data.message);
     },
     onError: (error: any) => {
-      toast.error('Error Updating Note', {
-        description: error.response?.data?.message || 'Failed to update note',
-      });
+      toast.error(error.response?.data?.message || 'Failed to update note');
     },
   });
 
@@ -73,16 +72,15 @@ export function useAccountNotes(accountId: string) {
   const deleteNoteMutation = useMutation({
     mutationFn: async (noteId: string) => {
       if (!accountId || !noteId) throw new Error('Account ID and Note ID are required');
-      return accountNotesApi.deleteNote(accountId, noteId);
+      const response = await accountNotesApi.deleteNote(accountId, noteId);
+      return { message: 'Note deleted successfully' };
     },
-    onSuccess: () => {
+    onSuccess: (data: { message: string }) => {
       queryClient.invalidateQueries({ queryKey: accountNotesKeys.list(accountId) });
-      toast.success('Note deleted successfully');
+      toast.success(data.message);
     },
     onError: (error: any) => {
-      toast.error('Error Deleting Note', {
-        description: error.response?.data?.message || 'Failed to delete note',
-      });
+      toast.error(error.response?.data?.message || 'Failed to delete note');
     },
   });
 

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '@/lib/query-client';
 import { orgsApi } from '@/services/api/orgsApi';
-import { useToast } from './use-toast';
+import { useToast } from '@/hooks/useToast';
 import { OrganizationCustomSchema } from '@/types/orgs';
 import type {
   CreateOrgFormData,
@@ -132,21 +132,17 @@ export function useOrganizations() {
       return result;
     },
     onSuccess: (data) => {
-      toast({
-        title: '🎉 Organization Created Successfully',
-        description: `Organization "${data.org.name}" has been created successfully.`,
-        variant: 'default',
-      });
       // Invalidate relevant queries using centralized query keys
       queryClient.invalidateQueries({ queryKey: organizationsQueryKeys.myOrg() });
       queryClient.invalidateQueries({ queryKey: organizationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: organizationsQueryKeys.members() });
+      toast.success('Organization Created', {
+        description: `Organization "${data.org.name}" has been created successfully`
+      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Organization Creation Failed',
-        description: error?.response?.data?.message || 'Failed to create organization. Please try again.',
-        variant: 'destructive',
+      toast.error('Organization Creation Failed', {
+        description: error?.response?.data?.message || 'Failed to create organization. Please try again.'
       });
     },
   });
@@ -181,22 +177,18 @@ export function useOrganizations() {
       return result;
     },
     onSuccess: (data, variables) => {
-      toast({
-        title: '✅ Organization Updated',
-        description: 'Organization details have been updated successfully.',
-        variant: 'default',
-      });
       // Invalidate specific organization and list queries using centralized query keys
       queryClient.invalidateQueries({ queryKey: organizationsKeys.detail(variables.orgId) });
       queryClient.invalidateQueries({ queryKey: organizationsQueryKeys.myOrg() });
       queryClient.invalidateQueries({ queryKey: organizationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: organizationsQueryKeys.members() });
+      toast.success('Organization Updated', {
+        description: 'Organization details have been updated successfully'
+      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Update Failed',
-        description: error?.response?.data?.message || 'Failed to update organization. Please try again.',
-        variant: 'destructive',
+      toast.error('Update Failed', {
+        description: error?.response?.data?.message || 'Failed to update organization. Please try again.'
       });
     },
   });
