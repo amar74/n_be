@@ -107,9 +107,7 @@ export const createAccountUISchema = z.object({
     title: z.union([z.string(), z.null()]).optional(),
   })).optional(),
   
-  client_type: z.enum(['tier_1', 'tier_2', 'tier_3'], {
-    required_error: 'Client type is required',
-  }),
+  client_type: z.enum(['tier_1', 'tier_2', 'tier_3']),
   
   market_sector: z.union([z.string(), z.null()]).optional(),
   notes: z.union([z.string(), z.null()]).optional(),
