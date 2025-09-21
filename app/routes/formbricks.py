@@ -2,8 +2,20 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
-from app.schemas.formbricks import FormbricksLoginTokenResponse, SurveyListResponse, SurveyCreateRequest, Survey
-from app.services.formbricks import get_formbricks_login_token, get_all_surveys, create_survey
+from app.schemas.formbricks import (
+    FormbricksLoginTokenResponse,
+    SurveyListResponse,
+    SurveyCreateRequest,
+    Survey,
+    SurveyLinkCreateRequest,
+    SurveyLinkResponse,
+)
+from app.services.formbricks import (
+    get_formbricks_login_token,
+    get_all_surveys,
+    create_survey,
+    create_survey_link,
+)
 
 router = APIRouter(prefix="/formbricks", tags=["formbricks"])
 
@@ -46,3 +58,18 @@ async def create_formbricks_survey_handler(
     Returns the created survey mapped to our Survey schema.
     """
     return await create_survey(current_user, payload)
+
+
+@router.post(
+    "/surveys/{survey_id}/link",
+    status_code=200,
+    response_model=SurveyLinkResponse,
+    operation_id="createFormbricksSurveyLink",
+)
+async def create_formbricks_survey_link_handler(
+    survey_id: str,
+    payload: SurveyLinkCreateRequest,
+    current_user: User = Depends(get_current_user),
+) -> SurveyLinkResponse:
+    """Generate a link for an existing Formbricks survey for a given email."""
+    return await create_survey_link(current_user, survey_id, payload)

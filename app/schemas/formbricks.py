@@ -138,3 +138,25 @@ class SurveyCreateRequest(BaseModel):
 
     model_config = {
         "from_attributes": True}
+
+
+class SurveyLinkCreateRequest(BaseModel):
+    """Payload to generate a link for an existing survey.
+
+    Requires the recipient's email address. Survey id will come from the path.
+    """
+
+    email: str
+
+
+class SurveyLinkResponse(BaseModel):
+    """Response containing the generated survey link and upstream token bundle.
+
+    Mirrors the upstream shape under a normalized top-level fields for convenience.
+    """
+
+    url: str
+    token: str
+
+    model_config = {
+        "from_attributes": True}

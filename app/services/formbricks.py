@@ -17,6 +17,8 @@ from app.schemas.formbricks import (
     SurveyListResponse,
     SurveyCreateRequest,
     Survey,
+    SurveyLinkCreateRequest,
+    SurveyLinkResponse,
 )
 from app.models.formbricks_projects import FormbricksProject
 from app.utils.error import MegapolisHTTPException
@@ -237,4 +239,75 @@ async def create_survey(current_user: User, payload: SurveyCreateRequest) -> Sur
         "name": data.get("name"),
     })
 
+
+
+async def create_survey_link(
+    current_user: User, survey_id: str, payload: SurveyLinkCreateRequest
+) -> SurveyLinkResponse:
+    """Generate a unique link for a Formbricks survey for a recipient email.
+
+    Authorization: user must belong to an org that has Formbricks configured. We also
+    attempt to verify the survey exists in the org's environment to avoid cross-org
+    access, falling back to upstream error codes if not found.
+    """
+
+    if not current_user.org_id:
+        raise MegapolisHTTPException(status_code=400, message="User has no organization")
+
+    fb_project = await FormbricksProject.get_by_organization_id(current_user.org_id)
+    if not fb_project or not fb_project.prod_env_id:
+        raise MegapolisHTTPException(status_code=404, message="Formbricks environment not configured")
+
+    # Best-effort survey existence check within org environment
+    try:
+        env_id = fb_project.prod_env_id
+        list_url = f"{environment.FORMBRICKS_SERVER_URL}/api/admin/environments/{env_id}/surveys"
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "application/json",
+            "x-admin-secret": environment.FORMBRICKS_ADMIN_SECRET,
+        }
+        async with httpx.AsyncClient() as client:
+            list_resp = await client.get(list_url, headers=headers)
+        if list_resp.status_code == 200:
+            surveys = (list_resp.json() or {}).get("data", [])
+            survey_ids = {item.get("id") for item in surveys if isinstance(item, dict)}
+            if survey_id not in survey_ids:
+                raise MegapolisHTTPException(status_code=404, message="Survey not found for organization")
+        else:
+            # Log but continue; upstream link creation may still provide accurate error
+            logger.warning(
+                f"Unable to verify survey existence: {list_resp.status_code} {list_resp.text[0:200]}"
+            )
+    except MegapolisHTTPException:
+        # Re-raise explicit auth/404 errors
+        raise
+    except Exception:
+        # Do not block link generation on verification failure
+        logger.warning("Survey verification failed; proceeding to link creation")
+
+    # Create the link via Formbricks admin API
+    link_url = f"{environment.FORMBRICKS_SERVER_URL}/api/admin/surveys/{survey_id}/link"
+    link_headers = {
+        "Content-Type": "application/json",
+        "x-admin-secret": environment.FORMBRICKS_ADMIN_SECRET,
+    }
+    body = {"email": payload.email}
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(link_url, headers=link_headers, json=body)
+
+    if response.status_code != 200:
+        logger.error(f"Failed to create survey link: {response.status_code} {response.text[0:200]}")
+        raise MegapolisHTTPException(status_code=502, message="Upstream Formbricks error")
+
+    data = (response.json() or {}).get("data", {})
+    url = data.get("url")
+    token = data.get("token")
+
+    if not url or not token:
+        logger.error("Malformed response from Formbricks while creating survey link")
+        raise MegapolisHTTPException(status_code=502, message="Malformed response from Formbricks")
+
+    return SurveyLinkResponse(url=url, token=token)
 
