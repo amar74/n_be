@@ -1,21 +1,14 @@
-import React from 'react';
-import { Edit, Trash2, FileText, Calendar, User, Tag } from 'lucide-react';
-import { Note } from '../../NotesTab.types';
-import { NOTE_CATEGORIES } from '../../NotesTab.constants';
+import { Edit, Trash2, FileText, Calendar } from 'lucide-react';
+import { AccountNoteResponse } from '@/types/accountNotes';
 
 interface NotesListProps {
-  notes: Note[];
-  onEdit: (note: Note) => void;
+  notes: AccountNoteResponse[];
+  onEdit: (note: AccountNoteResponse) => void;
   onDelete: (noteId: string) => void;
   isLoading?: boolean;
 }
 
 export function NotesList({ notes, onEdit, onDelete, isLoading = false }: NotesListProps) {
-  const getCategoryLabel = (categoryValue: string) => {
-    const category = NOTE_CATEGORIES.find(cat => cat.value === categoryValue);
-    return category?.label || categoryValue;
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -87,21 +80,9 @@ export function NotesList({ notes, onEdit, onDelete, isLoading = false }: NotesL
                     {/* Meta Information */}
                     <div className="flex items-center gap-4 text-[14px] text-[#6c6c6c]">
                       <div className="flex items-center gap-1">
-                        <Tag className="h-4 w-4" />
-                        <span className="font-inter font-medium">
-                          {getCategoryLabel(note.category)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
                         <span className="font-inter font-medium">
                           {formatDate(note.date)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <User className="h-4 w-4" />
-                        <span className="font-inter font-medium">
-                          {note.author}
                         </span>
                       </div>
                     </div>
@@ -134,11 +115,11 @@ export function NotesList({ notes, onEdit, onDelete, isLoading = false }: NotesL
                 {/* Footer with timestamps */}
                 <div className="flex items-center justify-between pt-2 border-t border-[#f0f0f0]">
                   <div className="text-[12px] text-[#a7a7a7] font-inter">
-                    Created: {formatDate(note.createdAt)}
+                    Created: {formatDate(note.created_at)}
                   </div>
-                  {note.updatedAt !== note.createdAt && (
+                  {note.updated_at && note.updated_at !== note.created_at && (
                     <div className="text-[12px] text-[#a7a7a7] font-inter">
-                      Updated: {formatDate(note.updatedAt)}
+                      Updated: {formatDate(note.updated_at)}
                     </div>
                   )}
                 </div>

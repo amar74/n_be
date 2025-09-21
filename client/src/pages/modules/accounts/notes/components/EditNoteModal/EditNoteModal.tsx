@@ -7,14 +7,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { NotesForm } from '../NotesForm';
-import { Note, NoteFormData } from '../../NotesTab.types';
+import {  NoteFormData } from '../../NotesTab.types';
+import { AccountNoteResponse } from '@/types/accountNotes';
 
 interface EditNoteModalProps {
   isOpen: boolean;
-  note: Note | null;
+  note: AccountNoteResponse | null;
   onClose: () => void;
   onSave: (noteId: string, data: NoteFormData) => Promise<any>;
   isLoading?: boolean;
+  errors?: Record<string, string>;
 }
 
 export function EditNoteModal({ 
@@ -22,7 +24,8 @@ export function EditNoteModal({
   note, 
   onClose, 
   onSave, 
-  isLoading = false 
+  isLoading = false,
+  errors = {}
 }: EditNoteModalProps) {
   const handleSubmit = async (formData: NoteFormData) => {
     if (!note) return;
@@ -36,7 +39,6 @@ export function EditNoteModal({
   const initialData = {
     title: note.title,
     content: note.content,
-    category: note.category,
     date: note.date,
   };
 
@@ -58,6 +60,7 @@ export function EditNoteModal({
             isLoading={isLoading}
             initialData={initialData}
             onCancel={onClose}
+            errors={errors}
           />
         </div>
       </DialogContent>

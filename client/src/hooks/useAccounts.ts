@@ -6,10 +6,6 @@ import { useToast } from './use-toast';
 import { parseBackendErrors } from '@/utils/errorParser';
 import { AxiosError } from 'axios';
 import type {
-  ContactFormData,
-  AccountDetailResponse,
-  AccountListResponse,
-  AccountListItem,
   AccountCreate,
   AccountUpdate,
   ContactAddRequest,
