@@ -60,7 +60,7 @@ function ClientSurveys() {
                     <DialogTrigger asChild>
                         <Button>Create Survey</Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[640px]">
+                    <DialogContent className="sm:max-w-[640px] z-[1000] bg-white">
                         <DialogHeader>
                             <DialogTitle>Create New Survey</DialogTitle>
                         </DialogHeader>
