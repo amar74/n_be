@@ -15,6 +15,7 @@ interface EditContactModalProps {
   onClose: () => void;
   onSave: (contactId: string, data: ContactUpdateRequest) => Promise<any>;
   isLoading?: boolean;
+  errors?: Record<string, string>;
 }
 
 export function EditContactModal({ 
@@ -22,7 +23,8 @@ export function EditContactModal({
   contact, 
   onClose, 
   onSave, 
-  isLoading = false 
+  isLoading = false,
+  errors = {} 
 }: EditContactModalProps) {
   const handleSubmit = async (formData: ContactUpdateRequest) => {
     if (!contact) return;
@@ -58,6 +60,7 @@ export function EditContactModal({
             isLoading={isLoading}
             initialData={initialData}
             onCancel={onClose}
+            errors={errors}
           />
         </div>
       </DialogContent>

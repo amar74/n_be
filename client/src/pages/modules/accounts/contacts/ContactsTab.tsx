@@ -19,12 +19,14 @@ export function ContactsTab({ accountId }: ContactsTabProps) {
     isAddingContact: isCreating,
     isUpdatingContact: isUpdating,
     isDeletingContact: isDeleting,
+    createErrors,
+    updateErrors,
     
     // Actions
     createContact,
     startEditContact,
     cancelEdit,
-    saveEdit,
+    updateContact,
     deleteContact,
   } = useContacts(accountId);
 
@@ -34,10 +36,12 @@ export function ContactsTab({ accountId }: ContactsTabProps) {
       <ContactsForm
         onSubmit={createContact}
         isLoading={isCreating}
+        errors={createErrors}
       />
 
       {/* Contacts List */}
       <ContactsList
+        accountId={accountId}
         contacts={contacts}
         onEdit={startEditContact}
         onDelete={deleteContact}
@@ -49,8 +53,9 @@ export function ContactsTab({ accountId }: ContactsTabProps) {
         isOpen={showEditModal}
         contact={editingContact}
         onClose={cancelEdit}
-        onSave={saveEdit}
+        onSave={updateContact}
         isLoading={isUpdating}
+        errors={updateErrors}
       />
     </div>
   );

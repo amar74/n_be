@@ -7,6 +7,7 @@ interface ContactsFormProps {
   isLoading?: boolean;
   initialData?: ContactCreate;
   onCancel?: () => void;
+  errors?: Record<string, string>;
 }
 
 export function ContactsForm({ 
@@ -14,9 +15,9 @@ export function ContactsForm({
   isLoading = false, 
   initialData = {email: '', phone: '', name: '', title: ''}, 
   onCancel,
+  errors = {},
 }: ContactsFormProps) {
   const [formData, setFormData] = useState<ContactCreate>(initialData);
-console.log(formData);
 
   useEffect(() => {
     setFormData({
@@ -81,9 +82,11 @@ console.log(formData);
                 value={formData?.title || ''}
                 onChange={(e) => handleChange('title', e.target.value)}
                 placeholder="Enter title"
-                required
-                className="bg-white border border-[#e6e6e6] w-full rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none"
+                className={`bg-white border ${errors.title ? 'border-red-500' : 'border-[#e6e6e6]'} w-full rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none`}
               />
+              {errors.title && (
+                <span className="text-red-500 text-sm mt-1">{errors.title}</span>
+              )}
               </div>
             </div>
             {/* Name */}
@@ -96,9 +99,11 @@ console.log(formData);
                 value={formData?.name || ''}
                 onChange={(e) => handleChange('name', e.target.value)}
                 placeholder="Enter contact name"
-                required
-                className="bg-white border border-[#e6e6e6] rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none"
+                className={`bg-white border ${errors.name ? 'border-red-500' : 'border-[#e6e6e6]'} rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none`}
               />
+              {errors.name && (
+                <span className="text-red-500 text-sm mt-1">{errors.name}</span>
+              )}
             </div>
           </div> 
 
@@ -116,8 +121,11 @@ console.log(formData);
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="Enter email address"
                 required
-                className="bg-white border border-[#e6e6e6] rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none"
+                className={`bg-white border ${errors.email ? 'border-red-500' : 'border-[#e6e6e6]'} rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none`}
               />
+              {errors.email && (
+                <span className="text-red-500 text-sm mt-1">{errors.email}</span>
+              )}
             </div>
 
             {/* Phone */}
@@ -132,8 +140,11 @@ console.log(formData);
                 onChange={(e) => handleChange('phone', e.target.value)}
                 placeholder="(555) 123-4567"
                 required
-                className="bg-white border border-[#e6e6e6] rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none"
+                className={`bg-white border ${errors.phone ? 'border-red-500' : 'border-[#e6e6e6]'} rounded-[14px] h-14 px-6 py-2 font-inter font-medium text-[#0f0901] text-[16px] focus:border-[#ff7b00] focus:outline-none`}
               />
+              {errors.phone && (
+                <span className="text-red-500 text-sm mt-1">{errors.phone}</span>
+              )}
             </div>
           </div>
 

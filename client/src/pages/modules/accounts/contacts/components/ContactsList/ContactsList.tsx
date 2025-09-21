@@ -2,19 +2,22 @@ import React from 'react';
 import { Edit, Trash2, User, Crown } from 'lucide-react';
 
 import { ContactResponse } from '@/types/accounts';
+import { useAccountDetail } from '@/hooks/useAccounts';
 
 interface ContactsListProps {
   contacts: ContactResponse[];
   onEdit: (contact: ContactResponse) => void;
   onDelete: (contactId: string) => void;
   isLoading?: boolean;
+  accountId: string;
 }
 
-export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: ContactsListProps) {
+export function ContactsList({ accountId, contacts, onEdit, onDelete, isLoading = false }: ContactsListProps) {
   const formatPhone = (phone: string) => {
     // Simple phone formatting - you can enhance this
     return phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
   };
+  const {accountDetail} = useAccountDetail(accountId)
 
   if (isLoading) {
     return (
@@ -59,7 +62,10 @@ export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: 
 
         {/* Contacts List */}
         <div className="flex flex-col gap-4 w-full">
-          {contacts.map((contact) => (
+          {contacts.map((contact) => {
+
+            const isPrimaryContact = contact.contact_id === accountDetail?.primary_contact?.contact_id
+            return (
             <div
               key={contact.contact_id}
               className="bg-white border border-[#dddddd] rounded-[20px] p-6 hover:border-[#d0d0d0] transition-colors"
@@ -129,8 +135,7 @@ export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: 
                     `}>
                       {contact.status === 'primary' && <Crown className="h-4 w-4" />}
                       <span className="font-inter font-semibold text-[14px] capitalize">
-                        {/* {contact.status} */}
-                        Primary
+                        {isPrimaryContact ? 'Primary' : 'Secondary'}
                       </span>
                     </div>
 
@@ -143,7 +148,7 @@ export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: 
                       >
                         <Edit className="h-4 w-4 text-[#0f0901]" />
                       </button>
-                      {contact.status !== 'primary' && (
+                      {!isPrimaryContact && (
                         <button
                           onClick={() => onDelete(contact.contact_id)}
                           className="bg-[#fee2e2] hover:bg-[#fecaca] border border-[#fca5a5] rounded-[8px] p-2 transition-colors"
@@ -157,7 +162,7 @@ export function ContactsList({ contacts, onEdit, onDelete, isLoading = false }: 
                 </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       </div>
     </div>

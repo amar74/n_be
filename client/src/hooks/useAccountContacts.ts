@@ -1,8 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback } from 'react';
-import { createQueryKeys } from '@/lib/query-client';
 import { accountsApi } from '@/services/api/accountsApi';
-import { useToast } from './use-toast';
+import { useToast } from './useToast';
 import { accountsQueryKeys } from './useAccounts';
 import { ContactAddRequest, ContactUpdateRequest } from '@/types/accounts';
 
@@ -41,18 +39,14 @@ export function useAccountContacts(accountId: string) {
       return await accountsApi.addContact(accountId, contact);
     },
     onSuccess: (data, variables) => {
+      console.log(data);
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
-      toast({
-        title: 'Contact Added',
-        description: data.message || 'Contact added successfully',
-      });
+      toast.success(data.message || 'Contact added successfully');
     },
-    onError: (error: any) => {
-      toast({
-        title: 'Error Adding Contact',
-        description: error.response?.data?.message || 'Failed to add contact',
-        variant: 'destructive',
+    onError: () => {
+      toast.error('Error Adding Contact', {
+        description:  'Failed to add contact',
       });
     },
   });
@@ -73,16 +67,11 @@ export function useAccountContacts(accountId: string) {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
-      toast({
-        title: 'Contact Updated',
-        description: data.message || 'Contact updated successfully',
-      });
+      toast.success(data.message || 'Contact updated successfully');
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Updating Contact',
+      toast.error('Error Updating Contact', {
         description: error.response?.data?.message || 'Failed to update contact',
-        variant: 'destructive',
       });
     },
   });
@@ -101,16 +90,11 @@ export function useAccountContacts(accountId: string) {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
-      toast({
-        title: 'Contact Deleted',
-        description: data.message || 'Contact deleted successfully',
-      });
+      toast.success(data.message || 'Contact deleted successfully');
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Deleting Contact',
+      toast.error('Error Deleting Contact', {
         description: error.response?.data?.message || 'Failed to delete contact',
-        variant: 'destructive',
       });
     },
   });
@@ -130,16 +114,11 @@ export function useAccountContacts(accountId: string) {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
-      toast({
-        title: 'Contact Promoted',
-        description: 'Contact has been promoted to primary successfully',
-      });
+      toast.success('Contact has been promoted to primary successfully');
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error Promoting Contact',
+      toast.error('Error Promoting Contact', {
         description: error.response?.data?.message || 'Failed to promote contact to primary',
-        variant: 'destructive',
       });
     },
   });
@@ -163,6 +142,18 @@ export function useAccountContacts(accountId: string) {
     isUpdatingContact: updateContactMutation.isPending,
     isDeletingContact: deleteContactMutation.isPending,
     isPromotingContact: promoteContactToPrimaryMutation.isPending,
+
+    // error states
+    addContactError: addContactMutation.error,
+    updateContactError: updateContactMutation.error,
+    deleteContactError: deleteContactMutation.error,
+    promoteContactToPrimaryError: promoteContactToPrimaryMutation.error,
+
+    // success states
+    addContactSuccess: addContactMutation.isSuccess,
+    updateContactSuccess: updateContactMutation.isSuccess,
+    deleteContactSuccess: deleteContactMutation.isSuccess,
+    promoteContactToPrimarySuccess: promoteContactToPrimaryMutation.isSuccess,
   };
   }
   
