@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 import { CreateAccountModalProps } from './CreateAccountModal.types';
 import { useCreateAccountModal } from './useCreateAccountModal';
 import { CompanyWebsiteForm } from './components/CompanyWebsiteForm';
@@ -13,7 +13,12 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
     formData,
     errors,
     isSubmitting,
+    isAnalyzing,
+    showAISuggestions,
     handleInputChange,
+    handleAddressChange,
+    handlePlaceSelect,
+    handleWebsiteChange,
     handleSubmit,
     handleClose,
   } = useCreateAccountModal(onSubmit, onClose, backendErrors);
@@ -46,11 +51,11 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
         className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
         onClick={handleClose}
       >
-        {/* Modal */}
-        <div 
-          className="bg-white rounded-[36px] shadow-[0px_4px_12px_0px_rgba(191,191,191,0.48)] w-full max-w-2xl max-h-[90vh] flex flex-col"
-          onClick={(e) => e.stopPropagation()}
-        >
+          {/* Modal */}
+          <div 
+            className="bg-white rounded-[36px] shadow-[0px_4px_12px_0px_rgba(191,191,191,0.48)] w-full max-w-4xl max-h-[92vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
           {/* Fixed Header */}
           <div className="px-8 py-6 border-b border-gray-300 flex-shrink-0">
             <div className="flex items-start justify-between">
@@ -78,8 +83,11 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-6">
               {/* Company Website Section */}
               <CompanyWebsiteForm 
-                value={formData.company_website}
-                onChange={handleInputChange}
+                value={formData.company_website || ''}
+                onChange={handleWebsiteChange}
+                isAnalyzing={isAnalyzing}
+                showAISuggestions={showAISuggestions}
+                error={errors['company_website']}
               />
 
               {/* Address and Client Info */}
@@ -87,6 +95,9 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
                 formData={formData}
                 errors={errors}
                 onChange={handleInputChange}
+                onAddressChange={handleAddressChange}
+                onPlaceSelect={handlePlaceSelect}
+                showAISuggestions={showAISuggestions}
               />
 
               {/* Contact Fields */}
@@ -102,6 +113,19 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
                 errors={errors}
                 onChange={handleInputChange}
               />
+
+              {/* AI Suggestions Info */}
+              {showAISuggestions && (
+                <div className="bg-purple-50 border border-purple-200 rounded-md p-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm font-medium text-purple-900">AI Suggestions Applied</span>
+                  </div>
+                  <p className="text-xs text-purple-700">
+                    We've automatically filled in some fields based on your website. Please review and adjust as needed.
+                  </p>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-2 justify-between">

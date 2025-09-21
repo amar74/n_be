@@ -1,21 +1,23 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AccountCreate } from '@/types/accounts';
+import { PlacesAutocomplete } from '@/components/ui/places-autocomplete';
+import { UIAccountFormData, UIAddressData } from '../../CreateAccountModal.types';
 import { US_STATES } from '../../CreateAccountModal.constants';
 
 interface AddressFormProps {
-  formData: AccountCreate;
+  formData: UIAccountFormData;
   errors: Record<string, string>;
-  onChange: (field: keyof AccountCreate, value: string | object) => void;
+  onChange: (field: string, value: string | object) => void;
+  onAddressChange: (field: keyof UIAddressData, value: string | number | null) => void;
+  onPlaceSelect: (value: string, placeDetails?: google.maps.places.PlaceResult) => void;
+  showAISuggestions?: boolean;
 }
 
-export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
-  const handleAddressChange = (field: keyof AccountCreate['client_address'], value: string) => {
-    onChange('client_address', {
-      ...formData.client_address,
-      [field]: field === 'pincode' ? (value ? parseInt(value, 10) : null) : value,
-    });
+export function AddressForm({ formData, errors, onChange, onAddressChange, onPlaceSelect, showAISuggestions = false }: AddressFormProps) {
+  const handleAddressChange = (field: keyof UIAddressData, value: string) => {
+    const processedValue = field === 'pincode' ? (value ? parseInt(value, 10) : null) : value;
+    onAddressChange(field, processedValue);
   };
 
   return (
@@ -25,13 +27,13 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
         <Label className="text-base sm:text-lg font-medium text-[#0f0901] capitalize">
           Client Name *
         </Label>
-        <Input
-          placeholder="Company Name"
-          value={formData.client_name}
-          onChange={(e) => onChange('client_name', e.target.value)}
+          <Input
+            placeholder="Company Name"
+            value={formData.client_name || ''}
+            onChange={(e) => onChange('client_name', e.target.value)}
           className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
             errors.client_name ? 'border-red-500' : ''
-          }`}
+          } ${showAISuggestions && formData.client_name ? 'bg-green-50 border-green-200' : ''}`}
         />
         {errors.client_name && (
           <span className="text-red-500 text-sm">{errors.client_name}</span>
@@ -44,13 +46,14 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
           <Label className="text-base sm:text-lg font-medium text-[#0f0901] capitalize">
             Client Address 1 *
           </Label>
-          <Input
-            placeholder="Billing address (auto-fill by AI)"
+          <PlacesAutocomplete
             value={formData.client_address.line1}
-            onChange={(e) => handleAddressChange('line1', e.target.value)}
-            className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
+            onChange={onPlaceSelect}
+            placeholder="Search for an address"
+            className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
               errors['client_address.line1'] ? 'border-red-500' : ''
-            }`}
+            } ${showAISuggestions && formData.client_address.line1 ? 'bg-green-50 border-green-200' : ''}`}
+            disabled={false}
           />
           {errors['client_address.line1'] && (
             <span className="text-red-500 text-sm">{errors['client_address.line1']}</span>
@@ -64,7 +67,9 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
             placeholder="Billing address (auto-fill by AI)"
             value={formData.client_address.line2 || ''}
             onChange={(e) => handleAddressChange('line2', e.target.value)}
-            className="h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0"
+            className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
+              showAISuggestions && formData.client_address.line2 ? 'bg-green-50 border-green-200' : ''
+            }`}
           />
         </div>
       </div>
@@ -81,7 +86,7 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
             onChange={(e) => handleAddressChange('city', e.target.value)}
             className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
               errors['client_address.city'] ? 'border-red-500' : ''
-            }`}
+            } ${showAISuggestions && formData.client_address.city ? 'bg-green-50 border-green-200' : ''}`}
           />
           {errors['client_address.city'] && (
             <span className="text-red-500 text-sm">{errors['client_address.city']}</span>
@@ -92,12 +97,12 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
             State *
           </Label>
           <Select 
-            value={formData.client_address.state?.toString() || ''}
+            value={formData.client_address.state || ''}
             onValueChange={(value) => handleAddressChange('state', value)}
           >
             <SelectTrigger className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
               errors['client_address.state'] ? 'border-red-500' : ''
-            }`}>
+            } ${showAISuggestions && formData.client_address.state ? 'bg-green-50 border-green-200' : ''}`}>
               <SelectValue placeholder="Select State" />
             </SelectTrigger>
             <SelectContent className="bg-white">
@@ -120,8 +125,13 @@ export function AddressForm({ formData, errors, onChange }: AddressFormProps) {
             placeholder="Zip Code"
             value={formData.client_address.pincode?.toString() || ''}
             onChange={(e) => handleAddressChange('pincode', e.target.value)}
-            className="h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0"
+            className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
+              errors['client_address.pincode'] ? 'border-red-500' : ''
+            } ${showAISuggestions && formData.client_address.pincode ? 'bg-green-50 border-green-200' : ''}`}
           />
+          {errors['client_address.pincode'] && (
+            <span className="text-red-500 text-sm">{errors['client_address.pincode']}</span>
+          )}
         </div>
       </div>
     </>

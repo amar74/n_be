@@ -1,15 +1,15 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AccountCreate } from '@/types/accounts';
+import { UIAccountFormData } from '../../CreateAccountModal.types';
 
 interface ContactFormProps {
-  formData: AccountCreate;
+  formData: UIAccountFormData;
   errors: Record<string, string>;
-  onChange: (field: keyof AccountCreate, value: string | object) => void;
+  onChange: (field: string, value: string | object) => void;
 }
 
 export function ContactForm({ formData, errors, onChange }: ContactFormProps) {
-  const handleContactChange = (field: keyof AccountCreate['primary_contact'], value: string) => {
+  const handleContactChange = (field: keyof UIAccountFormData['primary_contact'], value: string) => {
     onChange('primary_contact', {
       ...formData.primary_contact,
       [field]: value,
