@@ -128,12 +128,11 @@ export function ContactsList({ accountId, contacts, onEdit, onDelete, isLoading 
                     {/* Status Badge */}
                     <div className={`
                       px-3 py-2 rounded-[12px] flex items-center gap-2 min-w-[100px] justify-center
-                      ${contact.status === 'primary' 
+                      ${isPrimaryContact 
                         ? 'bg-[#ed8a09] text-[#dfdfdf]' 
                         : 'bg-[#f3f3f3] text-[#0f0901] border border-[#e6e6e6]'
                       }
                     `}>
-                      {contact.status === 'primary' && <Crown className="h-4 w-4" />}
                       <span className="font-inter font-semibold text-[14px] capitalize">
                         {isPrimaryContact ? 'Primary' : 'Secondary'}
                       </span>
