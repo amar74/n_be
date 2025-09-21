@@ -17,7 +17,7 @@ export function useAccountDetailsPage() {
 
   // API calls
   const { accountDetail: account, isAccountDetailLoading: isLoading, accountDetailError: error } = useAccountDetail(id || '');
-  const { updateAccount, isUpdating, updateErrors } = useAccounts();
+  const { updateAccount, isUpdating, updateErrors, isUpdateAccountSuccess } = useAccounts();
 
   // Initialize form data when account loads
   useEffect(() => {
@@ -38,6 +38,12 @@ export function useAccountDetailsPage() {
       });
     }
   }, [account, formData]);
+
+  useEffect(() => {
+    if (isUpdateAccountSuccess) {
+      setIsEditing(false);
+    }
+  }, [isUpdateAccountSuccess]);
 
   // Computed values
   const statsCards: AccountStatsCard[] = useMemo(() => {
