@@ -8,7 +8,6 @@ import {
 } from '@/components/ui/dialog';
 import { NotesForm } from '../NotesForm';
 import { Note, NoteFormData } from '../../NotesTab.types';
-import { DEFAULT_FORM_VALUES } from '../../NotesTab.constants';
 
 interface EditNoteModalProps {
   isOpen: boolean;
@@ -59,7 +58,6 @@ export function EditNoteModal({
             isLoading={isLoading}
             initialData={initialData}
             onCancel={onClose}
-            defaultFormValues={DEFAULT_FORM_VALUES}
           />
         </div>
       </DialogContent>

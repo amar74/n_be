@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, Calendar, FileText } from 'lucide-react';
 import { NoteFormData, NoteCategory } from '../../NotesTab.types';
-import { NOTE_CATEGORIES } from '../../NotesTab.constants';
+import { DEFAULT_FORM_VALUES, NOTE_CATEGORIES } from '../../NotesTab.constants';
 
 interface NotesFormProps {
   onSubmit: (note: NoteFormData) => Promise<any>;
   isLoading?: boolean;
   initialData?: Partial<NoteFormData>;
   onCancel?: () => void;
-  defaultFormValues: NoteFormData;
 }
-
+const defaultFormValues = DEFAULT_FORM_VALUES
 export function NotesForm({ 
   onSubmit, 
   isLoading = false, 
   initialData = {}, 
-  onCancel,
-  defaultFormValues 
+  onCancel
 }: NotesFormProps) {
   const [formData, setFormData] = useState<NoteFormData>({
     ...defaultFormValues,
