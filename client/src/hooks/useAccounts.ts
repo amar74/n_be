@@ -11,6 +11,7 @@ import type {
   ContactAddRequest,
   ContactUpdateRequest,
 } from '@/types/accounts';
+import { HTTPValidationError } from '@/types/validationError';
 
 // Query keys using createQueryKeys utility
 export const accountsKeys = createQueryKeys('accounts');
@@ -374,7 +375,7 @@ export function useAccounts(options?: {
     if (createAccountMutation.error) {
       const error = createAccountMutation.error as AxiosError;
       if (error.response?.data) {
-        const errors = parseBackendErrors(error.response.data, [
+        const errors = parseBackendErrors(error.response.data as HTTPValidationError, [
           'client_name',
           'client_type',
           'market_sector',
@@ -396,7 +397,7 @@ export function useAccounts(options?: {
     if (updateAccountMutation.error) {
       const error = updateAccountMutation.error as AxiosError;
       if (error.response?.data) {
-        const errors = parseBackendErrors(error.response.data, [
+        const errors = parseBackendErrors(error.response.data as HTTPValidationError, [
           'client_name',
           'client_type',
           'market_sector',

@@ -4,6 +4,7 @@ import { NoteFormData } from './NotesTab.types';
 import { AccountNoteResponse } from '@/types/accountNotes';
 import { AxiosError } from 'axios';
 import { parseBackendErrors } from '@/utils/errorParser';
+import { HTTPValidationError } from '@/types/validationError';
 
 export function useNotesTab(accountId: string) {
   const [editingNote, setEditingNote] = useState<AccountNoteResponse | null>(null);
@@ -75,7 +76,7 @@ export function useNotesTab(accountId: string) {
   useEffect(() => {
     if (createNoteError && (createNoteError as AxiosError)?.response?.data) {
       const errors = parseBackendErrors(
-        (createNoteError as AxiosError).response?.data,
+        (createNoteError as AxiosError).response?.data as HTTPValidationError,
         ['title', 'content', 'date']
       );
       setCreateErrors(errors);
@@ -88,7 +89,7 @@ export function useNotesTab(accountId: string) {
   useEffect(() => {
     if (updateNoteError && (updateNoteError as AxiosError)?.response?.data) {
       const errors = parseBackendErrors(
-        (updateNoteError as AxiosError).response?.data,
+        (updateNoteError as AxiosError).response?.data as HTTPValidationError,
         ['title', 'content', 'date']
       );
       setUpdateErrors(errors);
