@@ -3,6 +3,7 @@ import { useAccountContacts } from '@/hooks/useAccountContacts';
 import { ContactCreate, ContactResponse, ContactUpdateRequest } from '@/types/accounts';
 import { AxiosError } from 'axios';
 import { parseBackendErrors } from '@/utils/errorParser';
+import { HTTPValidationError } from '@/types/validationError';
 
 export function useContacts(accountId: string) {
   const {
@@ -47,7 +48,7 @@ export function useContacts(accountId: string) {
   // Handle create errors
   useEffect(() => {
     if (addContactError && (addContactError as AxiosError)?.response?.data) {
-      const errors = parseBackendErrors((addContactError as AxiosError).response?.data, ['name', 'email', 'phone', 'title']);
+      const errors = parseBackendErrors((addContactError as AxiosError).response?.data as HTTPValidationError, ['name', 'email', 'phone', 'title']);
       setCreateErrors(errors);
     } else {
       setCreateErrors({});
@@ -59,7 +60,7 @@ export function useContacts(accountId: string) {
     console.log(updateContactError);
     
     if (updateContactError && (updateContactError as AxiosError)?.response?.data) {
-      const errors = parseBackendErrors((updateContactError as AxiosError).response?.data, ['name', 'email', 'phone', 'title']);
+      const errors = parseBackendErrors((updateContactError as AxiosError).response?.data as HTTPValidationError, ['name', 'email', 'phone', 'title']);
       setUpdateErrors(errors);
     } else {
       setUpdateErrors({});

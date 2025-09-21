@@ -1,8 +1,7 @@
-import React from 'react';
 import { NotesForm } from './components/NotesForm';
 import { NotesList } from './components/NotesList';
 import { EditNoteModal } from './components/EditNoteModal';
-import { useAccountNotes } from './useAccountNotes';
+import { useNotesTab } from './useNotesTab';
 import { NotesTabProps } from './NotesTab.types';
 
 export function NotesTab({ accountId }: NotesTabProps) {
@@ -18,13 +17,17 @@ export function NotesTab({ accountId }: NotesTabProps) {
     isUpdating,
     isDeleting,
     
+    // Error states
+    createErrors,
+    updateErrors,
+    
     // Actions
     createNote,
     startEditNote,
     cancelEdit,
     saveEdit,
     deleteNote,
-  } = useAccountNotes(accountId);
+  } = useNotesTab(accountId);
 
   return (
     <div className="flex flex-col gap-8 w-full">
@@ -32,6 +35,7 @@ export function NotesTab({ accountId }: NotesTabProps) {
       <NotesForm
         onSubmit={createNote}
         isLoading={isCreating}
+        errors={createErrors}
       />
 
       {/* Notes List */}
@@ -49,6 +53,7 @@ export function NotesTab({ accountId }: NotesTabProps) {
         onClose={cancelEdit}
         onSave={saveEdit}
         isLoading={isUpdating}
+        errors={updateErrors}
       />
     </div>
   );

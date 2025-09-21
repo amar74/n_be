@@ -1,24 +1,9 @@
-export interface Note {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  date: string;
-  author: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { AccountNoteResponse } from "@/types/accountNotes";
 
 export interface NoteFormData {
   title: string;
   content: string;
-  category: string;
   date: string;
-}
-
-export interface NoteCategory {
-  value: string;
-  label: string;
 }
 
 export interface NotesTabProps {
@@ -33,15 +18,15 @@ export interface NotesFormProps {
 }
 
 export interface NotesListProps {
-  notes: Note[];
-  onEdit: (note: Note) => void;
+  notes: AccountNoteResponse[];
+  onEdit: (note: AccountNoteResponse) => void;
   onDelete: (noteId: string) => void;
   isLoading?: boolean;
 }
 
 export interface EditNoteModalProps {
   isOpen: boolean;
-  note: Note | null;
+  note: AccountNoteResponse | null;
   onClose: () => void;
   onSave: (noteId: string, data: NoteFormData) => void;
   isLoading?: boolean;
