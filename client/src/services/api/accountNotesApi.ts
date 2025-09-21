@@ -25,7 +25,7 @@ class AccountNotesApiService {
   // Create new note
   async createNote(accountId: string, data: AccountNoteCreateRequest): Promise<AccountNoteResponse> {
     try {
-      const response = await apiClient.post(`${this.baseURL}/${accountId}/notes`, data);
+      const response = await apiClient.post(`${this.baseURL}/${accountId}/notes/`, data);
       return response.data;
     } catch (error: any) {
       throw error;
