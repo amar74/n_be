@@ -14,6 +14,8 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
     errors,
     isSubmitting,
     handleInputChange,
+    handleAddressChange,
+    handlePlaceSelect,
     handleSubmit,
     handleClose,
   } = useCreateAccountModal(onSubmit, onClose, backendErrors);
@@ -46,11 +48,11 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
         className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
         onClick={handleClose}
       >
-        {/* Modal */}
-        <div 
-          className="bg-white rounded-[36px] shadow-[0px_4px_12px_0px_rgba(191,191,191,0.48)] w-full max-w-2xl max-h-[90vh] flex flex-col"
-          onClick={(e) => e.stopPropagation()}
-        >
+          {/* Modal */}
+          <div 
+            className="bg-white rounded-[36px] shadow-[0px_4px_12px_0px_rgba(191,191,191,0.48)] w-full max-w-4xl max-h-[92vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
           {/* Fixed Header */}
           <div className="px-8 py-6 border-b border-gray-300 flex-shrink-0">
             <div className="flex items-start justify-between">
@@ -78,7 +80,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-6">
               {/* Company Website Section */}
               <CompanyWebsiteForm 
-                value={formData.company_website}
+                value={formData.company_website || ''}
                 onChange={handleInputChange}
               />
 
@@ -87,6 +89,8 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
                 formData={formData}
                 errors={errors}
                 onChange={handleInputChange}
+                onAddressChange={handleAddressChange}
+                onPlaceSelect={handlePlaceSelect}
               />
 
               {/* Contact Fields */}

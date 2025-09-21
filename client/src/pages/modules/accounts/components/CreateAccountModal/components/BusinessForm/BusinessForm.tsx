@@ -1,12 +1,13 @@
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AccountCreate, ClientType } from '@/types/accounts';
+import { ClientType } from '@/types/accounts';
+import { UIAccountFormData } from '../../CreateAccountModal.types';
 import { MARKET_SECTORS, CLIENT_TYPES, CLIENT_TYPE_DISPLAY } from '../../CreateAccountModal.constants';
 
 interface BusinessFormProps {
-  formData: AccountCreate;
+  formData: UIAccountFormData;
   errors: Record<string, string>;
-  onChange: (field: keyof AccountCreate, value: string) => void;
+  onChange: (field: string, value: string) => void;
 }
 
 export function BusinessForm({ formData, errors, onChange }: BusinessFormProps) {

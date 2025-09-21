@@ -41,11 +41,12 @@ export const US_STATES = [
 
 export const INITIAL_FORM_DATA = {
   client_name: '',
-  company_website: '',
+  company_website: null,
   client_address: {
     line1: '',
     line2: null,
     city: null,
+    state: null, // UI-only field for state dropdown
     pincode: null,
   },
   primary_contact: {
@@ -56,6 +57,6 @@ export const INITIAL_FORM_DATA = {
   },
   secondary_contacts: [],
   client_type: 'tier_1' as const,
-  market_sector: '',
+  market_sector: null,
   notes: '',
 };

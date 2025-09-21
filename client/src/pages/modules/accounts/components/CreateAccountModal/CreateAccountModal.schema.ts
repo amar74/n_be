@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { schemas } from '@/types/generated/accounts';
 import { AccountCreate } from '@/types/accounts';
+import { UIAccountFormData } from './CreateAccountModal.types';
 
 export const createAccountSchema = schemas.AccountCreate;
 
@@ -23,16 +24,24 @@ export const validateField = (field: keyof AccountCreate, value: any): string | 
   }
 };
 
-export const validateForm = (data: Partial<AccountCreate>): Record<string, string> => {
+export const validateForm = (data: UIAccountFormData): Record<string, string> => {
   const errors: Record<string, string> = {};
   
+  // Strip the state field from client_address before validation
+  const { state, ...addressWithoutState } = data.client_address;
+  const backendData: AccountCreate = {
+    ...data,
+    client_address: addressWithoutState,
+  };
+  
   try {
-    createAccountSchema.parse(data);
+    createAccountSchema.parse(backendData);
   } catch (error) {
     if (error instanceof z.ZodError) {
       error.issues.forEach((err) => {
         if (err.path.length > 0) {
-          errors[err.path[0] as string] = err.message;
+          const path = err.path.join('.');
+          errors[path] = err.message;
         }
       });
     }

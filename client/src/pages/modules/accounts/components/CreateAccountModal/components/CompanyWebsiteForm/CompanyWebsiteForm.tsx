@@ -1,11 +1,11 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sparkles, Globe } from 'lucide-react';
-import { AccountCreate } from '@/types/accounts';
+import { UIAccountFormData } from '../../CreateAccountModal.types';
 
 interface CompanyWebsiteFormProps {
   value: string | null | undefined;
-  onChange: (field: keyof AccountCreate, value: string) => void;
+  onChange: (field: string, value: string) => void;
 }
 
 export function CompanyWebsiteForm({ value, onChange }: CompanyWebsiteFormProps) {
