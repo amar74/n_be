@@ -28,7 +28,7 @@ export function AccountStatsCards({ stats }: AccountStatsCardsProps) {
               {/* Icon */}
               <div className="absolute left-[17px] top-5">
                 <div className="bg-[#f3f3f3] flex items-center justify-center p-3 rounded-[28px] size-14">
-                  <IconComponent className="h-7 w-7 text-[#6c6c6c]" />
+                  <IconComponent className="h-7 w-7 text-[#ed8a09]" />
                 </div>
               </div>
               

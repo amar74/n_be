@@ -7,14 +7,42 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ClientType } from '../CreateAccountModal/CreateAccountModal.types';
+import { useAccounts } from '@/hooks/useAccounts';
+import { exportToCSV, exportToExcel } from '@/utils/exportUtils';
+import { useToast } from '@/hooks/useToast';
 
 interface AccountsHeaderProps {
   onCreateAccount: () => void;
-  onExport: (format: string) => void;
   onFilterChange: (filter: ClientType | 'all') => void;
 }
 
-export function AccountsHeader({ onCreateAccount, onExport, onFilterChange, }: AccountsHeaderProps) {
+export function AccountsHeader({ onCreateAccount, onFilterChange }: AccountsHeaderProps) {
+  const { accountsList } = useAccounts();
+  const { toast } = useToast();
+
+  const handleExport = async (format: 'csv' | 'excel') => {
+    if (!accountsList?.accounts.length) {
+      toast.error('Export Failed', {
+        description: 'No accounts data available to export'
+      });
+      return;
+    }
+
+    try {
+      if (format === 'csv') {
+        exportToCSV(accountsList.accounts);
+      } else {
+        await exportToExcel(accountsList.accounts);
+      }
+      toast.success('Export Successful', {
+        description: `Accounts data exported to ${format.toUpperCase()} successfully`
+      });
+    } catch (error) {
+      toast.error('Export Failed', {
+        description: error instanceof Error ? error.message : 'Failed to export accounts data'
+      });
+    }
+  };
   return (
     <div className="content-stretch flex flex-col gap-7 items-start justify-start relative w-full">
       {/* Header Content */}
@@ -47,10 +75,10 @@ export function AccountsHeader({ onCreateAccount, onExport, onFilterChange, }: A
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-                <DropdownMenuItem onClick={() => onFilterChange('all')}>All Accounts</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onFilterChange(ClientType.TIER_1)}>Tier 1 Accounts</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onFilterChange(ClientType.TIER_2)}>Tier 2 Accounts</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onFilterChange(ClientType.TIER_3)}>Tier 3 Accounts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFilterChange('all')} className="cursor-pointer hover:bg-gray-100">All Accounts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFilterChange(ClientType.TIER_1)} className="cursor-pointer hover:bg-gray-100">Tier 1 Accounts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFilterChange(ClientType.TIER_2)} className="cursor-pointer hover:bg-gray-100">Tier 2 Accounts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFilterChange(ClientType.TIER_3)} className="cursor-pointer hover:bg-gray-100">Tier 3 Accounts</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -66,10 +94,10 @@ export function AccountsHeader({ onCreateAccount, onExport, onFilterChange, }: A
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-                <DropdownMenuItem onClick={() => onExport('excel')}>
+                <DropdownMenuItem onClick={() => handleExport('excel')} className="cursor-pointer hover:bg-gray-100">
                   Export to Excel
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport('csv')}>
+                <DropdownMenuItem onClick={() => handleExport('csv')} className="cursor-pointer hover:bg-gray-100">
                   Export to CSV
                 </DropdownMenuItem>
               </DropdownMenuContent>
