@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accountsApi } from '@/services/api/accountsApi';
-import { useToast } from './useToast';
+import { useToast } from '@/hooks/useToast';
 import { accountsQueryKeys } from './useAccounts';
 import { ContactAddRequest, ContactUpdateRequest } from '@/types/accounts';
 
@@ -39,14 +39,15 @@ export function useAccountContacts(accountId: string) {
       return await accountsApi.addContact(accountId, contact);
     },
     onSuccess: (data, variables) => {
-      console.log(data);
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
-      toast.success(data.message || 'Contact added successfully');
+      toast.success('Contact Added', {
+        description: data.message || 'Contact added successfully'
+      });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast.error('Error Adding Contact', {
-        description:  'Failed to add contact',
+        description: error.response?.data?.message || 'Failed to add contact'
       });
     },
   });
@@ -67,11 +68,13 @@ export function useAccountContacts(accountId: string) {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
-      toast.success(data.message || 'Contact updated successfully');
+      toast.success('Contact Updated', {
+        description: data.message || 'Contact updated successfully'
+      });
     },
     onError: (error: any) => {
       toast.error('Error Updating Contact', {
-        description: error.response?.data?.message || 'Failed to update contact',
+        description: error.response?.data?.message || 'Failed to update contact'
       });
     },
   });
@@ -90,11 +93,13 @@ export function useAccountContacts(accountId: string) {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
-      toast.success(data.message || 'Contact deleted successfully');
+      toast.success('Contact Deleted', {
+        description: data.message || 'Contact deleted successfully'
+      });
     },
     onError: (error: any) => {
       toast.error('Error Deleting Contact', {
-        description: error.response?.data?.message || 'Failed to delete contact',
+        description: error.response?.data?.message || 'Failed to delete contact'
       });
     },
   });
@@ -114,11 +119,13 @@ export function useAccountContacts(accountId: string) {
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
       queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
-      toast.success('Contact has been promoted to primary successfully');
+      toast.success('Contact Promoted', {
+        description: data.message || 'Contact has been promoted to primary successfully'
+      });
     },
     onError: (error: any) => {
       toast.error('Error Promoting Contact', {
-        description: error.response?.data?.message || 'Failed to promote contact to primary',
+        description: error.response?.data?.message || 'Failed to promote contact to primary'
       });
     },
   });
