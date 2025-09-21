@@ -15,10 +15,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 function ClientSurveys() {
-    const { data, isLoading, error, createSurvey, creating } = useFormbricksSurveys();
+    const { data, isLoading, error, createSurvey, creating, createSurveyLink, linking } = useFormbricksSurveys();
     const navigate = useNavigate();
 
     const [open, setOpen] = useState(false);
+    const [sendOpen, setSendOpen] = useState(false);
+    const [sendEmail, setSendEmail] = useState("");
+    const [sendSurveyId, setSendSurveyId] = useState<string | null>(null);
+    const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+    const [sendError, setSendError] = useState<string | null>(null);
     const [name, setName] = useState("");
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [query, setQuery] = useState("");
@@ -78,6 +83,50 @@ function ClientSurveys() {
                         </form>
                     </DialogContent>
                 </Dialog>
+                <Dialog open={sendOpen} onOpenChange={(v) => { setSendOpen(v); if (!v) { setSendEmail(""); setGeneratedUrl(null); setSendError(null); } }}>
+                    <DialogContent className="sm:max-w-[640px] z-[1000] bg-white">
+                        <DialogHeader>
+                            <DialogTitle>Send Survey Link</DialogTitle>
+                        </DialogHeader>
+                        {!generatedUrl ? (
+                            <form
+                                onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    setSendError(null);
+                                    if (!sendSurveyId) return;
+                                    try {
+                                        const res = await createSurveyLink({ surveyId: sendSurveyId, email: sendEmail });
+                                        setGeneratedUrl(res.url);
+                                    } catch (err: any) {
+                                        setSendError(err?.message || "Failed to create link");
+                                    }
+                                }}
+                                className="space-y-3"
+                            >
+                                <div className="space-y-1">
+                                    <Label htmlFor="recipient-email">Recipient Email</Label>
+                                    <Input id="recipient-email" type="email" value={sendEmail} onChange={(e) => setSendEmail(e.target.value)} required />
+                                </div>
+                                {sendError && <div className="text-red-600 text-sm">{sendError}</div>}
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <Button type="button" variant="secondary" onClick={() => setSendOpen(false)}>Cancel</Button>
+                                    <Button type="submit" disabled={linking}>Generate Link</Button>
+                                </div>
+                            </form>
+                        ) : (
+                            <div className="space-y-3">
+                                <div className="space-y-1">
+                                    <Label>Generated URL</Label>
+                                    <Textarea readOnly value={generatedUrl} className="min-h-[90px]" />
+                                </div>
+                                <div className="flex justify-between gap-2 pt-2">
+                                    <Button type="button" variant="secondary" onClick={() => { if (generatedUrl) navigator.clipboard.writeText(generatedUrl); }}>Copy URL</Button>
+                                    <Button type="button" onClick={() => setSendOpen(false)}>Done</Button>
+                                </div>
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
             </div>
 
             <div className="flex items-center gap-3">
@@ -123,6 +172,9 @@ function ClientSurveys() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => navigate(`/client-surveys/${survey.environment_id}/${survey.id}/edit`)}>
                                         Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setSendSurveyId(survey.id); setSendOpen(true); }}>
+                                        Send
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                         className="text-red-600 focus:text-red-600"

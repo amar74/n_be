@@ -34,5 +34,14 @@ export function useFormbricksSurveys() {
         },
     });
 
-    return { data, isLoading, error, createSurvey, creating, createError };
+    type SurveyLinkResponse = { url: string };
+
+    const { mutateAsync: createSurveyLink, isPending: linking, error: linkError } = useMutation({
+        mutationFn: async (args: { surveyId: string; email: string }): Promise<SurveyLinkResponse> => {
+            const res = await apiClient.post(`/formbricks/surveys/${args.surveyId}/link`, { email: args.email });
+            return res.data as SurveyLinkResponse;
+        },
+    });
+
+    return { data, isLoading, error, createSurvey, creating, createError, createSurveyLink, linking, linkError };
 }

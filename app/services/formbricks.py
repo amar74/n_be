@@ -303,11 +303,10 @@ async def create_survey_link(
 
     data = (response.json() or {}).get("data", {})
     url = data.get("url")
-    token = data.get("token")
 
-    if not url or not token:
+    if not url:
         logger.error("Malformed response from Formbricks while creating survey link")
         raise MegapolisHTTPException(status_code=502, message="Malformed response from Formbricks")
 
-    return SurveyLinkResponse(url=url, token=token)
+    return SurveyLinkResponse(url=url)
 

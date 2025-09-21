@@ -14,10 +14,14 @@ const Survey = z
   })
   .passthrough();
 const SurveyListResponse = z.object({ surveys: z.array(Survey) }).passthrough();
+const SurveyLinkResponse = z
+  .object({ url: z.string(), token: z.string() })
+  .passthrough();
 
 export const schemas = {
   Survey,
   SurveyListResponse,
+  SurveyLinkResponse,
 };
 
 const endpoints = makeApi([
@@ -54,6 +58,33 @@ Returns the created survey mapped to our Survey schema.`,
       },
     ],
     response: Survey,
+    errors: [
+      {
+        status: 422,
+        description: `Validation Error`,
+        schema: HTTPValidationError,
+      },
+    ],
+  },
+  {
+    method: "post",
+    path: "/formbricks/surveys/:survey_id/link",
+    alias: "createFormbricksSurveyLink",
+    description: `Generate a link for an existing Formbricks survey for a given email.`,
+    requestFormat: "json",
+    parameters: [
+      {
+        name: "body",
+        type: "Body",
+        schema: z.object({ email: z.string() }).passthrough(),
+      },
+      {
+        name: "survey_id",
+        type: "Path",
+        schema: z.string(),
+      },
+    ],
+    response: SurveyLinkResponse,
     errors: [
       {
         status: 422,

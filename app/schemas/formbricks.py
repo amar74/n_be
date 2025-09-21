@@ -150,13 +150,9 @@ class SurveyLinkCreateRequest(BaseModel):
 
 
 class SurveyLinkResponse(BaseModel):
-    """Response containing the generated survey link and upstream token bundle.
-
-    Mirrors the upstream shape under a normalized top-level fields for convenience.
-    """
+    """Response containing only the generated survey link URL."""
 
     url: str
-    token: str
 
     model_config = {
         "from_attributes": True}
