@@ -34,7 +34,7 @@ export interface UIAccountFormData {
   }>;
   client_type: 'tier_1' | 'tier_2' | 'tier_3';
   market_sector?: string | null;
-  notes?: string;
+  notes?: string | null;
 }
 
 export interface CreateAccountModalProps {

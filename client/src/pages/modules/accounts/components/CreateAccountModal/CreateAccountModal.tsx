@@ -87,6 +87,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
                 onChange={handleWebsiteChange}
                 isAnalyzing={isAnalyzing}
                 showAISuggestions={showAISuggestions}
+                error={errors['company_website']}
               />
 
               {/* Address and Client Info */}

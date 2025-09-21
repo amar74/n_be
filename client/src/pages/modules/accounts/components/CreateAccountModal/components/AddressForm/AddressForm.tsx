@@ -126,9 +126,12 @@ export function AddressForm({ formData, errors, onChange, onAddressChange, onPla
             value={formData.client_address.pincode?.toString() || ''}
             onChange={(e) => handleAddressChange('pincode', e.target.value)}
             className={`h-12 sm:h-14 bg-[#f3f3f3] border-[#e6e6e6] rounded-xl px-4 sm:px-6 text-sm sm:text-base font-medium placeholder:text-[#a7a7a7] focus:bg-white focus:border-[#ff7b00] focus:outline-none focus:ring-0 focus-visible:ring-0 ${
-              showAISuggestions && formData.client_address.pincode ? 'bg-green-50 border-green-200' : ''
-            }`}
+              errors['client_address.pincode'] ? 'border-red-500' : ''
+            } ${showAISuggestions && formData.client_address.pincode ? 'bg-green-50 border-green-200' : ''}`}
           />
+          {errors['client_address.pincode'] && (
+            <span className="text-red-500 text-sm">{errors['client_address.pincode']}</span>
+          )}
         </div>
       </div>
     </>

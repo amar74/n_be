@@ -60,5 +60,5 @@ export const INITIAL_FORM_DATA = {
   secondary_contacts: [],
   client_type: 'tier_1' as const,
   market_sector: null,
-  notes: '',
+  notes: null,
 };
