@@ -26,6 +26,7 @@ export function useAccountsPage() {
     fetchAccounts,
     isCreating,
     isDeleting,
+    createErrors,
   } = useAccounts({eager: true});
 
   const accounts = accountsList?.accounts || [];
@@ -148,5 +149,6 @@ export function useAccountsPage() {
     // Status
     isCreating: isCreating || false,
     isDeleting: isDeleting || false,
+    createErrors,
   };
 }

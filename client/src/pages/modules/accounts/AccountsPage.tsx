@@ -19,7 +19,8 @@ function AccountsPage() {
     handleStatClick,
     setIsCreateModalOpen,
     isCreating,
-    handleTierChange
+    handleTierChange,
+    createErrors
   } = useAccountsPage();
 
   return (
@@ -58,6 +59,7 @@ function AccountsPage() {
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateAccountSubmit}
         isLoading={isCreating}
+        errors={createErrors}
       />
     </div>
   );

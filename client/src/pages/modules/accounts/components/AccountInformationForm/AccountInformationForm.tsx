@@ -11,6 +11,7 @@ interface AccountInformationFormProps {
   onFormChange: (field: keyof AccountFormData, value: any) => void;
   onSave: () => void;
   onCancel: () => void;
+  errors?: Record<string, string>;
 }
 
 export function AccountInformationForm({
@@ -21,6 +22,7 @@ export function AccountInformationForm({
   onFormChange,
   onSave,
   onCancel,
+  errors = {},
 }: AccountInformationFormProps) {
   const renderField = (
     field: keyof AccountFormData,
@@ -32,6 +34,7 @@ export function AccountInformationForm({
     const label = FORM_FIELD_LABELS[field];
     const isActive = isEditing && value !== '';
     
+    const hasError = errors[field];
     const baseClasses = `
       flex flex-col gap-3 items-start justify-start relative self-stretch shrink-0
       ${width === 'narrow' ? 'w-[187px]' : 'flex-1 min-w-0'}
@@ -39,8 +42,10 @@ export function AccountInformationForm({
     
     const inputClasses = `
       ${isActive ? 'bg-white border-[#ff7b00]' : 'bg-[#f3f3f3] border-[#e6e6e6]'}
+      ${hasError ? 'border-red-500 bg-white' : ''}
       border border-solid rounded-[14px] h-14 flex items-center justify-between px-6 py-2 w-full
-      ${isActive ? 'ring-1 ring-[#ff7b00]' : ''}
+      ${isActive && !hasError ? 'ring-1 ring-[#ff7b00]' : ''}
+      ${hasError ? 'ring-1 ring-red-500' : ''}
       focus:outline-none focus:border-[#ff7b00] focus:ring-1 focus:ring-[#ff7b00]
       disabled:opacity-50 disabled:cursor-not-allowed
     `;
@@ -52,20 +57,25 @@ export function AccountInformationForm({
         </label>
         
         {type === 'select' ? (
-          <div className="relative w-full">
-            <select
-              value={value as string}
-              onChange={(e) => onFormChange(field, e.target.value)}
-              disabled={!isEditing}
-              className={`${inputClasses} appearance-none cursor-pointer font-inter font-semibold text-[#0f0901] text-[16px]`}
-            >
-              {options?.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-6 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#6c6c6c] pointer-events-none" />
+          <div className="w-full">
+            <div className="relative w-full">
+              <select
+                value={value as string}
+                onChange={(e) => onFormChange(field, e.target.value)}
+                disabled={!isEditing}
+                className={`${inputClasses} appearance-none cursor-pointer font-inter font-semibold text-[#0f0901] text-[16px]`}
+              >
+                {options?.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-6 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#6c6c6c] pointer-events-none" />
+            </div>
+            {hasError && (
+              <span className="text-red-500 text-sm mt-1 block">{errors[field]}</span>
+            )}
           </div>
         ) : type === 'boolean' ? (
           <div className={`${inputClasses} ${formData.msa_in_place ? 'bg-[rgba(237,138,9,0.2)]' : ''}`}>
@@ -74,14 +84,19 @@ export function AccountInformationForm({
             </span>
           </div>
         ) : (
-          <input
-            type={type}
-            value={value as string}
-            onChange={(e) => onFormChange(field, e.target.value)}
-            disabled={!isEditing}
-            className={`${inputClasses} font-inter font-semibold text-[#0f0901] text-[16px] leading-normal`}
-            placeholder={isEditing ? `Enter ${label.toLowerCase()}` : ''}
-          />
+          <div className="w-full">
+            <input
+              type={type}
+              value={value as string}
+              onChange={(e) => onFormChange(field, e.target.value)}
+              disabled={!isEditing}
+              className={`${inputClasses} font-inter font-semibold text-[#0f0901] text-[16px] leading-normal`}
+              placeholder={isEditing ? `Enter ${label.toLowerCase()}` : ''}
+            />
+            {hasError && (
+              <span className="text-red-500 text-sm mt-1 block">{errors[field]}</span>
+            )}
+          </div>
         )}
       </div>
     );

@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createQueryKeys } from '@/lib/query-client';
 import { accountsApi } from '@/services/api/accountsApi';
 import { useToast } from './use-toast';
+import { parseBackendErrors } from '@/utils/errorParser';
+import { AxiosError } from 'axios';
 import type {
   ContactFormData,
   AccountDetailResponse,
@@ -124,6 +126,10 @@ export function useAccounts(options?: {
   // State for lazy loading
   const [enabled, setEnabled] = useState(eager);
   const [queryParams, setQueryParams] = useState(initialParams);
+  
+  // Error states
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [updateErrors, setUpdateErrors] = useState<Record<string, string>>({});
 
   // Memoize the fetch function to avoid recreating it on every render
   const fetchAccounts = useCallback((params?: typeof initialParams) => {
@@ -367,6 +373,63 @@ export function useAccounts(options?: {
     },
   });
 
+  // Handle create errors
+  useEffect(() => {
+    if (createAccountMutation.error) {
+      const error = createAccountMutation.error as AxiosError;
+      if (error.response?.data) {
+        const errors = parseBackendErrors(error.response.data, [
+          'client_name',
+          'client_type',
+          'market_sector',
+          'client_address_line1',
+          'client_address_line2',
+          'client_address_city',
+          'client_address_zip_code',
+          'company_website'
+        ]);
+        setCreateErrors(errors);
+      }
+    } else {
+      setCreateErrors({});
+    }
+  }, [createAccountMutation.error]);
+
+  // Handle update errors
+  useEffect(() => {
+    if (updateAccountMutation.error) {
+      const error = updateAccountMutation.error as AxiosError;
+      if (error.response?.data) {
+        const errors = parseBackendErrors(error.response.data, [
+          'client_name',
+          'client_type',
+          'market_sector',
+          'client_address_line1',
+          'client_address_line2',
+          'client_address_city',
+          'client_address_zip_code',
+          'company_website'
+        ]);
+        setUpdateErrors(errors);
+      }
+    } else {
+      setUpdateErrors({});
+    }
+  }, [updateAccountMutation.error]);
+
+  // Clear errors on success
+  useEffect(() => {
+    if (createAccountMutation.isSuccess) {
+      setCreateErrors({});
+    }
+  }, [createAccountMutation.isSuccess]);
+
+  useEffect(() => {
+    if (updateAccountMutation.isSuccess) {
+      setUpdateErrors({});
+    }
+  }, [updateAccountMutation.isSuccess]);
+
   // Return combined functionality
   return {
     // Query functionality
@@ -381,6 +444,18 @@ export function useAccounts(options?: {
     createAccount: createAccountMutation.mutateAsync,
     updateAccount: updateAccountMutation.mutateAsync,
     deleteAccount: deleteAccountMutation.mutateAsync,
+
+    // Account error states
+    createAccountError: createAccountMutation.error,
+    updateAccountError: updateAccountMutation.error,
+    deleteAccountError: deleteAccountMutation.error,
+    createErrors,
+    updateErrors,
+
+    // Account success states
+    isCreateAccountSuccess: createAccountMutation.isSuccess,
+    isUpdateAccountSuccess: updateAccountMutation.isSuccess,
+    isDeleteAccountSuccess: deleteAccountMutation.isSuccess,
 
     // Contact mutation actions
     addContact: addContactMutation.mutateAsync,

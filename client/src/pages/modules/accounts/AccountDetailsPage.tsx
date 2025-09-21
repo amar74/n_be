@@ -23,6 +23,7 @@ function AccountDetailsPage() {
     handleSaveChanges,
     handleBackToAccounts,
     isUpdating,
+    updateErrors,
   } = useAccountDetailsPage();
 
   // Loading state
@@ -116,6 +117,7 @@ function AccountDetailsPage() {
                 onFormChange={handleFormChange}
                 onSave={handleSaveChanges}
                 onCancel={handleEditToggle}
+                errors={updateErrors}
               />
             )}
             

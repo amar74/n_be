@@ -8,7 +8,7 @@ import { AddressForm } from './components/AddressForm';
 import { ContactForm } from './components/ContactForm';
 import { BusinessForm } from './components/BusinessForm';
 
-export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = false }: CreateAccountModalProps) {
+export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = false, errors: backendErrors = {} }: CreateAccountModalProps) {
   const {
     formData,
     errors,
@@ -16,7 +16,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, isLoading = fals
     handleInputChange,
     handleSubmit,
     handleClose,
-  } = useCreateAccountModal(onSubmit, onClose);
+  } = useCreateAccountModal(onSubmit, onClose, backendErrors);
 
   // Handle escape key
   useEffect(() => {

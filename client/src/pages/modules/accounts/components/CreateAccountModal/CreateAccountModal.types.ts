@@ -11,6 +11,7 @@ export interface CreateAccountModalProps {
   onClose: () => void;
   onSubmit: (data: AccountCreate) => void;
   isLoading?: boolean;
+  errors?: Record<string, string>;
 }
 
 export interface UseCreateAccountModalReturn {

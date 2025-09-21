@@ -17,7 +17,7 @@ export function useAccountDetailsPage() {
 
   // API calls
   const { accountDetail: account, isAccountDetailLoading: isLoading, accountDetailError: error } = useAccountDetail(id || '');
-  const { updateAccount, isUpdating } = useAccounts();
+  const { updateAccount, isUpdating, updateErrors } = useAccounts();
 
   // Initialize form data when account loads
   useEffect(() => {
@@ -113,46 +113,30 @@ export function useAccountDetailsPage() {
   const handleSaveChanges = async () => {
     if (!account?.account_id || !formData) return;
 
-    try {
-      await updateAccount({
-        accountId: account.account_id,
-        data: {
-          client_name: formData.client_name,
-          client_type: formData.client_type as any,
-          market_sector: formData.market_sector,
-          client_address: {
-            line1: formData.client_address_line1,
-            line2: formData.client_address_line2 || undefined,
-            city: formData.client_address_city || undefined,
-            state: formData.client_address_state,
-            pincode: formData.client_address_zip_code ? parseInt(formData.client_address_zip_code) : undefined,
-          },
-          company_website: formData.company_website || undefined,
-          notes: undefined,
+    await updateAccount({
+      accountId: account.account_id,
+      data: {
+        client_name: formData.client_name,
+        client_type: formData.client_type as any,
+        market_sector: formData.market_sector,
+        client_address: {
+          line1: formData.client_address_line1,
+          line2: formData.client_address_line2 || undefined,
+          city: formData.client_address_city || undefined,
+          state: formData.client_address_state,
+          pincode: formData.client_address_zip_code ? parseInt(formData.client_address_zip_code) : undefined,
         },
-      });
-
-      toast({
-        title: 'Account Updated',
-        description: 'Account information has been updated successfully.',
-      });
-
-      setIsEditing(false);
-    } catch (error: any) {
-      console.error('Error updating account:', error);
-      toast({
-        title: 'Error',
-        description: error.response?.data?.detail?.message || 'Failed to update account. Please try again.',
-        variant: 'destructive',
-      });
-    }
+        company_website: formData.company_website || undefined,
+        notes: undefined,
+      },
+    });
   };
 
   const handleBackToAccounts = () => {
     navigate('/module/accounts');
   };
 
-  return {
+    return {
     // Data
     account,
     isLoading,
@@ -172,5 +156,8 @@ export function useAccountDetailsPage() {
 
     // Status
     isUpdating,
+    
+    // Form Errors
+    updateErrors,
   };
 }
