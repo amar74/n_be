@@ -26,7 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useAccounts } from '@/hooks/useAccounts';
+import { useAccountContacts, useAccountDetail, useAccounts } from '@/hooks/useAccounts';
 import {
   AccountDetailResponse,
   ContactFormData,
@@ -76,8 +76,6 @@ const AccountDetails: React.FC = () => {
 
   // Use the new useAccounts hook
   const {
-    useAccount,
-    useAccountContacts,
     deleteAccount,
     deleteContact,
     updateContact,
@@ -89,21 +87,8 @@ const AccountDetails: React.FC = () => {
   } = useAccounts();
 
   // Use the account data from the hook
-  const { data: account, isLoading, error, isFetching } = useAccount(id);
-  const { data: contactsResponse } = useAccountContacts(id);
-
-  // Debug logging for loading states
-  useEffect(() => {
-    console.log('AccountDetails Loading State Debug:', {
-      id,
-      isLoading,
-      isFetching,
-      hasAccount: !!account,
-      hasError: !!error,
-      accountClientName: account?.client_name,
-      timestamp: new Date().toISOString(),
-    });
-  }, [id, isLoading, isFetching, account, error]);
+  const { accountDetail: account, isAccountDetailLoading: isLoading, accountDetailError: error } = useAccountDetail(id || '');
+  const { accountContacts: contactsResponse } = useAccountContacts(id || '');
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -266,14 +251,7 @@ const AccountDetails: React.FC = () => {
     }
   };
 
-  if (isLoading || isFetching || (!account && !error)) {
-    console.log('🔄 AccountDetails: Showing loading state', {
-      isLoading,
-      isFetching,
-      hasAccount: !!account,
-      hasError: !!error,
-      condition: isLoading ? 'isLoading' : isFetching ? 'isFetching' : 'noAccountNoError',
-    });
+  if (isLoading || (!account && !error)) {
     return (
       <div className="min-h-screen">
         {/* Navigation Header */}
@@ -304,13 +282,7 @@ const AccountDetails: React.FC = () => {
   }
 
   // Only show error if there's actually an error and we're not loading
-  if (error && !isLoading && !isFetching) {
-    console.log('❌ AccountDetails: Showing error state', {
-      error: error.message || error,
-      isLoading,
-      isFetching,
-      hasAccount: !!account,
-    });
+  if (error && !isLoading) {
     return (
       <div className="min-h-screen">
         {/* Navigation Header */}
@@ -348,12 +320,6 @@ const AccountDetails: React.FC = () => {
 
   // If no account data and no error, it's still loading
   if (!account) {
-    console.log('⏳ AccountDetails: No account data, showing loading fallback', {
-      hasAccount: !!account,
-      hasError: !!error,
-      isLoading,
-      isFetching,
-    });
     return (
       <div className="min-h-screen">
         {/* Navigation Header */}
@@ -382,15 +348,6 @@ const AccountDetails: React.FC = () => {
       </div>
     );
   }
-
-  console.log('✅ AccountDetails: Rendering with account data', {
-    accountId: account.account_id,
-    clientName: account.client_name,
-    hasAccount: !!account,
-    isLoading,
-    isFetching,
-    hasError: !!error,
-  });
 
   return (
     <div className="min-h-screen">

@@ -5,11 +5,11 @@ import {
   AccountUpdate,
   AccountDetailResponse,
   AccountListResponse,
-  ContactCreate,
   ContactResponse,
-  CreateAccountFormData,
-  UpdateAccountFormData,
   ContactFormData,
+  ContactAddRequest,
+  ContactUpdateRequest,
+  ContactListResponse,
 } from '@/types/accounts';
 
 class AccountsApiService {
@@ -22,17 +22,15 @@ class AccountsApiService {
     page?: number;    // Changed from 'offset' to 'page' per API.md
     size?: number;    // Changed from 'limit' to 'size' per API.md
   }): Promise<AccountListResponse> {
-    const searchParams = new URLSearchParams();
+    // Filter out undefined values and 'all' tier
+    const cleanParams: Record<string, string | number> = {};
+    
+    if (params?.search) cleanParams.search = params.search;
+    if (params?.tier && params.tier !== 'all') cleanParams.tier = params.tier;
+    if (params?.page) cleanParams.page = params.page;
+    if (params?.size) cleanParams.size = params.size;
 
-    if (params?.search) searchParams.append('search', params.search);
-    if (params?.tier && params.tier !== 'all') searchParams.append('tier', params.tier);
-    if (params?.page) searchParams.append('page', params.page.toString());
-    if (params?.size) searchParams.append('size', params.size.toString());
-
-    const queryString = searchParams.toString();
-    const url = queryString ? `${this.baseURL}?${queryString}` : this.baseURL;
-
-    const response = await apiClient.get(url);
+    const response = await apiClient.get('/accounts/', { params: cleanParams });
     return response.data;
   }
 
@@ -43,51 +41,12 @@ class AccountsApiService {
   }
 
   // Create new account - following API.md spec
-  async createAccount(data: CreateAccountFormData): Promise<{ status_code: number; account_id: string; message: string }> {
+  async createAccount(data: AccountCreate): Promise<{ status_code: number; account_id: string; message: string }> {
     // Transform form data to API format per API.md
-    const createData: any = {
-      client_name: data.client_name,
-      company_website: data.company_website || null,
-      client_address: {
-        line1: data.client_address.line1,
-        line2: data.client_address.line2 || null,
-        pincode: data.client_address.pincode || null,
-      },
-      client_type: data.client_type,
-      market_sector: data.market_sector || null,
-    };
-
-    // Add primary contact if provided in the contacts array
-    if (data.contacts && data.contacts.length > 0) {
-      createData.primary_contact = {
-        name: data.contacts[0].name,
-        email: data.contacts[0].email,
-        phone: data.contacts[0].phone,
-        title: data.contacts[0].title || null,
-      };
-      
-      // Add secondary contacts if there are more than one contact
-      if (data.contacts.length > 1) {
-        createData.secondary_contacts = data.contacts.slice(1).map(contact => ({
-          name: contact.name,
-          email: contact.email,
-          phone: contact.phone,
-          title: contact.title || null,
-        }));
-      }
-    }
-
-    console.log('Transformed data for API:', createData);
     try {
-      const response = await apiClient.post(this.baseURL, createData);
+      const response = await apiClient.post('/accounts/', data);
       return response.data;
     } catch (error: any) {
-      console.error('API Error Details:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: error.config,
-      });
       throw error;
     }
   }
@@ -95,10 +54,10 @@ class AccountsApiService {
   // Update existing account - following API.md spec
   async updateAccount(
     accountId: string,
-    data: UpdateAccountFormData
+    data: AccountUpdate
   ): Promise<{ status_code: number; message: string }> {
     // Transform form data to API format - send only provided fields per API.md
-    const updateData: any = {};
+    const updateData: Partial<AccountUpdate> = {};
 
     if (data.client_name !== undefined) updateData.client_name = data.client_name;
     if (data.company_website !== undefined)
@@ -107,6 +66,7 @@ class AccountsApiService {
       updateData.client_address = data.client_address ? {
         line1: data.client_address.line1 || '',
         line2: data.client_address.line2 || null,
+        city: data.client_address.city || null,
         pincode: data.client_address.pincode || null,
       } : null;
     }
@@ -114,23 +74,17 @@ class AccountsApiService {
     if (data.market_sector !== undefined) updateData.market_sector = data.market_sector || null;
     if (data.notes !== undefined) updateData.notes = data.notes || null;
 
-    console.log('Attempting to update account:', accountId, 'with data:', updateData);
 
     try {
       const response = await apiClient.put(`${this.baseURL}/${accountId}`, updateData);
       return response.data;
     } catch (error: any) {
-      console.error('PUT request failed:', error);
-
       // If CORS blocks PUT, try using PATCH method instead
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        console.log('PUT blocked by CORS, trying PATCH method...');
-
         try {
           const response = await apiClient.patch(`${this.baseURL}/${accountId}`, updateData);
           return response.data;
         } catch (patchError: any) {
-          console.log('PATCH also failed, trying POST with method override...');
 
           // Last resort: POST with method override
           const response = await apiClient.post(`${this.baseURL}/${accountId}`, {
@@ -153,24 +107,15 @@ class AccountsApiService {
   // Add secondary contact to account - following API.md spec
   async addContact(
     accountId: string,
-    contact: ContactFormData
+    contact: ContactAddRequest
   ): Promise<{ status_code: number; contact_id: string; message: string }> {
-    // Wrap contact data in "contact" object per API.md
-    const requestData = {
-      contact: {
-        name: contact.name,
-        email: contact.email,
-        phone: contact.phone,
-        title: contact.title || null,
-      }
-    };
 
-    const response = await apiClient.post(`${this.baseURL}/${accountId}/contacts`, requestData);
+    const response = await apiClient.post(`${this.baseURL}/${accountId}/contacts`, contact);
     return response.data;
   }
 
   // Get all contacts for account - following API.md spec
-  async getContacts(accountId: string): Promise<{ contacts: ContactResponse[] }> {
+  async getContacts(accountId: string): Promise<ContactListResponse> {
     const response = await apiClient.get(`${this.baseURL}/${accountId}/contacts`);
     return response.data;
   }
@@ -179,7 +124,7 @@ class AccountsApiService {
   async updateContact(
     accountId: string,
     contactId: string,
-    contact: ContactFormData
+    contact: ContactUpdateRequest
   ): Promise<{ status_code: number; message: string }> {
     const contactData = {
       name: contact.name,
@@ -239,10 +184,12 @@ class AccountsApiService {
       // Step 4: Add the old primary contact as a new secondary contact (if it existed)
       if (currentPrimary && typeof currentPrimary === 'object') {
         await this.addContact(accountId, {
-          name: currentPrimary.name,
-          email: currentPrimary.email,
-          phone: currentPrimary.phone,
-          title: currentPrimary.title || undefined,
+          contact: {
+            name: currentPrimary.name,
+            email: currentPrimary.email,
+            phone: currentPrimary.phone,
+            title: currentPrimary.title || undefined,
+          }
         });
       }
 
@@ -251,7 +198,6 @@ class AccountsApiService {
         message: 'Contact promoted to primary successfully'
       };
     } catch (error: any) {
-      console.error('Error in promoteContactToPrimary:', error);
       throw error;
     }
   }
@@ -311,7 +257,6 @@ class AccountsApiService {
           : undefined,
       };
     } catch (error) {
-      console.error('Error enriching account data:', error);
       throw error;
     }
   }
@@ -329,7 +274,6 @@ class AccountsApiService {
       const response = await apiClient.get(`${this.baseURL}/${accountId}/ai-insights`);
       return response.data;
     } catch (error) {
-      console.error('Error getting AI insights:', error);
       throw error;
     }
   }
@@ -343,7 +287,6 @@ class AccountsApiService {
       const response = await apiClient.post(`${this.baseURL}/${accountId}/generate-report`);
       return response.data;
     } catch (error) {
-      console.error('Error generating account report:', error);
       throw error;
     }
   }

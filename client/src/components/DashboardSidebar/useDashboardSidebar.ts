@@ -10,7 +10,6 @@ export function useDashboardSidebar() {
   const { toast } = useToast();
 
   const handleLogout = useCallback(async () => {
-    console.log('🔄 DashboardSidebar: Starting logout process');
     try {
       await supabase.auth.signOut();
       localStorage.removeItem('authToken');
@@ -21,7 +20,6 @@ export function useDashboardSidebar() {
         description: 'You have been successfully logged out.',
       });
       
-      console.log('✅ DashboardSidebar: Logout completed, navigating to login');
       navigate('/auth/login', { replace: true });
     } catch (error) {
       console.error('❌ DashboardSidebar: Logout failed:', error);

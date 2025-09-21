@@ -5,78 +5,18 @@ import { schemas } from './generated/accounts';
 export type AccountCreate = z.infer<typeof schemas.AccountCreate>;
 export type AccountUpdate = z.infer<typeof schemas.AccountUpdate>;
 export type ContactCreate = z.infer<typeof schemas.ContactCreate>;
+export type ContactAddRequest = z.infer<typeof schemas.ContactAddRequest>;
+export type ContactUpdateRequest = z.infer<typeof schemas.ContactUpdateRequest>;
 export type ContactResponse = z.infer<typeof schemas.ContactResponse>;
+export type ContactListResponse = z.infer<typeof schemas.ContactListResponse>
 export type AddressCreate = z.infer<typeof schemas.AddressCreate>;
 export type ClientType = z.infer<typeof schemas.ClientType>;
-
-// Core contact interface
-export interface Contact {
-  name: string;
-  email: string;
-  phone: string;
-  title?: string | null;
-  contact_id: string;
-}
-
-// Address interface
-export interface Address {
-  line1: string;
-  line2?: string | null;
-  pincode?: number | null;
-  address_id?: string;
-}
-
+export type Contact = z.infer<typeof schemas.ContactResponse>;
+export type Address = z.infer<typeof schemas.AddressResponse>;
+export type AccountDetailResponse = z.infer<typeof schemas.AccountDetailResponse>;
+export type AccountListItem = z.infer<typeof schemas.AccountListItem>;
+export type AccountListResponse = z.infer<typeof schemas.AccountListResponse>;
 // Consistent Account Detail Response - matches actual API response
-export interface AccountDetailResponse {
-  account_id: string;
-  client_name: string;
-  company_website?: string | null;
-  client_address?: Address | null;
-  primary_contact?: Contact | null;
-  secondary_contacts?: Contact[];
-  contact_email?: string | null;
-  client_type: ClientType;
-  market_sector?: string | null;
-  notes?: string | null;
-  total_value?: number | null;
-  opportunities?: number | null;
-  last_contact?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-// Account List Item - for list views
-export interface AccountListItem {
-  account_id: string;
-  client_name: string;
-  company_website?: string | null;
-  client_address?: Address | null;
-  primary_contact?: Contact | null;
-  client_type: ClientType;
-  market_sector?: string | null;
-  total_value?: number | null;
-  ai_health_score?: number | null;
-  last_contact?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-// List response with pagination
-export interface AccountListResponse {
-  accounts: AccountListItem[];
-  pagination: {
-    total: number;
-    page: number;
-    size: number;
-    has_prev: boolean;
-    has_next: boolean;
-  };
-}
-
-// Contacts API response
-export interface ContactsResponse {
-  contacts: Contact[];
-}
 
 // Form data interfaces for UI
 export interface ContactFormData {
@@ -114,19 +54,6 @@ export interface CreateAccountFormData {
   contacts?: ContactFormData[]; // First contact becomes primary, rest become secondary
 }
 
-// Update account form data
-export interface UpdateAccountFormData {
-  client_name?: string;
-  company_website?: string;
-  client_address?: {
-    line1?: string;
-    line2?: string;
-    pincode?: number;
-  };
-  client_type?: ClientType;
-  market_sector?: string;
-  notes?: string;
-}
 
 // API Response types
 export interface CreateAccountResponse {

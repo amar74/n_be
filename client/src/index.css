@@ -18,3 +18,8 @@
   border: 1px solid #059669 !important;
   z-index: 10001 !important;
 }
+
+
+button {
+  cursor: pointer;
+}

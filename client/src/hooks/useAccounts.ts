@@ -1,126 +1,159 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback, useEffect } from 'react';
 import { createQueryKeys } from '@/lib/query-client';
 import { accountsApi } from '@/services/api/accountsApi';
 import { useToast } from './use-toast';
+import { parseBackendErrors } from '@/utils/errorParser';
+import { AxiosError } from 'axios';
 import type {
-  CreateAccountFormData,
-  UpdateAccountFormData,
   ContactFormData,
   AccountDetailResponse,
   AccountListResponse,
-  ContactsResponse,
   AccountListItem,
+  AccountCreate,
+  AccountUpdate,
+  ContactAddRequest,
+  ContactUpdateRequest,
 } from '@/types/accounts';
 
-// Query keys following Development.md patterns
+// Query keys using createQueryKeys utility
 export const accountsKeys = createQueryKeys('accounts');
 
 // Additional specific query keys for accounts feature
 export const accountsQueryKeys = {
   ...accountsKeys,
-  contacts: (accountId: string) => [...accountsKeys.all, 'contacts', accountId] as const,
-  insights: (accountId: string) => [...accountsKeys.all, 'insights', accountId] as const,
-  enrichData: (website: string) => [...accountsKeys.all, 'enrich', website] as const,
+  list: (params?: Record<string, any>) => [...accountsKeys.all, 'list', params],
+  detail: (id: string) => [...accountsKeys.all, 'detail', id],
+  contacts: (id: string) => [...accountsKeys.all, 'contacts', id],
+  insights: (id: string) => [...accountsKeys.all, 'insights', id],
 };
 
 /**
- * Unified Accounts hook following Development.md patterns
- * Encapsulates all CRUD operations and cache management for the Accounts feature
+ * Hook for fetching account contacts
+ * Only fetches when explicitly called with an account ID
  */
-export function useAccounts() {
+export function useAccountContacts(accountId: string) {
+  const {
+    data: accountContacts,
+    isLoading: isContactsLoading,
+    error: contactsError,
+  } = useQuery({
+    queryKey: accountsQueryKeys.contacts(accountId),
+    queryFn: async () => {
+      if (!accountId) throw new Error('Account ID is required');
+      return accountsApi.getContacts(accountId);
+    },
+    enabled: !!accountId,
+    staleTime: 1000 * 60 * 3, // 3 minutes
+  });
+
+  return {
+    accountContacts,
+    isContactsLoading,
+    contactsError,
+  };
+}
+
+/**
+ * Hook for fetching account insights
+ * Only fetches when explicitly called with an account ID
+ */
+export function useAccountInsights(accountId: string) {
+  const {
+    data: accountInsights,
+    isLoading: isInsightsLoading,
+    error: insightsError,
+  } = useQuery({
+    queryKey: accountsQueryKeys.insights(accountId),
+    queryFn: async () => {
+      if (!accountId) throw new Error('Account ID is required');
+      return accountsApi.getAIInsights(accountId);
+    },
+    enabled: !!accountId,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+
+  return {
+    accountInsights,
+    isInsightsLoading,
+    insightsError,
+  };
+}
+
+/**
+ * Hook for fetching a single account's details
+ * Only fetches when explicitly called with an account ID
+ */
+export function useAccountDetail(accountId: string) {
+  const {
+    data: accountDetail,
+    isLoading: isAccountDetailLoading,
+    error: accountDetailError,
+  } = useQuery({
+    queryKey: accountsQueryKeys.detail(accountId),
+    queryFn: () => accountsApi.getAccount(accountId),
+    enabled: !!accountId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+
+  return {
+    accountDetail,
+    isAccountDetailLoading,
+    accountDetailError,
+  };
+}
+
+/**
+ * Main hook for accounts list and operations
+ * @param options.initialParams - Initial search parameters
+ * @param options.eager - If true, fetches data immediately on mount (default: true)
+ */
+export function useAccounts(options?: {
+  initialParams?: {
+    search?: string;
+    tier?: string;
+    page?: number;
+    size?: number;
+  };
+  eager?: boolean;
+}) {
+  const { initialParams, eager = false } = options || {};
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // State for lazy loading
+  const [enabled, setEnabled] = useState(eager);
+  const [queryParams, setQueryParams] = useState(initialParams);
+  
+  // Error states
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [updateErrors, setUpdateErrors] = useState<Record<string, string>>({});
 
-  // READ - List accounts with filters - following API.md spec
-  const useAccountsList = (params?: {
-    search?: string; // Changed from 'q' to 'search' per API.md
-    tier?: string;
-    page?: number; // Changed from 'offset' to 'page' per API.md
-    size?: number; // Changed from 'limit' to 'size' per API.md
-  }) => {
-    return useQuery({
-      queryKey: accountsKeys.list(params),
-      queryFn: async (): Promise<AccountListResponse> => {
-        return await accountsApi.listAccounts(params);
-      },
-      staleTime: 1000 * 60 * 2, // 2 minutes for list data
-    });
-  };
+  // Memoize the fetch function to avoid recreating it on every render
+  const fetchAccounts = useCallback((params?: typeof initialParams) => {
+    setQueryParams(params);
+    setEnabled(true);
+  }, []);
 
-  // READ - Get single account by ID
-  const useAccount = (accountId: string | undefined) => {
-    const query = useQuery({
-      queryKey: accountsKeys.detail(accountId || ''),
-      queryFn: async (): Promise<AccountDetailResponse> => {
-        console.log('🔍 useAccount: Fetching account data', { accountId });
-        if (!accountId) throw new Error('Account ID is required');
-        const result = await accountsApi.getAccount(accountId);
-        console.log('✅ useAccount: Account data fetched successfully', {
-          accountId,
-          clientName: result.client_name,
-        });
-        return result;
-      },
-      enabled: !!accountId,
-      staleTime: 1000 * 60 * 2, // 2 minutes for detail data (reduced for better consistency)
-      retry: 3, // Retry failed requests
-      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-    });
+  // The accounts list query
+  const query = useQuery({
+    queryKey: accountsQueryKeys.list(queryParams),
+    queryFn: async () => accountsApi.listAccounts(queryParams),
+    enabled: enabled,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
 
-    // Log query state changes
-    console.log('📊 useAccount query state:', {
-      accountId,
-      isLoading: query.isLoading,
-      isFetching: query.isFetching,
-      isError: query.isError,
-      hasData: !!query.data,
-      error: query.error?.message,
-      dataUpdatedAt: new Date(query.dataUpdatedAt).toISOString(),
-    });
-
-    return query;
-  };
-
-  // READ - Get contacts for an account
-  const useAccountContacts = (accountId: string | undefined) => {
-    return useQuery({
-      queryKey: accountsQueryKeys.contacts(accountId || ''),
-      queryFn: async () => {
-        if (!accountId) throw new Error('Account ID is required');
-        return await accountsApi.getContacts(accountId);
-      },
-      enabled: !!accountId,
-      staleTime: 1000 * 60 * 3, // 3 minutes for contacts
-    });
-  };
-
-  // READ - Get AI insights for an account
-  const useAccountInsights = (accountId: string | undefined) => {
-    return useQuery({
-      queryKey: accountsQueryKeys.insights(accountId || ''),
-      queryFn: async () => {
-        if (!accountId) throw new Error('Account ID is required');
-        return await accountsApi.getAIInsights(accountId);
-      },
-      enabled: !!accountId,
-      staleTime: 1000 * 60 * 10, // 10 minutes for AI insights
-    });
-  };
-
-  // CREATE - Create new account - following API.md spec
+  // Mutations
+  // Create account mutation
   const createAccountMutation = useMutation({
-    mutationFn: async (
-      data: CreateAccountFormData
-    ): Promise<{ status_code: number; account_id: string; message: string }> => {
+    mutationFn: async (data: AccountCreate): Promise<{ status_code: number; account_id: string; message: string }> => {
       return await accountsApi.createAccount(data);
     },
     onSuccess: data => {
-      // Invalidate accounts list to show new account
-      queryClient.invalidateQueries({ queryKey: accountsKeys.lists() });
-
-      // Invalidate the specific account to fetch fresh data
-      queryClient.invalidateQueries({ queryKey: accountsKeys.detail(data.account_id) });
-
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(data.account_id) });
       toast({
         title: 'Account Created',
         description: data.message || 'Account created successfully',
@@ -135,29 +168,20 @@ export function useAccounts() {
     },
   });
 
-  // UPDATE - Update existing account - following API.md spec
+  // Update account mutation
   const updateAccountMutation = useMutation({
     mutationFn: async ({
       accountId,
       data,
     }: {
       accountId: string;
-      data: UpdateAccountFormData;
+      data: AccountUpdate;
     }): Promise<{ status_code: number; message: string }> => {
       return await accountsApi.updateAccount(accountId, data);
     },
     onSuccess: async (data, variables) => {
-      console.log('🔄 updateAccountMutation: Account updated successfully', {
-        accountId: variables.accountId,
-        message: data.message,
-      });
-
-      // Invalidate account detail to fetch fresh data
-      queryClient.invalidateQueries({ queryKey: accountsKeys.detail(variables.accountId) });
-
-      // Also invalidate accounts list to reflect any changes
-      queryClient.invalidateQueries({ queryKey: accountsKeys.lists() });
-
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
       toast({
         title: 'Account Updated',
         description: data.message || 'Account updated successfully',
@@ -172,18 +196,14 @@ export function useAccounts() {
     },
   });
 
-  // DELETE - Delete account - following API.md spec
+  // Delete account mutation
   const deleteAccountMutation = useMutation({
     mutationFn: async (accountId: string): Promise<{ status_code: number; message: string }> => {
       return await accountsApi.deleteAccount(accountId);
     },
     onSuccess: (data, accountId) => {
-      // Remove account from cache
-      queryClient.removeQueries({ queryKey: accountsKeys.detail(accountId) });
-
-      // Invalidate list to show account removal
-      queryClient.invalidateQueries({ queryKey: accountsKeys.lists() });
-
+      queryClient.removeQueries({ queryKey: accountsQueryKeys.detail(accountId) });
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
       toast({
         title: 'Account Deleted',
         description: data.message || 'Account deleted successfully',
@@ -198,31 +218,23 @@ export function useAccounts() {
     },
   });
 
-  // CREATE - Add secondary contact to account - following API.md spec
+  // Add contact mutation
   const addContactMutation = useMutation({
     mutationFn: async ({
       accountId,
       contact,
     }: {
       accountId: string;
-      contact: ContactFormData;
+      contact: ContactAddRequest;
     }): Promise<{ status_code: number; contact_id: string; message: string }> => {
       return await accountsApi.addContact(accountId, contact);
     },
     onSuccess: (data, variables) => {
-      // Invalidate contacts for this account
-      queryClient.invalidateQueries({
-        queryKey: accountsQueryKeys.contacts(variables.accountId),
-      });
-
-      // Also invalidate the account detail to refresh contact count
-      queryClient.invalidateQueries({
-        queryKey: accountsKeys.detail(variables.accountId),
-      });
-
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
       toast({
         title: 'Contact Added',
-        description: data.message || 'Contact added to account successfully',
+        description: data.message || 'Contact added successfully',
       });
     },
     onError: (error: any) => {
@@ -234,7 +246,7 @@ export function useAccounts() {
     },
   });
 
-  // UPDATE - Update contact (primary or secondary) - following API.md spec
+  // Update contact mutation
   const updateContactMutation = useMutation({
     mutationFn: async ({
       accountId,
@@ -243,21 +255,13 @@ export function useAccounts() {
     }: {
       accountId: string;
       contactId: string;
-      contact: ContactFormData;
+      contact: ContactUpdateRequest;
     }): Promise<{ status_code: number; message: string }> => {
       return await accountsApi.updateContact(accountId, contactId, contact);
     },
     onSuccess: (data, variables) => {
-      // Invalidate contacts for this account
-      queryClient.invalidateQueries({
-        queryKey: accountsQueryKeys.contacts(variables.accountId),
-      });
-
-      // Also invalidate the account detail to refresh contact data
-      queryClient.invalidateQueries({
-        queryKey: accountsKeys.detail(variables.accountId),
-      });
-
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
       toast({
         title: 'Contact Updated',
         description: data.message || 'Contact updated successfully',
@@ -272,7 +276,7 @@ export function useAccounts() {
     },
   });
 
-  // DELETE - Delete secondary contact - following API.md spec (primary contacts cannot be deleted)
+  // Delete contact mutation
   const deleteContactMutation = useMutation({
     mutationFn: async ({
       accountId,
@@ -284,16 +288,8 @@ export function useAccounts() {
       return await accountsApi.deleteContact(accountId, contactId);
     },
     onSuccess: (data, variables) => {
-      // Invalidate contacts for this account
-      queryClient.invalidateQueries({
-        queryKey: accountsQueryKeys.contacts(variables.accountId),
-      });
-
-      // Also invalidate the account detail to refresh contact data
-      queryClient.invalidateQueries({
-        queryKey: accountsKeys.detail(variables.accountId),
-      });
-
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
       toast({
         title: 'Contact Deleted',
         description: data.message || 'Contact deleted successfully',
@@ -308,20 +304,24 @@ export function useAccounts() {
     },
   });
 
-  // WRITE - Promote contact to primary
+  // Promote contact to primary mutation
   const promoteContactToPrimaryMutation = useMutation({
-    mutationFn: async ({ accountId, contactId }: { accountId: string; contactId: string }) => {
+    mutationFn: async ({
+      accountId,
+      contactId,
+    }: {
+      accountId: string;
+      contactId: string;
+    }): Promise<{ status_code: number; message: string }> => {
       return await accountsApi.promoteContactToPrimary(accountId, contactId);
     },
-    onSuccess: (data, { accountId }) => {
-      // Invalidate account details and contacts to refresh the data
-      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(accountId) });
-      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(accountId) });
-      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.all });
-
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(variables.accountId) });
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.detail(variables.accountId) });
+      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.list() });
       toast({
-        title: '✅ Primary Contact Updated',
-        description: 'Contact has been promoted to primary successfully.',
+        title: 'Contact Promoted',
+        description: 'Contact has been promoted to primary successfully',
       });
     },
     onError: (error: any) => {
@@ -333,24 +333,16 @@ export function useAccounts() {
     },
   });
 
-  // UTILITY - Enrich account data from website
-  const enrichAccountDataMutation = useMutation({
-    mutationFn: async (website: string) => {
-      return await accountsApi.enrichAccountData(website);
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error Enriching Data',
-        description: error.response?.data?.message || 'Failed to enrich account data',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // UTILITY - Generate account report
+  // Generate account report mutation
   const generateReportMutation = useMutation({
-    mutationFn: async (accountId: string) => {
+    mutationFn: async (accountId: string): Promise<{ report_url: string; report_id: string }> => {
       return await accountsApi.generateAccountReport(accountId);
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Report Generated',
+        description: `Report generated successfully. URL: ${data.report_url}`,
+      });
     },
     onError: (error: any) => {
       toast({
@@ -361,40 +353,133 @@ export function useAccounts() {
     },
   });
 
-  return {
-    // Query hooks
-    useAccountsList,
-    useAccount,
-    useAccountContacts,
-    useAccountInsights,
+  // Enrich account data mutation
+  const enrichAccountDataMutation = useMutation({
+    mutationFn: async (website: string) => {
+      return await accountsApi.enrichAccountData(website);
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Data Enriched',
+        description: 'Account data enriched successfully',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error Enriching Data',
+        description: error.response?.data?.message || 'Failed to enrich account data',
+        variant: 'destructive',
+      });
+    },
+  });
 
-    // Mutation actions
+  // Handle create errors
+  useEffect(() => {
+    if (createAccountMutation.error) {
+      const error = createAccountMutation.error as AxiosError;
+      if (error.response?.data) {
+        const errors = parseBackendErrors(error.response.data, [
+          'client_name',
+          'client_type',
+          'market_sector',
+          'client_address_line1',
+          'client_address_line2',
+          'client_address_city',
+          'client_address_zip_code',
+          'company_website'
+        ]);
+        setCreateErrors(errors);
+      }
+    } else {
+      setCreateErrors({});
+    }
+  }, [createAccountMutation.error]);
+
+  // Handle update errors
+  useEffect(() => {
+    if (updateAccountMutation.error) {
+      const error = updateAccountMutation.error as AxiosError;
+      if (error.response?.data) {
+        const errors = parseBackendErrors(error.response.data, [
+          'client_name',
+          'client_type',
+          'market_sector',
+          'client_address_line1',
+          'client_address_line2',
+          'client_address_city',
+          'client_address_zip_code',
+          'company_website'
+        ]);
+        setUpdateErrors(errors);
+      }
+    } else {
+      setUpdateErrors({});
+    }
+  }, [updateAccountMutation.error]);
+
+  // Clear errors on success
+  useEffect(() => {
+    if (createAccountMutation.isSuccess) {
+      setCreateErrors({});
+    }
+  }, [createAccountMutation.isSuccess]);
+
+  useEffect(() => {
+    if (updateAccountMutation.isSuccess) {
+      setUpdateErrors({});
+    }
+  }, [updateAccountMutation.isSuccess]);
+
+  // Return combined functionality
+  return {
+    // Query functionality
+    fetchAccounts,
+    accountsList: query.data,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch: query.refetch,
+
+    // Account mutation actions
     createAccount: createAccountMutation.mutateAsync,
     updateAccount: updateAccountMutation.mutateAsync,
     deleteAccount: deleteAccountMutation.mutateAsync,
+
+    // Account error states
+    createAccountError: createAccountMutation.error,
+    updateAccountError: updateAccountMutation.error,
+    deleteAccountError: deleteAccountMutation.error,
+    createErrors,
+    updateErrors,
+
+    // Account success states
+    isCreateAccountSuccess: createAccountMutation.isSuccess,
+    isUpdateAccountSuccess: updateAccountMutation.isSuccess,
+    isDeleteAccountSuccess: deleteAccountMutation.isSuccess,
+
+    // Contact mutation actions
     addContact: addContactMutation.mutateAsync,
     updateContact: updateContactMutation.mutateAsync,
     deleteContact: deleteContactMutation.mutateAsync,
     promoteContactToPrimary: promoteContactToPrimaryMutation.mutateAsync,
-    enrichAccountData: enrichAccountDataMutation.mutateAsync,
-    generateReport: generateReportMutation.mutateAsync,
 
-    // Mutation state
+    // Account mutation states
     isCreating: createAccountMutation.isPending,
     isUpdating: updateAccountMutation.isPending,
     isDeleting: deleteAccountMutation.isPending,
+
+    // Contact mutation states
     isAddingContact: addContactMutation.isPending,
     isUpdatingContact: updateContactMutation.isPending,
     isDeletingContact: deleteContactMutation.isPending,
     isPromotingContact: promoteContactToPrimaryMutation.isPending,
-    isEnriching: enrichAccountDataMutation.isPending,
-    isGeneratingReport: generateReportMutation.isPending,
 
-    // Utility functions
-    invalidateAccountsList: () => queryClient.invalidateQueries({ queryKey: accountsKeys.lists() }),
-    invalidateAccount: (accountId: string) =>
-      queryClient.invalidateQueries({ queryKey: accountsKeys.detail(accountId) }),
-    invalidateAccountContacts: (accountId: string) =>
-      queryClient.invalidateQueries({ queryKey: accountsQueryKeys.contacts(accountId) }),
+    // Utility mutation actions
+    generateReport: generateReportMutation.mutateAsync,
+    enrichAccountData: enrichAccountDataMutation.mutateAsync,
+
+    // Utility mutation states
+    isGeneratingReport: generateReportMutation.isPending,
+    isEnriching: enrichAccountDataMutation.isPending,
   };
 }

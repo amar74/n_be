@@ -26,7 +26,6 @@ export function AccountNotesAndDocuments() {
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    console.log("files selected:", files);
   };
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {

@@ -13,7 +13,6 @@ export default function SignInPage() {
 
   const handleSubmit = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    console.log("Form submitted");
   };
 
   return (

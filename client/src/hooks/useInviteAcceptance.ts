@@ -52,7 +52,6 @@ export function useInviteAcceptance() {
 
     // Prevent duplicate calls using ref
     if (acceptingRef.current || inviteState.isAcceptingInvite || inviteState.inviteAccepted) {
-      console.log('Accept invite call ignored - already in progress or completed');
       return;
     }
 
@@ -60,9 +59,7 @@ export function useInviteAcceptance() {
     setInviteState(prev => ({ ...prev, isAcceptingInvite: true, error: null }));
 
     try {
-      console.log('Attempting to accept invite with token:', token);
       const response = await orgsApi.acceptInvite(token);
-      console.log('Accept invite response:', response);
       
       // Validate response data
       if (!response || !response.email || !response.role || !response.org_id) {
@@ -70,7 +67,6 @@ export function useInviteAcceptance() {
         throw new Error('Invalid response from invite acceptance API');
       }
 
-      console.log('Setting successful invite state...');
       setInviteState(prev => ({
         ...prev,
         isAcceptingInvite: false,
@@ -79,13 +75,11 @@ export function useInviteAcceptance() {
         error: null, // Clear any previous errors
       }));
 
-      console.log('Showing success toast...');
       toast({
         title: 'Invite Accepted',
         description: 'Your invitation has been accepted successfully.',
       });
 
-      console.log('Accept invite completed successfully');
     } catch (error: any) {
       console.error('Accept invite error:', error);
       console.error('Error response:', error?.response);

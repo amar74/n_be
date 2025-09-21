@@ -97,7 +97,6 @@ export default function UserPermissionsSection() {
       // The permissions state will be updated when the new data comes in
     } catch (e) {
       // Error handling is done in the mutation
-      console.error('Failed to update permissions:', e);
     } finally {
       setSaving(null);
     }

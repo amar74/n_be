@@ -14,13 +14,21 @@ import AdminLayout from '@layouts/AdminLayout';
 import AdminSigninPage from '@pages/AdminSigninPage';
 import AdminDashboardPage from '@/pages/admin/DashboardPage';
 import AccountsPage from '@/pages/modules/accounts/AccountsPage';
-import AccountDetails from '@/pages/modules/AccountDetails';
+import AccountDetailsPage from '@/pages/modules/accounts/AccountDetailsPage';
 import AccountEdit from '@/pages/modules/AccountEdit';
 import NotesPage from '@/pages/modules/notes/NotesPage';
 import NoteDetailsPage from '@/pages/modules/notes/NoteDetailsPage';
 import NoteEditPage from '@/pages/modules/notes/NoteEditPage';
 import NoteCreatePage from '@/pages/modules/notes/NoteCreatePage';
 import AccountsUserPermissions from '@/pages/modules/AccountsUserPermissions';
+import OpportunitiesPage from '@/pages/modules/opportunities/OpportunitiesPage';
+import ProposalsPage from '@/pages/modules/proposals/ProposalsPage';
+import ResourcesPage from '@/pages/modules/resources/ResourcesPage';
+import ContractsPage from '@/pages/modules/contracts/ContractsPage';
+import ProjectsPage from '@/pages/modules/projects/ProjectsPage';
+import FinancePage from '@/pages/modules/finance/FinancePage';
+import ProcurementPage from '@/pages/modules/procurement/ProcurementPage';
+import KpisPage from '@/pages/modules/kpis/KpisPage';
 import OrganizationUpdatePage from '@/pages/OrganizationUpdatePage';
 import ClientSurveys from '@/pages/client-surveys';
 import SignInPage from '@/pages/testUI/SignInPage';
@@ -64,16 +72,48 @@ const router = createBrowserRouter([
             element: <DashboardWelcome />,
           },
           {
+            path: 'module/opportunities',
+            element: <OpportunitiesPage />,
+          },
+          {
             path: 'module/accounts',
             element: <AccountsPage />,
           },
           {
             path: 'module/accounts/:id',
-            element: <AccountDetails />,
+            element: <AccountDetailsPage />,
           },
           {
             path: 'module/accounts/:id/edit',
             element: <AccountEdit />,
+          },
+          {
+            path: 'module/proposals',
+            element: <ProposalsPage />,
+          },
+          {
+            path: 'module/resources',
+            element: <ResourcesPage />,
+          },
+          {
+            path: 'module/contracts',
+            element: <ContractsPage />,
+          },
+          {
+            path: 'module/projects',
+            element: <ProjectsPage />,
+          },
+          {
+            path: 'module/finance',
+            element: <FinancePage />,
+          },
+          {
+            path: 'module/procurement',
+            element: <ProcurementPage />,
+          },
+          {
+            path: 'module/kpis',
+            element: <KpisPage />,
           },
           {
             path: 'module/notes',
@@ -116,6 +156,10 @@ const router = createBrowserRouter([
       {
         path: '/client-surveys/:environmentId/:surveyId',
         element: <ShowSurveyResponses />,
+      },
+      {
+        path: '/organization/create',
+        element: <CreateOrganizationPage />,
       },
     ],
   },
@@ -160,11 +204,6 @@ const router = createBrowserRouter([
   {
     path: '/invite/accept',
     element: <AcceptInvitePage />,
-  },
-  // Organization creation route
-  {
-    path: '/organization/create',
-    element: <CreateOrganizationPage />,
   },
 
   //testUI

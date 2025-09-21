@@ -34,8 +34,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useAccounts } from '@/hooks/useAccounts';
-import { AccountDetailResponse, UpdateAccountFormData, ContactFormData } from '@/types/accounts';
+import { useAccountContacts, useAccountDetail, useAccounts } from '@/hooks/useAccounts';
+import {  AccountUpdate, ContactFormData } from '@/types/accounts';
 import { ArrowLeft, Building2, Save, X, Award, Edit, Users, Mail, Phone, Plus } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
 
@@ -46,8 +46,6 @@ const AccountEdit: React.FC = () => {
 
   // Use the new useAccounts hook
   const {
-    useAccount,
-    useAccountContacts,
     updateAccount,
     addContact,
     updateContact,
@@ -61,10 +59,9 @@ const AccountEdit: React.FC = () => {
   } = useAccounts();
 
   // Use the account data from the hook
-  const { data: account, isLoading, error } = useAccount(id);
-  const { data: contactsResponse } = useAccountContacts(id);
-  console.log('AccountEdit Debug:', { account, contactsResponse });
-  const [editForm, setEditForm] = useState<UpdateAccountFormData>({});
+  const { accountDetail: account, isAccountDetailLoading: isLoading, accountDetailError: error } = useAccountDetail(id || '');
+  const { accountContacts: contactsResponse } = useAccountContacts(id || '');
+  const [editForm, setEditForm] = useState<AccountUpdate>({});
 
   // Contact management state
   const [showAddContactModal, setShowAddContactModal] = useState(false);
@@ -220,11 +217,12 @@ const AccountEdit: React.FC = () => {
       await addContact({
         accountId: account.account_id,
         contact: {
+          contact:{
           name: contactForm.name.trim(),
           email: contactForm.email.trim(),
           phone: contactForm.phone.trim(),
           title: contactForm.title?.trim() || undefined,
-        },
+        }},
       });
 
       toast({
@@ -635,6 +633,7 @@ const AccountEdit: React.FC = () => {
                           ...prev,
                           client_address: {
                             ...prev.client_address,
+                            line1: prev.client_address?.line1 || '',
                             line2: e.target.value,
                           },
                         }))
@@ -655,6 +654,7 @@ const AccountEdit: React.FC = () => {
                           ...prev,
                           client_address: {
                             ...prev.client_address,
+                            line1: prev.client_address?.line1 || '',
                             pincode: e.target.value ? parseInt(e.target.value) : undefined,
                           },
                         }))

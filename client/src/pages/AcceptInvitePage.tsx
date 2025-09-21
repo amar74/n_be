@@ -29,7 +29,6 @@ export default function AcceptInvitePage() {
   useEffect(() => {
     if (token && !calledRef.current) {
       calledRef.current = true;
-      console.log('Page: Calling acceptInvite with token:', token);
       acceptInvite(token);
     }
   }, [token, acceptInvite]);

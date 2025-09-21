@@ -1,7 +1,17 @@
 import { Outlet } from 'react-router-dom';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { useHomePage } from './useHomePage';
-import { memo } from 'react';
+import { useBreadcrumbs } from '@/hooks/useBreadcrumbs';
+import {
+  Breadcrumb,
+  BreadcrumbEllipsis,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import React, { memo } from 'react';
 
 function HomePage() {
   const {
@@ -9,6 +19,8 @@ function HomePage() {
     isAuthLoading,
     isAuthenticated,
   } = useHomePage();
+  
+  const breadcrumbs = useBreadcrumbs();
 
   // Show loading during auth initialization to prevent flicker
   if (isAuthLoading) {
@@ -35,12 +47,36 @@ function HomePage() {
   }
 
     return (
-      <div className="min-h-screen bg-[#F5F3F2] flex font-['Inter',_'Poppins',_system-ui,_-apple-system,_sans-serif]">
+      <div className="flex h-full bg-[#F5F3F2] font-inter">
         {/* Sidebar */}
         <DashboardSidebar />
         
         {/* Main Content Area */}
-        <div className="ml-[20px] min-h-screen">
+        <div className="flex-1 ml-[20px] overflow-y-auto overflow-x-hidden min-h-full">
+          {/* Breadcrumbs */}
+          <div className="px-7 pt-4 pb-2">
+            <Breadcrumb>
+              <BreadcrumbList>
+                {breadcrumbs.map((crumb, index) => (
+                  <React.Fragment key={index}>
+                    <BreadcrumbItem>
+                      {crumb.href ? (
+                        <BreadcrumbLink href={crumb.href} className="font-inter font-medium text-[16px] text-[#a7a7a7] hover:text-[#0f0901]">
+                          {crumb.label}
+                        </BreadcrumbLink>
+                      ) : (
+                        <BreadcrumbPage className="font-inter font-medium text-[16px] text-[#0f0901]">
+                          {crumb.label}
+                        </BreadcrumbPage>
+                      )}
+                    </BreadcrumbItem>
+                    {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+                  </React.Fragment>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+          
           {/* Content will be rendered here via Outlet */}
           <Outlet />
         </div>

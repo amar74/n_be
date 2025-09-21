@@ -8,6 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { scraperApi, ApiError } from '@/services/api/scraperApi';
 import { supabase } from '@/lib/supabase';
 import { apiClient } from '@/services/api/client';
+import { authApi } from '@/services/api/authApi';
+import { authManager } from '@/services/auth/AuthManager';
 import { CreateOrgFormData } from '@/types/orgs';
 import { FORM_DEFAULT_VALUES, WEBSITE_ANALYSIS_DELAY } from './CreateOrganizationPage.constants';
 import { CreateOrganizationSchema, CreateOrganizationFormData } from './CreateOrganizationPage.schema';
@@ -46,7 +48,6 @@ export function useCreateOrganizationPage() {
 
     // Prevent duplicate analysis of the same website
     if (currentWebsiteRef.current === website) {
-      console.log('🔄 CreateOrganizationPage: Skipping duplicate website analysis for:', website);
       return;
     }
 
@@ -54,7 +55,6 @@ export function useCreateOrganizationPage() {
     setIsAnalyzing(true);
 
     try {
-      console.log('🔄 CreateOrganizationPage: Starting website analysis for:', website);
       const scrapeResult = await scraperApi.scraper([website]);
       const result = scrapeResult.results[0];
 
@@ -87,7 +87,6 @@ export function useCreateOrganizationPage() {
         title: '🔍 Website Analysis Complete',
         description: 'We auto-filled fields using real data from the website.',
       });
-      console.log('✅ CreateOrganizationPage: Website analysis completed successfully');
     } catch (error) {
       console.error('❌ CreateOrganizationPage: Website analysis failed:', error);
       if (error instanceof ApiError) {
@@ -122,7 +121,6 @@ export function useCreateOrganizationPage() {
     }
 
     if (value.includes('.') && value.length > 5) {
-      console.log('🔄 CreateOrganizationPage: Scheduling website analysis with delay:', WEBSITE_ANALYSIS_DELAY);
       analysisTimeoutRef.current = setTimeout(() => {
         analyzeWebsite(value);
       }, WEBSITE_ANALYSIS_DELAY);
@@ -137,7 +135,6 @@ export function useCreateOrganizationPage() {
     }
 
     try {
-      console.log('🔄 CreateOrganizationPage: Starting organization creation');
       const organizationData: CreateOrgFormData = {
         name: data.name.trim(),
         address:
@@ -160,21 +157,32 @@ export function useCreateOrganizationPage() {
       };
 
       await createOrganization(organizationData);
-      console.log('✅ CreateOrganizationPage: Organization created successfully, navigating to home');
-      navigate('/', { replace: true });
+      
+      // Refresh backend user data to get updated org_id
+      // This is needed because MainLayout checks backendUser.org_id for routing
+      try {
+        const updatedUserData = await authApi.getMe();
+        authManager.setAuthState(true, updatedUserData);
+        localStorage.setItem('userInfo', JSON.stringify(updatedUserData));
+        
+        // Navigate after state is updated
+        navigate('/', { replace: true });
+      } catch (error) {
+        console.error('❌ Failed to refresh user data after org creation:', error);
+        // Fallback to page reload if refresh fails
+        window.location.href = '/';
+      }
     } catch (error) {
       console.error('❌ CreateOrganizationPage: Organization creation failed:', error);
       // Error handling is done in the centralized hook
     }
-  }, [createOrganization, navigate, toast]);
+  }, [createOrganization]);
 
   const handleSignOut = useCallback(async () => {
-    console.log('🔄 CreateOrganizationPage: Starting sign out process');
     try {
       await supabase.auth.signOut();
       localStorage.clear();
       delete apiClient.defaults.headers.common['Authorization'];
-      console.log('✅ CreateOrganizationPage: Sign out completed, navigating to login');
       navigate('/auth/login', { replace: true });
     } catch (error) {
       console.error('❌ CreateOrganizationPage: Sign out failed:', error);

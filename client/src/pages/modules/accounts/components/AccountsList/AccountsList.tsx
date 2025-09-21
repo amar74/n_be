@@ -1,8 +1,8 @@
 import { AccountCard } from '../AccountCard';
-import { AccountData } from '../../AccountsPage.types';
+import { AccountListItem } from '@/types/accounts';
 
 interface AccountsListProps {
-  accounts: AccountData[];
+  accounts: AccountListItem[];
   isLoading?: boolean;
   onAccountClick?: (accountId: string) => void;
 }
@@ -26,9 +26,9 @@ export function AccountsList({ accounts, isLoading, onAccountClick }: AccountsLi
   }
 
   return (
-    <div className="flex items-center justify-between w-full">
-      {accounts.slice(0, 3).map((account) => (
-        <div key={account.accountId} className="w-[527px]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 w-full items-start">
+      {accounts.map((account) => (
+        <div key={account.account_id} className="min-w-0 h-full">
           <AccountCard 
             account={account} 
             onClick={onAccountClick}

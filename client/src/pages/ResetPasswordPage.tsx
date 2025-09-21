@@ -44,7 +44,6 @@ export default function ResetPasswordPage() {
         } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('Session error:', error);
           toast.error('Invalid Reset Link', {
             description: 'Invalid or expired reset link. Please request a new password reset.',
             duration: 5000,
@@ -61,7 +60,6 @@ export default function ResetPasswordPage() {
           });
         }
       } catch (err) {
-        console.error('Error checking session:', err);
         toast.error('Error', {
           description: 'An error occurred. Please try again.',
           duration: 4000,
@@ -81,7 +79,6 @@ export default function ResetPasswordPage() {
       });
 
       if (error) {
-        console.info('Password update error:', error.message);
 
         // Set form error
         form.setError('newPassword', {
@@ -95,7 +92,6 @@ export default function ResetPasswordPage() {
           duration: 4000,
         });
       } else {
-        console.info('Password updated successfully');
 
         // Show success toast using global service
         presets.authSuccess('Password updated successfully! Redirecting to login...');

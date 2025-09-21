@@ -2,8 +2,10 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useAccounts } from '@/hooks/useAccounts';
-import { AccountData, AccountStatsData, FilterState } from './AccountsPage.types';
-import { MOCK_ACCOUNTS } from './AccountsPage.constants';
+import { AccountStatsData, FilterState } from './AccountsPage.types';
+import { AccountCreate, AccountListItem } from '@/types/accounts';
+import { ClientType } from './components/CreateAccountModal/CreateAccountModal.types';
+import { tr } from 'date-fns/locale';
 
 export function useAccountsPage() {
   const navigate = useNavigate();
@@ -16,45 +18,49 @@ export function useAccountsPage() {
   });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // Use the existing accounts hook (if available) or fallback to mock data
+  // Use the real accounts hook
   const {
-    useAccountsList,
+    isLoading,
+    accountsList,
     createAccount,
-    deleteAccount,
+    fetchAccounts,
     isCreating,
     isDeleting,
-  } = useAccounts?.() || {};
+    createErrors,
+  } = useAccounts({eager: true});
 
-  // For now, use mock data - replace with real API call later
-  const accounts: AccountData[] = MOCK_ACCOUNTS;
-  const isLoading = false;
+  const accounts = accountsList?.accounts || [];
+  // Use real API data with current filters
+ 
 
-  // Filter accounts based on current filters
-  const filteredAccounts = useMemo(() => {
-    return accounts.filter((account) => {
-      const matchesSearch = filters.search === '' || 
-        account.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        account.clientMarketSector.toLowerCase().includes(filters.search.toLowerCase()) ||
-        account.location.toLowerCase().includes(filters.search.toLowerCase());
 
-      const matchesTier = filters.tier === 'all' || 
-        (filters.tier === 'tire_1' && account.clientType === 'Tire 1') ||
-        (filters.tier === 'tire_2' && account.clientType === 'Tire 2') ||
-        (filters.tier === 'tire_3' && account.clientType === 'Tire 3');
+  // API handles filtering, so we use accounts directly
 
-      return matchesSearch && matchesTier;
-    });
-  }, [accounts, filters]);
-
-  // Calculate stats from filtered accounts
+  // Calculate stats from accounts data
   const stats: AccountStatsData = useMemo(() => {
-    const totalAccounts = filteredAccounts.length;
+    if (accounts.length === 0) {
+      return {
+        totalAccounts: 0,
+        aiHealthScore: 0,
+        highRiskCount: 0,
+        growingCount: 0,
+        totalValue: '$0',
+      };
+    }
+
+    const totalAccounts = accounts.length;
     const aiHealthScore = Math.round(
-      filteredAccounts.reduce((sum, acc) => sum + (acc.aiHealthScore || 0), 0) / totalAccounts
+      accounts.reduce((sum, acc) => sum + (acc.ai_health_score || 0), 0) / totalAccounts
     );
-    const highRiskCount = filteredAccounts.filter(acc => acc.riskLevel === 'high').length;
-    const growingCount = filteredAccounts.filter(acc => acc.healthTrend === 'up').length;
-    const totalValue = '$92.6M'; // Calculated from all accounts
+    // Since these fields don't exist in AccountListItem, we'll set them to 0
+    const highRiskCount = 0;
+    const growingCount = 0;
+    
+    // Calculate total value from actual account values
+    const totalValueNumber = accounts.reduce((sum, acc) => {
+      return sum + (acc.total_value || 0);
+    }, 0);
+    const totalValue = `$${totalValueNumber.toFixed(1)}M`;
 
     return {
       totalAccounts,
@@ -63,7 +69,7 @@ export function useAccountsPage() {
       growingCount,
       totalValue,
     };
-  }, [filteredAccounts]);
+  }, [accounts]);
 
   // Handlers
   const handleSearchChange = (search: string) => {
@@ -71,11 +77,40 @@ export function useAccountsPage() {
   };
 
   const handleTierChange = (tier: FilterState['tier']) => {
+    fetchAccounts(tier === 'all' ? undefined : { tier });
     setFilters(prev => ({ ...prev, tier }));
   };
 
   const handleCreateAccount = () => {
     setIsCreateModalOpen(true);
+  };
+
+  const handleCreateAccountSubmit = async (formData: AccountCreate) => {
+    try {
+      // Use the real API call
+      await createAccount(formData);
+      
+      // Only close modal and show success message if API call succeeds
+      toast({
+        title: 'Account Created Successfully',
+        description: `${formData.client_name} has been added to your accounts.`,
+      });
+      setIsCreateModalOpen(false);
+    } catch (error: any) {
+      // Show specific error message from API if available
+      const errorMessage = error.response?.data?.detail?.[0]?.msg 
+        || error.response?.data?.message 
+        || 'There was an error creating the account. Please try again.';
+      
+      toast({
+        title: 'Error Creating Account',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      
+      // Re-throw error so the form component can handle it
+      throw error;
+    }
   };
 
   const handleAccountClick = (accountId: string) => {
@@ -90,13 +125,12 @@ export function useAccountsPage() {
   };
 
   const handleStatClick = (statId: string) => {
-    // Handle stat card clicks - could filter or navigate
-    console.log('Stat clicked:', statId);
+    // TODO: Implement stat card click handling (filtering or navigation)
   };
 
   return {
     // Data
-    accounts: filteredAccounts,
+    accounts,
     stats,
     filters,
     isLoading,
@@ -106,6 +140,7 @@ export function useAccountsPage() {
     handleSearchChange,
     handleTierChange,
     handleCreateAccount,
+    handleCreateAccountSubmit,
     handleAccountClick,
     handleExport,
     handleStatClick,
@@ -114,5 +149,6 @@ export function useAccountsPage() {
     // Status
     isCreating: isCreating || false,
     isDeleting: isDeleting || false,
+    createErrors,
   };
 }
