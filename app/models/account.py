@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.contact import Contact
     from app.models.organization import Organization
     from app.models.account_note import AccountNote
+    from app.models.account_document import AccountDocument
 
 
 class ClientType(enum.Enum):
@@ -51,6 +52,7 @@ class Account(Base):
     contacts: Mapped[List["Contact"]] = relationship("Contact", back_populates="account", foreign_keys="Contact.account_id", cascade="all, delete-orphan")
     organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="accounts")
     account_notes: Mapped[List["AccountNote"]] = relationship("AccountNote", back_populates="account", cascade="all, delete-orphan")
+    account_documents: Mapped[List["AccountDocument"]] = relationship("AccountDocument", back_populates="account", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {

@@ -28,7 +28,8 @@ dependencies = [
     "google (>=3.0.0,<4.0.0)",
     "google-genai (>=1.32.0,<2.0.0)",
     "infisicalsdk (>=1.0.11,<2.0.0)",
-    "greenlet (>=3.2.4,<4.0.0)"
+    "greenlet (>=3.2.4,<4.0.0)",
+    "uvicorn[standard] (>=0.37.0,<0.38.0)"
 ]
 
 

@@ -38,7 +38,8 @@ def load_infisical_secrets(name: str) -> Optional[str]:
     host = os.getenv("INFISICAL_HOST", "https://app.infisical.com")
 
     if not project_id or not token:
-        raise Exception("INFISICAL_PROJECT_ID or INFISICAL_SERVICE_TOKEN is not set")
+        # Return None if Infisical is not configured (for local development)
+        return None
 
     try:
         client = InfisicalSDKClient(host=host, token=token)

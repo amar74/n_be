@@ -14,7 +14,7 @@ class AddressCreate(BaseModel):
     line1: str = Field(..., min_length=1, max_length=255, description="Address line 1 is required")
     line2: Optional[str] = Field(None, max_length=255, description="Optional address line 2")
     city: Optional[str] = Field(None, max_length=255, description="Optional city")
-    pincode: Optional[int] = Field(None, ge=100000, le=999999, description="Valid 6-digit pincode")
+    pincode: Optional[int] = Field(None, ge=10000, le=999999, description="Valid 5 or 6-digit postal/pin code")
 
 class AddressResponse(AddressCreate):
     address_id: UUID

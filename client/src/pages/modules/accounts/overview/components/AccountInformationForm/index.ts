@@ -1,2 +1,0 @@
-export { AccountInformationForm } from './AccountInformationForm';
-

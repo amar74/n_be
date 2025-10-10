@@ -64,6 +64,7 @@ async def list_accounts_route(
                 address_id=account.client_address.id,
                 line1=account.client_address.line1,
                 line2=account.client_address.line2,
+                city=account.client_address.city,
                 pincode=account.client_address.pincode
             )
         
