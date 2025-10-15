@@ -22,7 +22,7 @@ async def enhance_opportunity_data(
         
         logger.info(
             f"Opportunity enhancement completed for {request.company_website}: "
-            f"{len(result.enhanced_data)} fields enhanced, "
+            f"{len(result.enhanced_data)} fields updated, "
             f"{result.suggestions_applied} auto-applied in {result.processing_time_ms}ms"
         )
         
@@ -52,7 +52,7 @@ async def enhance_account_data(
         
         logger.info(
             f"Account enhancement completed for {request.company_website}: "
-            f"{len(result.enhanced_data)} fields enhanced, "
+            f"{len(result.enhanced_data)} fields updated, "
             f"{result.suggestions_applied} auto-applied in {result.processing_time_ms}ms"
         )
         

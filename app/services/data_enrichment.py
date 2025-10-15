@@ -225,7 +225,7 @@ class DataEnrichmentService:
             Enhancement Options: {request.enhancement_options}
             
             Instructions:
-            1. Extract comprehensive company information
+            1. Extract company information
             2. Provide confidence scores for each field (0-1)
             3. Be conservative with confidence - only high confidence for clear information
             4. Analyze the company's main services, target market, and stage
@@ -619,7 +619,7 @@ class DataEnrichmentService:
             3. Extract or infer opportunity-specific information:
                - Opportunity name from services, projects, or current offerings
                - Project value from pricing pages, case studies, or service descriptions
-               - Project description from detailed service offerings or case studies
+               - Project description from service offerings
                - Location from service areas, office locations, or project locations
                - Market sector from industries served or project types
                - Sales stage based on project status or business development stage
@@ -640,7 +640,7 @@ class DataEnrichmentService:
             {{
                 "opportunity_name": "suggested opportunity name",
                 "project_value": "estimated project value or budget range",
-                "project_description": "detailed project description",
+                "project_description": "project description",
                 "location": "primary service location",
                 "market_sector": "primary market sector",
                 "sales_stage": "suggested sales stage",
@@ -710,7 +710,7 @@ class DataEnrichmentService:
                     value=result.get("project_description", ""),
                     confidence=project_desc_conf,
                     source="extracted from service descriptions",
-                    reasoning="Based on detailed service offerings or case studies",
+                    reasoning="Based on service offerings",
                     should_auto_apply=project_desc_conf > 0.7
                 )
                 
