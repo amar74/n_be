@@ -20,16 +20,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create the invite status enum type
     op.execute("CREATE TYPE invitestatus AS ENUM ('PENDING', 'ACCEPTED', 'EXPIRED')")
     
-    # Alter the status column to use the enum type
     op.execute("ALTER TABLE invites ALTER COLUMN status TYPE invitestatus USING status::invitestatus")
 
 
 def downgrade() -> None:
-    # Revert the status column back to varchar
     op.execute("ALTER TABLE invites ALTER COLUMN status TYPE character varying USING status::character varying")
     
-    # Drop the enum type
     op.execute("DROP TYPE invitestatus")

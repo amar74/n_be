@@ -16,10 +16,10 @@ from typing import List, Optional
 from uuid import UUID
 
 from app.db.session import get_request_transaction
+from app.services.health_score import health_score_service
 
 async def create_account(payload: AccountCreate, current_user: User) -> Account:
-    """Create a new account with primary contact and optional secondary contacts"""
-    # Guard clauses
+
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
         raise MegapolisHTTPException(
@@ -28,7 +28,6 @@ async def create_account(payload: AccountCreate, current_user: User) -> Account:
     
     db = get_request_transaction()
     
-    # Validate no duplicate emails in the entire request
     all_emails = [payload.primary_contact.email.lower()]
     all_emails.extend([contact.email.lower() for contact in payload.secondary_contacts])
     
@@ -37,7 +36,6 @@ async def create_account(payload: AccountCreate, current_user: User) -> Account:
             status_code=400, message="Validation error", details="Duplicate email addresses found across contacts"
         )
     
-    # Check if any email already exists in the organization
     existing_contacts_stmt = select(Contact).where(
         Contact.org_id == current_user.org_id,
         Contact.email.in_(all_emails)
@@ -53,13 +51,15 @@ async def create_account(payload: AccountCreate, current_user: User) -> Account:
             details=f"Email addresses already exist in organization: {', '.join(existing_emails)}"
         )
     
-    # Create address
     address = Address(**payload.client_address.model_dump())
     db.add(address)
     await db.flush()  # Get address ID
     
-    # Create account
+    from app.services.id_generator import IDGenerator
+    custom_id = await IDGenerator.generate_account_id(db)
+    
     account = Account(
+        custom_id=custom_id,
         company_website=str(payload.company_website) if payload.company_website else None,
         client_name=payload.client_name,
         client_type=payload.client_type,
@@ -70,7 +70,6 @@ async def create_account(payload: AccountCreate, current_user: User) -> Account:
     db.add(account)
     await db.flush()  # Get account ID
     
-    # Create primary contact
     primary_contact = Contact(
         account_id=account.account_id,
         org_id=current_user.org_id,
@@ -79,10 +78,8 @@ async def create_account(payload: AccountCreate, current_user: User) -> Account:
     db.add(primary_contact)
     await db.flush()  # Get primary contact ID
     
-    # Set primary contact reference
     account.primary_contact_id = primary_contact.id
     
-    # Create secondary contacts
     secondary_contacts = []
     for contact_data in payload.secondary_contacts:
         contact = Contact(
@@ -99,9 +96,8 @@ async def create_account(payload: AccountCreate, current_user: User) -> Account:
     logger.info(f"Created account {account.account_id} with {len(payload.secondary_contacts) + 1} contacts")
     return account
 
-async def list_accounts(q: Optional[str], tier: Optional[str], limit: int, offset: int, current_user: User) -> List[Account]:
-    """List accounts with filters, ensuring user belongs to organization"""
-    # Guard clauses
+async def list_accounts(q: Optional[str], tier: Optional[str], limit: int, offset: int, current_user: User) -> tuple[List[Account], int]:
+
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
         raise MegapolisHTTPException(
@@ -110,7 +106,6 @@ async def list_accounts(q: Optional[str], tier: Optional[str], limit: int, offse
     
     db = get_request_transaction()
     
-    # Base loader options
     loader_options = (
         selectinload(Account.client_address),
         selectinload(Account.primary_contact),
@@ -118,11 +113,7 @@ async def list_accounts(q: Optional[str], tier: Optional[str], limit: int, offse
     )
 
     if q:
-        # Build per-field search vectors and ranks with weights in priority order:
-        # Name (A), Emails (primary) (B), Website (C), Address line1 (D)
         ts_cfg = 'public.english_unaccent'
-        # Build a prefix tsquery to support partial token matches (e.g., "Jai Nara" -> 'Jai:* & Nara:*')
-        # Use plainto_tsquery for normal ranking, and a manual prefix query for broader matches
         ts_query = func.plainto_tsquery(ts_cfg, q)
         tokens = [t for t in q.strip().split() if t]
         prefix_query_text = ' & '.join([f"{t}:*" for t in tokens]) if tokens else ''
@@ -140,7 +131,6 @@ async def list_accounts(q: Optional[str], tier: Optional[str], limit: int, offse
         address_vec = func.to_tsvector(ts_cfg, func.coalesce(Address.line1, '')).label('address_vec')
         address_rank = func.ts_rank_cd(address_vec, ts_query, 8).label('address_rank')
 
-        # Weighted score: prioritize name > email > website > address
         weighted_score = (
             (name_rank * 4.0)
             + (email_rank * 3.0)
@@ -167,7 +157,6 @@ async def list_accounts(q: Optional[str], tier: Optional[str], limit: int, offse
         if tier:
             stmt = stmt.where(Account.client_type == tier)
 
-        # Add small boosts for ILIKE prefix matches as a fallback for very short tokens
         name_like = Account.client_name.ilike(f"%{q}%")
         email_like = Contact.email.ilike(f"%{q}%")
         website_like = Account.company_website.ilike(f"%{q}%")
@@ -181,11 +170,40 @@ async def list_accounts(q: Optional[str], tier: Optional[str], limit: int, offse
         )
         final_score = (weighted_score + fallback_boost).label('final_score')
 
+        count_stmt = (
+            select(func.count(Account.account_id.distinct()))
+            .join(Contact, Account.primary_contact_id == Contact.id, isouter=True)
+            .join(Address, Account.client_address_id == Address.id, isouter=True)
+            .where(Account.org_id == current_user.org_id)
+            .where(
+                or_(
+                    name_vec.op('@@')(ts_query_prefix),
+                    email_vec.op('@@')(ts_query_prefix),
+                    website_vec.op('@@')(ts_query_prefix),
+                    address_vec.op('@@')(ts_query_prefix),
+                )
+            )
+        )
+        if tier:
+            count_stmt = count_stmt.where(Account.client_type == tier)
+        
+        count_result = await db.execute(count_stmt)
+        total_count = count_result.scalar() or 0
+
         stmt = stmt.order_by(desc(final_score), Account.created_at.desc()).offset(offset).limit(limit)
         result = await db.execute(stmt)
         accounts = result.scalars().all()
     else:
-        # Default non-search listing
+        count_stmt = (
+            select(func.count(Account.account_id))
+            .where(Account.org_id == current_user.org_id)
+        )
+        if tier:
+            count_stmt = count_stmt.where(Account.client_type == tier)
+        
+        count_result = await db.execute(count_stmt)
+        total_count = count_result.scalar() or 0
+
         stmt = (
             select(Account)
             .options(*loader_options)
@@ -197,12 +215,11 @@ async def list_accounts(q: Optional[str], tier: Optional[str], limit: int, offse
         result = await db.execute(stmt)
         accounts = result.scalars().all()
     
-    logger.info(f"Retrieved {len(accounts)} accounts for organization {current_user.org_id}")
-    return list(accounts)
+    logger.info(f"Retrieved {len(accounts)} accounts out of {total_count} total for organization {current_user.org_id}")
+    return list(accounts), total_count
 
 async def get_account(account_id: UUID, current_user: User) -> Optional[Account]:
-    """Get account details with all contacts, ensuring user has access"""
-    # Guard clauses
+
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
         raise MegapolisHTTPException(
@@ -230,11 +247,67 @@ async def get_account(account_id: UUID, current_user: User) -> Optional[Account]
         )
     
     logger.info(f"Retrieved account {account_id} for user {current_user.id}")
+    
+    try:
+        if not account.ai_health_score or not account.last_ai_analysis:
+            logger.info(f"Calculating health score for account {account_id}")
+            health_data = await health_score_service.update_account_health_score(
+                str(account_id), str(current_user.org_id)
+            )
+            logger.info(f"Updated health score for account {account_id}: {health_data['health_score']}%")
+        else:
+            logger.info(f"Account {account_id} already has health score: {account.ai_health_score}%")
+    except Exception as e:
+        logger.error(f"Error calculating health score for account {account_id}: {e}")
+    
+    return account
+
+async def get_account_by_custom_id(custom_id: str, current_user: User) -> Optional[Account]:
+
+    if not current_user.org_id:
+        logger.error(f"User {current_user.id} is not associated with any organization")
+        raise MegapolisHTTPException(
+            status_code=403, message="Access denied", details="User must be associated with an organization to view accounts"
+        )
+    
+    db = get_request_transaction()
+    
+    stmt = select(Account).options(
+        selectinload(Account.client_address),
+        selectinload(Account.primary_contact),
+        selectinload(Account.contacts)
+    ).where(
+        Account.custom_id == custom_id,
+        Account.org_id == current_user.org_id
+    )
+    
+    result = await db.execute(stmt)
+    account = result.scalar_one_or_none()
+    
+    if not account:
+        logger.warning(f"Account with custom ID {custom_id} not found or not accessible by user {current_user.id}")
+        raise MegapolisHTTPException(
+            status_code=404, message="Not found", details="Account not found or access denied"
+        )
+    
+    logger.info(f"Retrieved account with custom ID {custom_id} for user {current_user.id}")
+    
+    try:
+        if not account.ai_health_score or not account.last_ai_analysis:
+            logger.info(f"Calculating health score for account {custom_id}")
+            health_data = await health_score_service.update_account_health_score(
+                str(account.account_id), str(current_user.org_id)
+            )
+            logger.info(f"Updated health score for account {custom_id}: {health_data['health_score']}%")
+        else:
+            logger.info(f"Account {custom_id} already has health score: {account.ai_health_score}%")
+    except Exception as e:
+        logger.error(f"Error calculating health score for account {custom_id}: {e}")
+    
     return account
 
 async def update_account(account_id: UUID, payload: AccountUpdate, current_user: User) -> Account:
-    """Update account details with validations"""
-    # Guard clauses
+
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
         raise MegapolisHTTPException(
@@ -243,7 +316,6 @@ async def update_account(account_id: UUID, payload: AccountUpdate, current_user:
     
     db = get_request_transaction()
     
-    # Get account
     stmt = select(Account).options(
         selectinload(Account.client_address),
         selectinload(Account.primary_contact),
@@ -261,30 +333,32 @@ async def update_account(account_id: UUID, payload: AccountUpdate, current_user:
             status_code=404, message="Not found", details="Account not found or access denied"
         )
     
-    # Update basic fields
+    logger.info(f"🔍 Received update payload: {payload.model_dump(exclude_unset=True)}")
+    
     update_data = payload.model_dump(exclude_unset=True, exclude={'client_address', 'primary_contact'})
+    logger.info(f"🔍 Fields to update (excluding address/contact): {update_data}")
     for field, value in update_data.items():
         if field == 'company_website' and value:
             setattr(account, field, str(value))
         else:
             setattr(account, field, value)
     
-    # Update address if provided
     if payload.client_address:
+        logger.info(f"🔍 Address data received: {payload.client_address.model_dump()}")
         if account.client_address:
-            # Update existing address
-            for field, value in payload.client_address.model_dump().items():
+            address_data = payload.client_address.model_dump()
+            logger.info(f"🔍 Updating existing address with: {address_data}")
+            for field, value in address_data.items():
                 setattr(account.client_address, field, value)
+                logger.info(f"🔍 Set address.{field} = {value}")
         else:
-            # Create new address
             new_address = Address(**payload.client_address.model_dump())
             db.add(new_address)
             await db.flush()
             account.client_address_id = new_address.id
+            logger.info(f"🔍 Created new address with ID: {new_address.id}")
     
-    # Update primary contact if provided
     if payload.primary_contact:
-        # Validate email uniqueness (excluding current primary contact)
         email_check_stmt = select(Contact).where(
             Contact.org_id == current_user.org_id,
             Contact.email == payload.primary_contact.email.lower(),
@@ -301,11 +375,9 @@ async def update_account(account_id: UUID, payload: AccountUpdate, current_user:
             )
         
         if account.primary_contact:
-            # Update existing primary contact
             for field, value in payload.primary_contact.model_dump().items():
                 setattr(account.primary_contact, field, value)
         else:
-            # Create new primary contact
             new_primary_contact = Contact(
                 account_id=account.account_id,
                 org_id=current_user.org_id,
@@ -322,8 +394,7 @@ async def update_account(account_id: UUID, payload: AccountUpdate, current_user:
     return account
 
 async def delete_account(account_id: UUID, current_user: User) -> None:
-    """Delete account and all associated contacts and address using ORM cascades"""
-    # Guard clauses
+
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
         raise MegapolisHTTPException(
@@ -332,7 +403,6 @@ async def delete_account(account_id: UUID, current_user: User) -> None:
     
     db = get_request_transaction()
     
-    # Get account with relationships to handle cascade properly
     stmt = select(Account).options(
         selectinload(Account.contacts),
         selectinload(Account.client_address)
@@ -349,26 +419,19 @@ async def delete_account(account_id: UUID, current_user: User) -> None:
             status_code=404, message="Not found", details="Account not found or access denied"
         )
     
-    # Break circular reference by clearing primary_contact_id before deletion
-    # This allows the ORM cascade to work properly
     if account.primary_contact_id:
         account.primary_contact_id = None
         await db.flush()
     
-    # Delete the address if it exists (must be done before account deletion)
     if account.client_address:
         await db.delete(account.client_address)
         logger.info(f"Deleted address for account {account_id}")
     
-    # Now delete the account - contacts will be deleted automatically via cascade
     await db.delete(account)
     logger.info(f"Deleted account {account_id} and all associated contacts via ORM cascade")
-    
-    # Transaction will be automatically committed by the transaction middleware
 
 async def add_secondary_contact(account_id: UUID, payload: ContactAddRequest, current_user: User) -> Contact:
-    """Add a new secondary contact to an account"""
-    # Guard clauses
+
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
         raise MegapolisHTTPException(
@@ -377,7 +440,6 @@ async def add_secondary_contact(account_id: UUID, payload: ContactAddRequest, cu
     
     db = get_request_transaction()
     
-    # Verify account exists and belongs to user's organization
     account_stmt = select(Account).options(
         selectinload(Account.contacts),
         selectinload(Account.primary_contact)
@@ -394,14 +456,12 @@ async def add_secondary_contact(account_id: UUID, payload: ContactAddRequest, cu
             status_code=404, message="Not found", details="Account not found or access denied"
         )
     
-    # Check contact limit (10 secondary contacts max)
     secondary_contacts_count = len([c for c in account.contacts if c.id != account.primary_contact_id])
     if secondary_contacts_count >= 10:
         raise MegapolisHTTPException(
             status_code=400, message="Validation error", details="Maximum 10 secondary contacts allowed per account"
         )
     
-    # Validate email uniqueness within organization
     email_check_stmt = select(Contact).where(
         Contact.org_id == current_user.org_id,
         Contact.email == payload.contact.email.lower()
@@ -416,7 +476,6 @@ async def add_secondary_contact(account_id: UUID, payload: ContactAddRequest, cu
             details=f"Email address already exists in organization: {payload.contact.email}"
         )
     
-    # Create secondary contact
     contact = Contact(
         account_id=account_id,
         org_id=current_user.org_id,
@@ -430,8 +489,7 @@ async def add_secondary_contact(account_id: UUID, payload: ContactAddRequest, cu
     return contact
 
 async def get_account_contacts(account_id: UUID, current_user: User) -> List[Contact]:
-    """Get all contacts for a specific account, separated by primary and secondary"""
-    # Guard clauses
+
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
         raise MegapolisHTTPException(
@@ -440,7 +498,6 @@ async def get_account_contacts(account_id: UUID, current_user: User) -> List[Con
     
     db = get_request_transaction()
     
-    # Verify account exists and belongs to user's organization
     account_stmt = select(Account).where(
         Account.account_id == account_id,
         Account.org_id == current_user.org_id
@@ -454,7 +511,6 @@ async def get_account_contacts(account_id: UUID, current_user: User) -> List[Con
             status_code=404, message="Not found", details="Account not found or access denied"
         )
     
-    # Get all contacts
     stmt = select(Contact).where(Contact.account_id == account_id)
     result = await db.execute(stmt)
     contacts = result.scalars().all()
@@ -463,8 +519,7 @@ async def get_account_contacts(account_id: UUID, current_user: User) -> List[Con
     return list(contacts)
 
 async def update_contact(account_id: UUID, contact_id: UUID, payload: ContactUpdateRequest, current_user: User) -> Contact:
-    """Update a specific contact for an account"""
-    # Guard clauses
+
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
         raise MegapolisHTTPException(
@@ -473,7 +528,6 @@ async def update_contact(account_id: UUID, contact_id: UUID, payload: ContactUpd
     
     db = get_request_transaction()
     
-    # Verify account exists and belongs to user's organization
     account_stmt = select(Account).where(
         Account.account_id == account_id,
         Account.org_id == current_user.org_id
@@ -487,7 +541,6 @@ async def update_contact(account_id: UUID, contact_id: UUID, payload: ContactUpd
             status_code=404, message="Not found", details="Account not found or access denied"
         )
     
-    # Get contact
     contact_stmt = select(Contact).where(
         Contact.id == contact_id,
         Contact.account_id == account_id
@@ -500,7 +553,6 @@ async def update_contact(account_id: UUID, contact_id: UUID, payload: ContactUpd
             status_code=404, message="Not found", details="Contact not found"
         )
     
-    # If email is being updated, validate uniqueness
     if payload.email and payload.email.lower() != contact.email.lower():
         email_check_stmt = select(Contact).where(
             Contact.org_id == current_user.org_id,
@@ -517,7 +569,6 @@ async def update_contact(account_id: UUID, contact_id: UUID, payload: ContactUpd
                 details=f"Email address already exists in organization: {payload.email}"
             )
     
-    # Update contact fields
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(contact, field, value)
@@ -529,8 +580,7 @@ async def update_contact(account_id: UUID, contact_id: UUID, payload: ContactUpd
     return contact
 
 async def delete_contact(account_id: UUID, contact_id: UUID, current_user: User) -> None:
-    """Delete a specific contact from an account"""
-    # Guard clauses
+
     if not current_user.org_id:
         logger.error(f"User {current_user.id} is not associated with any organization")
         raise MegapolisHTTPException(
@@ -539,7 +589,6 @@ async def delete_contact(account_id: UUID, contact_id: UUID, current_user: User)
     
     db = get_request_transaction()
     
-    # Verify account exists and belongs to user's organization
     account_stmt = select(Account).where(
         Account.account_id == account_id,
         Account.org_id == current_user.org_id
@@ -553,7 +602,6 @@ async def delete_contact(account_id: UUID, contact_id: UUID, current_user: User)
             status_code=404, message="Not found", details="Account not found or access denied"
         )
     
-    # Get contact
     contact_stmt = select(Contact).where(
         Contact.id == contact_id,
         Contact.account_id == account_id
@@ -566,10 +614,9 @@ async def delete_contact(account_id: UUID, contact_id: UUID, current_user: User)
             status_code=404, message="Not found", details="Contact not found"
         )
     
-    # Prevent deletion of primary contact
     if contact.id == account.primary_contact_id:
         raise MegapolisHTTPException(
-            status_code=400, message="Validation error", details="Cannot delete primary contact. Update primary contact."
+            status_code=400, message="Validation error", details="cant delete primary contact. Update primary contact."
         )
     
     await db.delete(contact)

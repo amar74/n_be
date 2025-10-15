@@ -10,7 +10,6 @@ from app.db.session import get_request_transaction
 if TYPE_CHECKING:
     from app.models.user import User
 
-
 class UserPermission(Base):
     __tablename__ = "user_permissions"
 
@@ -40,11 +39,10 @@ class UserPermission(Base):
         default=list
     )
 
-    # Relationships
     user: Mapped["User"] = relationship("User", foreign_keys=[userid])
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert UserPermission model to dictionary for API responses"""
+
         return {
             "userid": self.userid,
             "accounts": self.accounts,
@@ -60,7 +58,7 @@ class UserPermission(Base):
         opportunities: List[str] = None, 
         proposals: List[str] = None
     ) -> "UserPermission":
-        """Create a new user permission"""
+
         db = get_request_transaction()
         user_permission = cls(
             userid=userid,
@@ -75,7 +73,7 @@ class UserPermission(Base):
 
     @classmethod
     async def get_by_userid(cls, userid: uuid.UUID) -> Optional["UserPermission"]:
-        """Get user permission by user ID"""
+
         db = get_request_transaction()
         result = await db.execute(select(cls).where(cls.userid == userid))
         return result.scalar_one_or_none()
@@ -88,7 +86,7 @@ class UserPermission(Base):
         opportunities: List[str] = None, 
         proposals: List[str] = None
     ) -> Optional["UserPermission"]:
-        """Update user permission by user ID"""
+
         db = get_request_transaction()
         result = await db.execute(select(cls).where(cls.userid == userid))
         user_permission = result.scalar_one_or_none()
@@ -108,7 +106,7 @@ class UserPermission(Base):
 
     @classmethod
     async def delete_by_userid(cls, userid: uuid.UUID) -> bool:
-        """Delete user permission by user ID"""
+
         db = get_request_transaction()
         result = await db.execute(select(cls).where(cls.userid == userid))
         user_permission = result.scalar_one_or_none()
@@ -122,7 +120,7 @@ class UserPermission(Base):
 
     @classmethod
     async def get_all(cls, skip: int = 0, limit: int = 100) -> List["UserPermission"]:
-        """Get all user permissions with pagination"""
+
         db = get_request_transaction()
         result = await db.execute(select(cls).offset(skip).limit(limit))
         return list(result.scalars().all())

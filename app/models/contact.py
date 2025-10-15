@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from app.models.account import Account
     from app.models.organization import Organization
 
-
 class Contact(Base):
     __tablename__ = "contacts"
 
@@ -39,7 +38,6 @@ class Contact(Base):
     phone: Mapped[Optional[str]] = mapped_column(String(50))
     title: Mapped[Optional[str]] = mapped_column(String(100))
 
-    # Relationships
     account: Mapped[Optional["Account"]] = relationship(
         "Account", 
         back_populates="contacts", 
@@ -52,7 +50,7 @@ class Contact(Base):
 
     @classmethod
     async def create(cls, **kwargs) -> "Contact":
-        """Create a new contact"""
+
         db = get_request_transaction()
         contact = cls(**kwargs)
         db.add(contact)
@@ -62,7 +60,7 @@ class Contact(Base):
 
     @classmethod
     async def get_by_id(cls, contact_id: uuid.UUID) -> Optional["Contact"]:
-        """Get contact by ID"""
+
         db = get_request_transaction()
         stmt = select(cls).where(cls.id == contact_id)
         result = await db.execute(stmt)
@@ -70,7 +68,7 @@ class Contact(Base):
 
     @classmethod
     async def get_by_email(cls, email: str, org_id: uuid.UUID) -> Optional["Contact"]:
-        """Get contact by email within organization"""
+
         db = get_request_transaction()
         stmt = select(cls).where(
             cls.email == email.lower(),
@@ -81,14 +79,14 @@ class Contact(Base):
 
     @classmethod
     async def get_contacts_for_account(cls, account_id: uuid.UUID) -> List["Contact"]:
-        """Get all contacts for an account"""
+
         db = get_request_transaction()
         stmt = select(cls).where(cls.account_id == account_id)
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert Contact model to dictionary for API responses"""
+
         return {
             "contact_id": self.id,
             "name": self.name,

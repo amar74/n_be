@@ -19,11 +19,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Enable useful extensions (no-op if already present)
     op.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
-    # Create a text search configuration that applies unaccent before stemming
     op.execute(
         """
         DO $$
@@ -39,7 +37,6 @@ def upgrade() -> None:
         """
     )
 
-    # Per-field FTS GIN indexes using english_unaccent
     op.execute(
         "CREATE INDEX IF NOT EXISTS ix_accounts_name_fts ON accounts USING gin (to_tsvector('public.english_unaccent', coalesce(client_name,'')))"
     )
@@ -55,16 +52,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Drop indexes
     op.execute("DROP INDEX IF EXISTS ix_accounts_name_fts")
     op.execute("DROP INDEX IF EXISTS ix_accounts_website_fts")
     op.execute("DROP INDEX IF EXISTS ix_contacts_email_fts")
     op.execute("DROP INDEX IF EXISTS ix_address_line1_fts")
 
-    # Drop the custom text search configuration
     op.execute("DROP TEXT SEARCH CONFIGURATION IF EXISTS public.english_unaccent")
 
-    # Optionally drop extensions (safe if unused). Comment out if you prefer to keep them.
     op.execute("DROP EXTENSION IF EXISTS pg_trgm")
     op.execute("DROP EXTENSION IF EXISTS unaccent")
 

@@ -18,12 +18,10 @@ from app.db.session import get_request_transaction
 from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
 
-
 def _normalize_datetime(dt: datetime) -> datetime:
     if dt.tzinfo is not None:
         return dt.replace(tzinfo=None)
     return dt
-
 
 async def _ensure_account_in_org(account_id: uuid.UUID, user: User) -> Account:
     if not user.org_id:
@@ -35,7 +33,6 @@ async def _ensure_account_in_org(account_id: uuid.UUID, user: User) -> Account:
     if not account:
         raise MegapolisHTTPException(status_code=404, message="Not found", details="Account not found or access denied")
     return account
-
 
 async def create_account_note(account_id: uuid.UUID, payload: AccountNoteCreateRequest, user: User) -> AccountNoteResponse:
     await _ensure_account_in_org(account_id, user)
@@ -51,7 +48,6 @@ async def create_account_note(account_id: uuid.UUID, payload: AccountNoteCreateR
     await db.refresh(note)
     logger.info(f"Created account note {note.id} for account {account_id}")
     return AccountNoteResponse.model_validate(note)
-
 
 async def list_account_notes(account_id: uuid.UUID, user: User, page: int = 1, limit: int = 10) -> AccountNoteListResponse:
     await _ensure_account_in_org(account_id, user)
@@ -85,7 +81,6 @@ async def list_account_notes(account_id: uuid.UUID, user: User, page: int = 1, l
         has_prev=has_prev,
     )
 
-
 async def get_account_note(account_id: uuid.UUID, note_id: uuid.UUID, user: User) -> AccountNoteResponse:
     await _ensure_account_in_org(account_id, user)
     db = get_request_transaction()
@@ -95,7 +90,6 @@ async def get_account_note(account_id: uuid.UUID, note_id: uuid.UUID, user: User
     if not note:
         raise MegapolisHTTPException(status_code=404, message="Not found", details="Note not found")
     return AccountNoteResponse.model_validate(note)
-
 
 async def update_account_note(account_id: uuid.UUID, note_id: uuid.UUID, payload: AccountNoteUpdateRequest, user: User) -> AccountNoteResponse:
     await _ensure_account_in_org(account_id, user)
@@ -116,7 +110,6 @@ async def update_account_note(account_id: uuid.UUID, note_id: uuid.UUID, payload
     await db.refresh(note)
     return AccountNoteResponse.model_validate(note)
 
-
 async def delete_account_note(account_id: uuid.UUID, note_id: uuid.UUID, user: User) -> AccountNoteDeleteResponse:
     await _ensure_account_in_org(account_id, user)
     db = get_request_transaction()
@@ -127,5 +120,4 @@ async def delete_account_note(account_id: uuid.UUID, note_id: uuid.UUID, user: U
         raise MegapolisHTTPException(status_code=404, message="Not found", details="Note not found")
     await db.delete(note)
     return AccountNoteDeleteResponse(id=note_id, message="Note deleted successfully")
-
 

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Body
 from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
-from typing import List
+from typing import List, Dict, Any, Optional
 from app.schemas.organization import (
     OrgCreateRequest,
     OrgCreateResponse,
@@ -37,7 +37,6 @@ from app.dependencies.permissions import require_role
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
-
 @router.post(
     "/create",
     status_code=201,
@@ -48,53 +47,205 @@ async def create_org(
     request: OrgCreateRequest,
     current_user: User = Depends(get_current_user),
 ) -> OrgCreatedResponse:
-    """Create a new organization"""
-    logger.info(f"Creating new organization : {request.name}")
+    
+        org = await create_organization(current_user, request)
 
-    org = await create_organization(current_user, request)
-
-    logger.info(f"Organization created successfully with ID {org.id}")
-    return OrgCreatedResponse(
+        return OrgCreatedResponse(
         message="Organization created success",
         org=OrgCreateResponse.model_validate(org),
     )
 
-
 @router.get("/me", status_code=200, response_model=OrgResponse, operation_id="me")
 async def get_my_org(current_user: User = Depends(get_current_user)) -> OrgResponse:
-    """Get the organization of the current user"""
 
-    logger.info(f"Fetching organization for user ID ")
+    if not current_user.org_id:
+        raise MegapolisHTTPException(
+            status_code=404, 
+            details="User does not belong to any organization"
+        )
 
     org = await get_organization_by_id(current_user.org_id)
+    
+    total_fields = 0
+    completed_fields = 0
+    
+    total_fields += 1
+    if org.name:
+        completed_fields += 1
+    
+    total_fields += 5
+    if org.address:
+        if org.address.line1:
+            completed_fields += 1
+        if org.address.line2:
+            completed_fields += 1
+        if org.address.city:
+            completed_fields += 1
+        if org.address.state:
+            completed_fields += 1
+        if org.address.pincode:
+            completed_fields += 1
+    
+    total_fields += 1
+    if org.website:
+        completed_fields += 1
+    
+    total_fields += 2
+    if org.contact:
+        if org.contact.email:
+            completed_fields += 1
+        if org.contact.phone:
+            completed_fields += 1
+    
+    profile_completion = int((completed_fields / total_fields) * 100) if total_fields > 0 else 0
+    
+    response = OrgResponse.model_validate(org)
+    response.profile_completion = profile_completion
+    
+    return response
 
-    return OrgResponse.model_validate(org)
-
-
-
-@router.put(
-    "/update/{org_id}",
-    status_code=200,
-    response_model=OrgUpdateResponse,
-    operation_id="updateOrg",
-)
-async def update_org(
+@router.get("/{org_id}", status_code=200, response_model=OrgResponse, operation_id="getOrgById")
+async def get_org_by_id(
     org_id: UUID,
-    request: OrgUpdateRequest,
-    current_user: User = Depends(require_role([Roles.ADMIN])),
-) -> OrgUpdateResponse:
-    """Update an existing organization"""
-    if current_user.org_id != org_id:
-        raise MegapolisHTTPException(status_code=403, details="You are not authorized to update this organization")
-    logger.info(f"Updating organization with ID: {org_id}")
-    org = await update_organization(org_id, request)
-    logger.info(f"Organization updated successfully: {org.name}")
+    current_user: User = Depends(get_current_user)
+) -> OrgResponse:
 
-    return OrgUpdateResponse(
-        message="Organization updated successfully",
-        org=OrgResponse.model_validate(org),
-    )
+    if current_user.role != Roles.SUPER_ADMIN and current_user.org_id != org_id:
+        raise MegapolisHTTPException(
+            status_code=403, 
+            details="You are not authorized to view this organization"
+        )
+    
+    org = await get_organization_by_id(org_id)
+    
+    total_fields = 0
+    completed_fields = 0
+    
+    total_fields += 1
+    if org.name:
+        completed_fields += 1
+    
+    total_fields += 5
+    if org.address:
+        if org.address.line1:
+            completed_fields += 1
+        if org.address.line2:
+            completed_fields += 1
+        if org.address.city:
+            completed_fields += 1
+        if org.address.state:
+            completed_fields += 1
+        if org.address.pincode:
+            completed_fields += 1
+    
+    total_fields += 1
+    if org.website:
+        completed_fields += 1
+    
+    total_fields += 2
+    if org.contact:
+        if org.contact.email:
+            completed_fields += 1
+        if org.contact.phone:
+            completed_fields += 1
+    
+    profile_completion = int((completed_fields / total_fields) * 100) if total_fields > 0 else 0
+    
+    response = OrgResponse.model_validate(org)
+    response.profile_completion = profile_completion
+    
+    return response
 
+@router.patch(
+    "/{org_id}",
+    status_code=200,
+    operation_id="patchOrganization",
+)
+async def patch_organization(
+    org_id: str,
+    data: Dict[str, Any] = Body(...),
+    current_user: User = Depends(require_role([Roles.VENDOR, Roles.ADMIN])),
+) -> Dict[str, Any]:
+    
+    from uuid import UUID
+    from app.db.session import get_transaction
+    from sqlalchemy import select, update
+    from sqlalchemy.orm import selectinload
+    from app.models.organization import Organization
+    from app.models.address import Address
+    from app.models.contact import Contact
+    
+    try:
+        org_uuid = UUID(org_id)
+    except ValueError:
+        raise MegapolisHTTPException(status_code=400, details="Invalid organization ID")
+    
+    if current_user.org_id != org_uuid:
+        raise MegapolisHTTPException(status_code=403, details="Not authorized")
+
+    async with get_transaction() as db:
+        result = await db.execute(
+            select(Organization)
+            .options(selectinload(Organization.address), selectinload(Organization.contact))
+            .where(Organization.id == org_uuid)
+        )
+        org = result.scalar_one_or_none()
+        
+        if not org:
+            raise MegapolisHTTPException(status_code=404, details="Organization not found")
+        
+        if 'name' in data:
+            org.name = data['name']
+        if 'website' in data:
+            org.website = data['website']
+        
+        if 'address' in data and org.address:
+            addr = data['address']
+            if 'line1' in addr:
+                org.address.line1 = addr['line1']
+            if 'line2' in addr:
+                org.address.line2 = addr['line2']
+            if 'city' in addr:
+                org.address.city = addr['city']
+            if 'state' in addr:
+                org.address.state = addr['state']
+            if 'pincode' in addr:
+                org.address.pincode = addr['pincode']
+            
+            from sqlalchemy.orm import attributes
+            attributes.flag_modified(org, "address")
+        
+        if 'contact' in data and org.contact:
+            cont = data['contact']
+            if 'email' in cont:
+                org.contact.email = cont['email']
+            if 'phone' in cont:
+                org.contact.phone = cont['phone']
+            
+            from sqlalchemy.orm import attributes
+            attributes.flag_modified(org, "contact")
+        
+        await db.commit()
+        return {
+        "success": True,
+        "message": "Organization updated",
+        "org": {
+            "id": str(org.id),
+            "name": org.name,
+            "website": org.website,
+            "address": {
+                "line1": org.address.line1 if org.address else None,
+                "line2": org.address.line2 if org.address else None,
+                "city": org.address.city if org.address else None,
+                "state": org.address.state if org.address else None,
+                "pincode": org.address.pincode if org.address else None,
+            } if org.address else None,
+            "contact": {
+                "email": org.contact.email if org.contact else None,
+                "phone": org.contact.phone if org.contact else None,
+            } if org.contact else None,
+        }
+    }
 
 @router.get(
     "/members",
@@ -105,14 +256,11 @@ async def update_org(
 async def get_org_members(
     current_user: User = Depends(get_current_user),
 ) -> OrgMembersListResponse:
-    """Get all members of the current user's organization with their email and role"""
-    logger.info(f"Fetching organization members for user {current_user.id}")
     
     data = await get_organization_members(current_user)
     
     member_responses = []
     
-    # Add existing users with "Active" status
     for user in data.users:
         member_responses.append(
             OrgMemberResponse(
@@ -122,9 +270,7 @@ async def get_org_members(
             )
         )
     
-        # Only add invites that are PENDING (not accepted or expired)
     for invite in data.invites:
-        # Only add invites that are not accepted (since accepted invites become users)
         if invite.status == "PENDING":
             member_responses.append(
                 OrgMemberResponse(
@@ -139,7 +285,6 @@ async def get_org_members(
         total_count=len(member_responses)
     )
 
-
 @router.post(
     "/invite",
     status_code=201,
@@ -150,14 +295,10 @@ async def create_invite(
     request: InviteCreateRequest,
     current_user: User = Depends(require_role([Roles.ADMIN])),
 ) -> InviteResponse:
-    """Create an invite for a user to join the organization (Admin only)"""
-    logger.info(f"Admin {current_user.email} creating invite for {request.email}")
+    
+        invite = await create_user_invite(request, current_user)
 
-    invite = await create_user_invite(request, current_user)
-
-    logger.info(f"Invite created successfully for {request.email}")
-    return InviteResponse.model_validate(invite)
-
+        return InviteResponse.model_validate(invite)
 
 @router.post(
     "/invite/accept",
@@ -168,14 +309,11 @@ async def create_invite(
 async def accept_invite(
     request: AcceptInviteRequest,
 ) -> AcceptInviteResponse:
-    """Accept an invitation to join an organization"""
-    logger.info(f"Processing invite acceptance with token")
+    
+        result = await accept_user_invite(request.token)
 
-    result = await accept_user_invite(request.token)
-
-    logger.info(f"Invite accepted successfully for user {result.email}")
-    return AcceptInviteResponse(
-        message="Invite accepted successfully",
+        return AcceptInviteResponse(
+        message="Invite accepted",
         email=result.email,
         role=result.role,
         org_id=result.org_id,

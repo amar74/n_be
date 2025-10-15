@@ -12,20 +12,18 @@ from app.schemas.user import Roles
 
 router = APIRouter(prefix="/admin", tags=[Roles.ADMIN])
 
-
 @router.get("/user_list", response_model=AdminUserListResponse, operation_id="userList")
 async def admin_user_list(
     _: str = Depends(require_super_admin()),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
 ):
-    """Return total number of users and a paginated list of users."""
+    
     total, users = await list_users(skip=skip, limit=limit)
     return AdminUserListResponse(
         total_users=total,
         users=[AdminUser.model_validate(u) for u in users],
     )
-
 
 @router.post(
     "/create_new_user",
@@ -37,10 +35,14 @@ async def admin_create_new_user(
     payload: AdminCreateUserRequest,
     _: str = Depends(require_super_admin())
 ):
-    """Create a new user using Supabase SDK and mirror in local DB."""
-    user = await admin_create_user(payload.email, payload.password)
+    
+    user = await admin_create_user(
+        email=payload.email,
+        password=payload.password,
+        role=payload.role or Roles.VENDOR
+    )
     return AdminCreateUserResponse(
-        message="User created successfully",
+        message=f"User created successfully with role '{user.role}'",
         user=AuthUserResponse.model_validate(user),
     )
 

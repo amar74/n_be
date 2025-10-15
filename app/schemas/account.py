@@ -14,6 +14,7 @@ class AddressCreate(BaseModel):
     line1: str = Field(..., min_length=1, max_length=255, description="Address line 1 is required")
     line2: Optional[str] = Field(None, max_length=255, description="Optional address line 2")
     city: Optional[str] = Field(None, max_length=255, description="Optional city")
+    state: Optional[str] = Field(None, max_length=100, description="Optional state/province")
     pincode: Optional[int] = Field(None, ge=10000, le=999999, description="Valid 5 or 6-digit postal/pin code")
 
 class AddressResponse(AddressCreate):
@@ -32,13 +33,12 @@ class ContactCreate(BaseModel):
     def validate_email(cls, v: str) -> str:
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_pattern, v):
-            raise ValueError('Invalid email format')
+            raise ValueError('not valid email format')
         return v.lower().strip()
 
     @field_validator('phone')
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        # Remove all non-digit characters for validation
         phone_digits = re.sub(r'\D', '', v)
         if len(phone_digits) < 10 or len(phone_digits) > 15:
             raise ValueError('Phone number must be between 10-15 digits')
@@ -79,7 +79,6 @@ class AccountCreate(BaseModel):
         if len(v) > 10:
             raise ValueError('Maximum 10 secondary contacts allowed')
         
-        # Check for duplicate emails across all contacts
         emails = [contact.email.lower() for contact in v]
         if len(emails) != len(set(emails)):
             raise ValueError('Duplicate emails found in secondary contacts')
@@ -88,7 +87,6 @@ class AccountCreate(BaseModel):
 
     @model_validator(mode='after')
     def validate_all_contacts_unique(self) -> 'AccountCreate':
-        # Validate no duplicate emails between primary and secondary contacts
         if self.primary_contact and self.secondary_contacts:
             primary_email = self.primary_contact.email.lower()
             secondary_emails = [contact.email.lower() for contact in self.secondary_contacts]
@@ -100,6 +98,7 @@ class AccountCreate(BaseModel):
 
 class AccountListItem(BaseModel):
     account_id: UUID
+    custom_id: Optional[str] = None
     client_name: str
     client_address: Optional[AddressResponse] = None
     primary_contact_name: Optional[str] = None
@@ -108,6 +107,8 @@ class AccountListItem(BaseModel):
     market_sector: Optional[str] = None
     total_value: Optional[float] = None
     ai_health_score: Optional[float] = None
+    health_trend: Optional[str] = None  # "up", "down", "stable"
+    risk_level: Optional[str] = None  # "low", "medium", "high"
     last_contact: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
@@ -118,6 +119,7 @@ class AccountListResponse(BaseModel):
 
 class AccountDetailResponse(BaseModel):
     account_id: UUID
+    custom_id: Optional[str] = None
     company_website: Optional[str] = None
     client_name: str
     client_address: Optional[AddressResponse] = None
@@ -127,8 +129,19 @@ class AccountDetailResponse(BaseModel):
     market_sector: Optional[str] = None
     notes: Optional[str] = None
     total_value: Optional[float] = None
+    ai_health_score: Optional[float] = None
+    health_trend: Optional[str] = None  # "up", "down", "stable"
+    risk_level: Optional[str] = None  # "low", "medium", "high"
+    last_ai_analysis: Optional[datetime] = None
+    data_quality_score: Optional[float] = None
+    revenue_growth: Optional[float] = None
+    communication_frequency: Optional[float] = None
+    win_rate: Optional[float] = None
     opportunities: Optional[int] = None
     last_contact: Optional[datetime] = None
+    hosting_area: Optional[str] = None
+    account_approver: Optional[str] = None
+    approval_date: Optional[datetime] = None
     created_at: datetime  # has default in DB, should always be present
     updated_at: Optional[datetime] = None
 
@@ -142,6 +155,9 @@ class AccountUpdate(BaseModel):
     client_type: Optional[ClientType] = Field(None, description="Optional client tier update")
     market_sector: Optional[str] = Field(None, max_length=255, description="Optional market sector")
     notes: Optional[str] = Field(None, max_length=1024, description="Optional notes")
+    hosting_area: Optional[str] = Field(None, max_length=255, description="Optional hosting area")
+    account_approver: Optional[str] = Field(None, max_length=255, description="Optional account approver")
+    approval_date: Optional[datetime] = Field(None, description="Optional approval date and time")
 
     @field_validator('client_name')
     @classmethod
@@ -150,13 +166,12 @@ class AccountUpdate(BaseModel):
             return v.strip()
         return v
 
-# Separate schemas for contact management
 class ContactAddRequest(BaseModel):
-    """Request to add a new secondary contact to an account"""
+
     contact: ContactCreate = Field(..., description="Contact details to add")
 
 class ContactUpdateRequest(BaseModel):
-    """Request to update an existing contact"""
+
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Updated contact name")
     email: Optional[str] = Field(None, max_length=255, description="Updated email address")
     phone: Optional[str] = Field(None, min_length=10, max_length=15, description="Updated phone number")
@@ -176,7 +191,6 @@ class ContactUpdateRequest(BaseModel):
     @classmethod
     def validate_phone(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
-            # Remove all non-digit characters for validation
             phone_digits = re.sub(r'\D', '', v)
             if len(phone_digits) < 10 or len(phone_digits) > 15:
                 raise ValueError('Phone number must be between 10-15 digits')
@@ -190,37 +204,35 @@ class ContactUpdateRequest(BaseModel):
             return v.strip()
         return v
 
-# Response models for API endpoints
 class AccountCreateResponse(BaseModel):
-    """Response for account creation"""
+
     status_code: int = 201
     account_id: str
     message: str
 
 class AccountUpdateResponse(BaseModel):
-    """Response for account update"""
+
     status_code: int = 200
     account_id: str
     message: str
 
 class AccountDeleteResponse(BaseModel):
-    """Response for account deletion"""
+
     status_code: int = 200
     message: str
 
 class ContactCreateResponse(BaseModel):
-    """Response for contact creation"""
+
     status_code: int = 201
     contact_id: str
     message: str
 
 class ContactUpdateResponse(BaseModel):
-    """Response for contact update"""
+
     status_code: int = 200
     contact_id: str
     message: str
 
 class ContactDeleteResponse(BaseModel):
-    """Response for contact deletion"""
+
     status_code: int = 200
-    message: str

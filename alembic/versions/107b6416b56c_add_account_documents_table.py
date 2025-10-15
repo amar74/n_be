@@ -20,7 +20,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create account_documents table
     op.create_table(
         'account_documents',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),

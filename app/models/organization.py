@@ -19,12 +19,10 @@ if TYPE_CHECKING:
     from app.models.user import User
     from app.models.note import Note
 
-# Import these at runtime since they're used in queries
 from app.models.address import Address
 from app.models.contact import Contact
 from app.models.account import Account
 from app.models.user import User
-
 
 class Organization(Base):
     __tablename__ = "organizations"
@@ -36,6 +34,9 @@ class Organization(Base):
         unique=True,
         primary_key=True,
         index=True,
+    )
+    custom_id: Mapped[Optional[str]] = mapped_column(
+        String(20), unique=True, nullable=True, index=True
     )
 
     owner_id: Mapped[uuid.UUID] = mapped_column(
@@ -61,14 +62,13 @@ class Organization(Base):
     )
     formbricks_organization_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
-    # Relationships
     users: Mapped[List["User"]] = relationship("User", back_populates="organization", foreign_keys="User.org_id")
     accounts: Mapped[List["Account"]] = relationship("Account", back_populates="organization")
     address: Mapped[Optional["Address"]] = relationship("Address", foreign_keys="[Organization.address_id]")
     contact: Mapped[Optional["Contact"]] = relationship("Contact", foreign_keys="[Organization.contact_id]")
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert organizations model to dictionary for API responses"""
+
         return {
             "id": self.id,
             "owner_id": self.owner_id,
@@ -85,7 +85,6 @@ class Organization(Base):
         current_user: "User",
         request: OrgCreateRequest,
     ) -> "Organization":
-        """Create a new organization"""
 
         transaction = get_request_transaction()
 
@@ -101,18 +100,17 @@ class Organization(Base):
         transaction.add(org)
         await transaction.flush()  # org.id is available
 
-        # update the existing user
         db_user = await transaction.get(User, current_user.id)  # fetch ORM user
         if db_user:
             db_user.org_id = org.id
 
-        # Create address if provided
         if request.address:
             address = Address(
                 id=uuid.uuid4(),
                 line1=request.address.line1,
                 line2=request.address.line2,
                 city=request.address.city,
+                state=request.address.state,
                 pincode=request.address.pincode,
                 org_id=org.id,  # link to org
             )
@@ -120,7 +118,6 @@ class Organization(Base):
             await transaction.flush()
             org.address_id = address.id
 
-        # Create contact if provided
         if request.contact:
             contact = Contact(
                 id=uuid.uuid4(),
@@ -138,7 +135,7 @@ class Organization(Base):
 
     @classmethod
     async def get_by_id(cls, org_id: UUID) -> Optional["Organization"]:
-        """Get organization by ID"""
+
         async with get_transaction() as db:
             result = await db.execute(
                 select(cls)
@@ -158,7 +155,7 @@ class Organization(Base):
         org_id: UUID,
         request: OrgUpdateRequest,
     ) -> Optional["Organization"]:
-        """Update organization details"""
+
         async with get_transaction() as db:
             result = await db.execute(
                 select(cls)
@@ -170,47 +167,42 @@ class Organization(Base):
             )
             org = result.scalar_one_or_none()
 
-            # Update fields as necessary, e.g., org.name = new_name
             if not org:
                 return None
 
             if request.name is not None:
                 org.name = request.name
 
-            # Update address if provided
-            if request.address is not None:
-                result = await db.execute(
-                    select(Address).where(Address.org_id == org_id)
-                )
-                address = result.scalars().first()
-                if address:
-                    for field in ["line1", "line2", "city", "pincode"]:
-                        value = getattr(request.address, field, None)
-                        if value is not None:
-                            setattr(address, field, value)
-
-            # Update contact if provided
-            if request.contact is not None:
-                result = await db.execute(
-                    select(Contact).where(Contact.org_id == org_id)
-                )
-                contact = result.scalars().first()
-                if contact:
-                    for field in ["email", "phone"]:
-                        value = getattr(request.contact, field, None)
-                        if value is not None:
-                            setattr(contact, field, value)
-
             if request.website is not None:
                 org.website = request.website
 
+            if request.address is not None and org.address:
+                if request.address.line1 is not None:
+                    org.address.line1 = request.address.line1
+                if request.address.line2 is not None:
+                    org.address.line2 = request.address.line2
+                if request.address.city is not None:
+                    org.address.city = request.address.city
+                if request.address.state is not None:
+                    org.address.state = request.address.state
+                if request.address.pincode is not None:
+                    org.address.pincode = request.address.pincode
+
+            if request.contact is not None and org.contact:
+                if request.contact.email is not None:
+                    org.contact.email = request.contact.email
+                if request.contact.phone is not None:
+                    org.contact.phone = request.contact.phone
+
             await db.flush()
             await db.refresh(org)
+            
+            await db.commit()
             return org
 
     @classmethod
     async def add(cls, request: AddUserInOrgRequest) -> Optional["User"]:
-        """Add user to organization"""
+
         async with get_transaction() as db:
 
             new_user = User(
@@ -226,8 +218,7 @@ class Organization(Base):
 
     @classmethod
     async def delete(cls,user_id:UUID)->Optional["User"]:
-        """Delete User from organization"""
-        
+
         async with get_transaction() as db:
             
             result=await db.execute(select(User).where(User.id==user_id))            

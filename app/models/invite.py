@@ -13,13 +13,11 @@ from app.utils.error import MegapolisHTTPException
 import enum
 from app.schemas.user import Roles
 
-
 class InviteStatus(str, enum.Enum):
-    """Enum for invite status values"""
+
     PENDING = "PENDING"
     ACCEPTED = "ACCEPTED"
     EXPIRED = "EXPIRED"
-
 
 class Invite(Base):
     __tablename__ = "invites"
@@ -90,19 +88,16 @@ class Invite(Base):
 
     @classmethod
     async def accept_invite(cls, token: str) -> User:
-        """Accept an invitation using token"""
 
         async with get_transaction() as db:
-            # 1. Validate invite exists
             result = await db.execute(select(cls).where(cls.token == token))
             invite: Invite = result.scalar_one_or_none()
 
             if not invite:
                 raise MegapolisHTTPException(
-                    status_code=401, details="Invalid or expired invitation link"
+                    status_code=401, details="not valid or expired invitation link"
                 )
 
-            # 2. Check expiry & status
             if invite.expires_at < datetime.utcnow():
                 raise MegapolisHTTPException(
                     status_code=401, details="Invitation link has expired"
@@ -113,7 +108,6 @@ class Invite(Base):
                     status_code=200, details="Invitation already accepted"
                 )
 
-            # 3. Check if user already exists with email
             result = await db.execute(select(User).where(User.email == invite.email))
             existing_user = result.scalar_one_or_none()
 
@@ -122,7 +116,6 @@ class Invite(Base):
                     status_code=403, details="User already exists, please login"
                 )
             
-            # 4. Create the new user
             new_user = User(
                 id=uuid.uuid4(),
                 email=invite.email,
@@ -131,7 +124,6 @@ class Invite(Base):
             )
             db.add(new_user)
 
-            # 5. Mark invite as accepted (or delete it)
             await db.execute(select(cls).where(cls.id == invite.id))
             await db.execute(
                 update(cls).where(cls.id == invite.id).values(status=InviteStatus.ACCEPTED)
@@ -144,7 +136,7 @@ class Invite(Base):
 
     @classmethod
     async def get_org_invites(cls, org_id: uuid.UUID) -> list["Invite"]:
-        """Get all invites for an organization"""
+
         async with get_transaction() as db:
             result = await db.execute(
                 select(cls).where(cls.org_id == org_id)
@@ -153,7 +145,7 @@ class Invite(Base):
 
     @classmethod
     async def get_invite_by_email(cls, email: str) -> Optional["Invite"]:
-        """Get the most recent invite by email"""
+
         async with get_transaction() as db:
             result = await db.execute(
                 select(cls).where(
@@ -164,7 +156,7 @@ class Invite(Base):
 
     @classmethod
     async def get_pending_invite_by_email(cls, email: str) -> Optional["Invite"]:
-        """Get the most recent pending invite by email"""
+
         async with get_transaction() as db:
             result = await db.execute(
                 select(cls).where(
@@ -176,7 +168,7 @@ class Invite(Base):
 
     @classmethod
     async def expire_pending_invites_by_email(cls, email: str) -> None:
-        """Mark all pending invites for an email as expired"""
+
         async with get_transaction() as db:
             await db.execute(
                 update(cls).where(
@@ -187,7 +179,7 @@ class Invite(Base):
 
     @classmethod
     async def get_invite_by_token(cls, token: str) -> Optional["Invite"]:
-        """Get invite by token"""
+
         async with get_transaction() as db:
             result = await db.execute(
                 select(cls).where(cls.token == token)

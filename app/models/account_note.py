@@ -10,7 +10,6 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.account import Account
 
-
 class AccountNote(Base):
     __tablename__ = "account_notes"
 
@@ -21,16 +20,12 @@ class AccountNote(Base):
         UUID(as_uuid=True), ForeignKey("accounts.account_id", ondelete="CASCADE"), nullable=False, index=True
     )
 
-    # Required fields per request
     title: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
-    # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.now())
 
-    # Relationships
     account: Mapped["Account"] = relationship("Account", back_populates="account_notes")
-
 

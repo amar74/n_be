@@ -6,7 +6,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.db.session import AsyncSessionLocal, _bind_request_transaction, _reset_request_transaction
 from app.utils.logger import logger
 
-
 class RequestTransactionMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable[[Request], Response]) -> Response:
         session = AsyncSessionLocal()
@@ -28,5 +27,4 @@ class RequestTransactionMiddleware(BaseHTTPMiddleware):
             if token is not None:
                 _reset_request_transaction(token)
             await session.close()
-
 

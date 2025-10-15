@@ -23,8 +23,6 @@ class CreateOrganizationFormBricksResponse(BaseModel):
     model_config = {
         "from_attributes": True}
 
-
-
 class CreateUserInFormBricksResponse(BaseModel):
     id: str
     createdAt: str
@@ -38,7 +36,6 @@ class CreateUserInFormBricksResponse(BaseModel):
 
     model_config = {
         "from_attributes": True}
-
 
 class Environment(BaseModel):
     id: str
@@ -83,14 +80,11 @@ class CreateFormBricksProjectResponse(BaseModel):
     model_config = {
         "from_attributes": True}
 
-
 class FormbricksLoginTokenResponse(BaseModel):
     token: str
 
     model_config = {
         "from_attributes": True}
-
-
 
 class Survey(BaseModel):
     id: str
@@ -100,57 +94,31 @@ class Survey(BaseModel):
     name: str
 
 class SurveyListResponse(BaseModel):
-    """Client-friendly list shape used by our API.
-
-    - ListResponse: flattened array under a named key (e.g., surveys) that our
-      clients consume directly. It abstracts away upstream payload wrappers.
-    - ServerResponse (below): mirrors the upstream Formbricks payload, which
-      wraps results under a top-level `data` field. We keep both to avoid
-      leaking upstream shapes into our public API.
-    """
 
     surveys: List[Survey]
 
     model_config = {
         "from_attributes": True}
 
-
 class ServerResponse(BaseModel):
-    """Upstream Formbricks list response wrapper.
-
-    - ServerResponse: raw shape from Formbricks with top-level `data` array.
-    - ListResponse (see SurveyListResponse): normalized shape we return.
-    """
 
     data: List[dict]
 
     model_config = {
         "from_attributes": True}
 
-
 class SurveyCreateRequest(BaseModel):
-    """Payload to create a new Formbricks survey.
-
-    Only requires name; server applies defaults for other fields.
-    """
 
     name: str
 
     model_config = {
         "from_attributes": True}
 
-
 class SurveyLinkCreateRequest(BaseModel):
-    """Payload to generate a link for an existing survey.
-
-    Requires the recipient's email address. Survey id will come from the path.
-    """
 
     email: str
 
-
 class SurveyLinkResponse(BaseModel):
-    """Response containing only the generated survey link URL."""
 
     url: str
 

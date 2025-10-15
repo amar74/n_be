@@ -20,10 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-     # Drop old constraint
     op.drop_constraint("users_org_id_fkey", "users", type_="foreignkey")
 
-    # Add new with ON DELETE CASCADE
     op.create_foreign_key(
         "users_org_id_fkey",
         "users",
@@ -35,10 +33,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Drop the cascade constraint
     op.drop_constraint("users_org_id_fkey", "users", type_="foreignkey")
 
-    # Restore original behavior (no cascade)
     op.create_foreign_key(
         "users_org_id_fkey",
         "users",

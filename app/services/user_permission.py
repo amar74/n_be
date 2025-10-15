@@ -9,11 +9,10 @@ import uuid
 
 from app.db.session import get_request_transaction
 
-# Valid permission actions
 VALID_PERMISSIONS = {"view", "edit", "delete"}
 
 def validate_permissions(permissions: List[str], field_name: str) -> None:
-    """Validate that all permission strings are valid actions."""
+
     invalid_permissions = [p for p in permissions if p not in VALID_PERMISSIONS]
     if invalid_permissions:
         raise MegapolisHTTPException(
@@ -21,12 +20,10 @@ def validate_permissions(permissions: List[str], field_name: str) -> None:
             message=f"Invalid {field_name} permissions: {invalid_permissions}. Valid permissions are: {', '.join(VALID_PERMISSIONS)}"
         )
 
-
 async def create_user_permission(payload: UserPermissionCreateRequest, current_user: User) -> UserPermission:
-    """Create a new user permission"""
+
     db = get_request_transaction()
     
-    # Check if user permission already exists for this user
     existing_permission = await UserPermission.get_by_userid(payload.userid)
     if existing_permission:
         logger.warning(f"User permission already exists for user {payload.userid}")
@@ -35,12 +32,10 @@ async def create_user_permission(payload: UserPermissionCreateRequest, current_u
             message=f"User permission already exists for this user: {payload.userid}"
         )
     
-    # Validate permission strings
     validate_permissions(payload.accounts, "accounts")
     validate_permissions(payload.opportunities, "opportunities")
     validate_permissions(payload.proposals, "proposals")
     
-    # Verify the user exists
     user = await User.get_by_id(payload.userid)
     if not user:
         logger.warning(f"User {payload.userid} not found")
@@ -60,9 +55,8 @@ async def create_user_permission(payload: UserPermissionCreateRequest, current_u
     logger.info(f"Created user permission for user {payload.userid}")
     return user_permission
 
-
 async def get_user_permission(userid: uuid.UUID, current_user: User) -> UserPermission:
-    """Get user permission by user ID"""
+
     user_permission = await UserPermission.get_by_userid(userid)
     
     if not user_permission:
@@ -75,10 +69,8 @@ async def get_user_permission(userid: uuid.UUID, current_user: User) -> UserPerm
     logger.info(f"Retrieved user permission for user {userid}")
     return user_permission
 
-
 async def update_user_permission(userid: uuid.UUID, payload: UserPermissionUpdateRequest, current_user: User) -> UserPermission:
-    """Update user permission by user ID (upsert - create if doesn't exist)"""
-    # Validate permission strings if provided
+
     if payload.accounts is not None:
         validate_permissions(payload.accounts, "accounts")
     if payload.opportunities is not None:
@@ -86,11 +78,9 @@ async def update_user_permission(userid: uuid.UUID, payload: UserPermissionUpdat
     if payload.proposals is not None:
         validate_permissions(payload.proposals, "proposals")
     
-    # First, try to get existing permission
     existing_permission = await UserPermission.get_by_userid(userid)
     
     if existing_permission:
-        # Update existing permission
         user_permission = await UserPermission.update_by_userid(
             userid=userid,
             accounts=payload.accounts,
@@ -99,8 +89,6 @@ async def update_user_permission(userid: uuid.UUID, payload: UserPermissionUpdat
         )
         logger.info(f"Updated existing user permission for user {userid}")
     else:
-        # Create new permission if it doesn't exist
-        # Verify the user exists first
         user = await User.get_by_id(userid)
         if not user:
             logger.warning(f"User {userid} not found")
@@ -109,7 +97,6 @@ async def update_user_permission(userid: uuid.UUID, payload: UserPermissionUpdat
                 message=f"User with ID {userid} does not exist"
             )
         
-        # Create new permission with provided values or empty arrays
         user_permission = await UserPermission.create(
             userid=userid,
             accounts=payload.accounts or [],
@@ -120,9 +107,8 @@ async def update_user_permission(userid: uuid.UUID, payload: UserPermissionUpdat
     
     return user_permission
 
-
 async def delete_user_permission(userid: uuid.UUID, current_user: User) -> None:
-    """Delete user permission by user ID"""
+
     success = await UserPermission.delete_by_userid(userid)
     
     if not success:
@@ -134,17 +120,14 @@ async def delete_user_permission(userid: uuid.UUID, current_user: User) -> None:
     
     logger.info(f"Deleted user permission for user {userid}")
 
-
 async def list_user_permissions(current_user: User, skip: int = 0, limit: int = 100) -> UserWithPermissionsResponseModel:
-    """Get all users from current user's organization with their permissions (LEFT JOIN)"""
-    
+
     if not current_user.org_id:
         logger.warning(f"User {current_user.id} has no organization")
         return []
     
     db = get_request_transaction()
     
-    # Single query with LEFT JOIN to get users and their permissions efficiently
     query = (
         select(User, UserPermission)
         .outerjoin(UserPermission, User.id == UserPermission.userid)
@@ -156,7 +139,6 @@ async def list_user_permissions(current_user: User, skip: int = 0, limit: int = 
     result = await db.execute(query)
     rows = result.all()
     
-    # Build response with user data and permissions using proper schemas
     user_permissions_list = []
     for user, user_permission in rows:
         user_info = UserInfo(

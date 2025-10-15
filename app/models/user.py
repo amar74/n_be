@@ -11,7 +11,6 @@ from app.db.session import get_session, get_transaction
 if TYPE_CHECKING:
     from app.models.organization import Organization
 
-
 class User(Base):
     __tablename__ = "users"
 
@@ -32,12 +31,10 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(50), default=Roles.ADMIN, nullable=False)
     formbricks_user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
-    # Relationships
     organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="users", foreign_keys=[org_id])
 
-
     def to_dict(self) -> Dict[str, Any]:
-        """Convert User model to dictionary for API responses"""
+
         return {
             "id": self.id,
             "email": self.email,
@@ -47,7 +44,7 @@ class User(Base):
 
     @classmethod
     async def create(cls, email: str) -> "User":
-        """Create a new user"""
+
         async with get_transaction() as db:
             user = cls(
                 email=email,
@@ -61,34 +58,34 @@ class User(Base):
 
     @classmethod
     async def get_by_id(cls, user_id: int) -> Optional["User"]:
-        """Get user by ID"""
+
         async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.id == user_id))
             return result.scalar_one_or_none()
 
     @classmethod
     async def get_by_email(cls, email: str) -> Optional["User"]:
-        """Get user by email"""
+
         async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.email == email))
             return result.scalar_one_or_none()
 
     @classmethod
     async def get_all(cls, skip: int = 0, limit: int = 100) -> List["User"]:
-        """Get all users with pagination"""
+
         async with get_transaction() as db:
             result = await db.execute(select(cls).offset(skip).limit(limit))
             return list(result.scalars().all())
     @classmethod
     async def get_all_org_users(cls,org_id:uuid.UUID, skip: int = 0, limit: int = 100) -> List["User"]:
-        """Get all users with pagination"""
+
         async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.org_id == org_id).offset(skip).limit(limit))
             return list(result.scalars().all())
 
     @classmethod
     async def get_org_admin(cls, org_id: uuid.UUID) -> Optional["User"]:
-        """Get the admin user for a specific organization"""
+
         async with get_transaction() as db:
             result = await db.execute(
                 select(cls).where(cls.org_id == org_id, cls.role == Roles.ADMIN)

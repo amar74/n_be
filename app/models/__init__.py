@@ -7,3 +7,7 @@ from .organization import *
 from .user import *
 from .user_permission import *
 from .account_note import *
+from .account_document import *
+from .opportunity import *
+
+from .opportunity import *

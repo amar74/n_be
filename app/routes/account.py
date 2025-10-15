@@ -10,7 +10,7 @@ from app.schemas.account import (
     ContactCreateResponse, ContactUpdateResponse, ContactDeleteResponse
 )
 from app.services.account import (
-    create_account, list_accounts, get_account, update_account, delete_account, 
+    create_account, list_accounts, get_account, get_account_by_custom_id, update_account, delete_account, 
     add_secondary_contact, get_account_contacts, update_contact, delete_contact
 )
 from app.dependencies.user_auth import get_current_user
@@ -27,14 +27,12 @@ async def create_account_route(
     user: User = Depends(get_current_user),
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit"]}))
 ):
-    """Create a new account with primary contact and optional secondary contacts"""
-    logger.info(f"Create account request received for organization {user.org_id}")
-    account = await create_account(payload, user)
-    logger.info(f"Account created with ID: {account.account_id}")
-    return AccountCreateResponse(
+    
+        account = await create_account(payload, user)
+        return AccountCreateResponse(
         status_code=201,
         account_id=str(account.account_id),
-        message="Account created successfully"
+        message="Account created"
     )
 
 @router.get("/", response_model=AccountListResponse, operation_id="listAccounts")
@@ -44,20 +42,15 @@ async def list_accounts_route(
     search: Optional[str] = Query(None, description="Search term for account name"),
     tier: Optional[str] = Query(None, description="Filter by client tier"),
     user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
-    """List accounts with pagination and optional search"""
-    logger.info(f"List accounts request - page: {page}, size: {size}, search: {search}, tier: {tier}")
     
-    # Calculate offset from page and size
     offset = (page - 1) * size
     
-    accounts = await list_accounts(search, tier, size, offset, user)
-    logger.info(f"Retrieved {len(accounts)} accounts")
+    accounts, total_count = await list_accounts(search, tier, size, offset, user)
     
-    # Convert to AccountListItem objects
     account_items = []
     for account in accounts:
-        # Convert address to AddressResponse if exists
         address_response = None
         if account.client_address:
             address_response = AddressResponse(
@@ -82,39 +75,50 @@ async def list_accounts_route(
         )
         account_items.append(account_item)
     
+    total_pages = (total_count + size - 1) // size if total_count > 0 else 0
+    
     return AccountListResponse(
         accounts=account_items,
         pagination={
-            "total": len(account_items),
+            "total": total_count,
             "page": page,
             "size": size,
-            "has_next": len(account_items) == size,  # Simple estimation
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
             "has_prev": page > 1
         }
     )
 
 @router.get("/{account_id}", response_model=AccountDetailResponse, operation_id="getAccountById")
 async def get_account_by_id_route(
-    account_id: UUID = Path(..., description="Account ID"),
+    account_id: str = Path(..., description="Account ID (UUID or custom ID like AC-NY001)"),
     user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
-    """Get account details with all contacts (primary and secondary)"""
-    logger.info(f"Get account request for ID: {account_id}")
-    account = await get_account(account_id, user)
-    logger.info(f"Retrieved account details for ID: {account_id}")
     
-    # Convert address to AddressResponse if exists
-    address_response = None
+    if account_id.startswith('AC-NY'):
+        account = await get_account_by_custom_id(account_id, user)
+    else:
+        
+        try:
+            uuid_id = UUID(account_id)
+            account = await get_account(uuid_id, user)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid account ID format"
+            )
+        address_response = None
     if account.client_address:
         address_response = AddressResponse(
             address_id=account.client_address.id,
             line1=account.client_address.line1,
             line2=account.client_address.line2,
             city=account.client_address.city,
+            state=account.client_address.state,
             pincode=account.client_address.pincode
         )
     
-    # Convert primary contact to ContactResponse if exists
     primary_contact_response = None
     if account.primary_contact:
         primary_contact_response = ContactResponse(
@@ -125,7 +129,6 @@ async def get_account_by_id_route(
             title=account.primary_contact.title
         )
     
-    # Convert secondary contacts to ContactResponse list
     secondary_contacts_response = []
     if account.contacts:
         for contact in account.contacts:
@@ -149,8 +152,19 @@ async def get_account_by_id_route(
         market_sector=account.market_sector,
         notes=account.notes,
         total_value=account.total_value,
+        ai_health_score=account.ai_health_score,
+        health_trend=account.health_trend,
+        risk_level=account.risk_level,
+        last_ai_analysis=account.last_ai_analysis,
+        data_quality_score=account.data_quality_score,
+        revenue_growth=account.revenue_growth,
+        communication_frequency=account.communication_frequency,
+        win_rate=account.win_rate,
         opportunities=account.opportunities,
         last_contact=account.last_contact,
+        hosting_area=account.hosting_area,
+        account_approver=account.account_approver,
+        approval_date=account.approval_date,
         created_at=account.created_at,
         updated_at=account.updated_at
     )
@@ -159,60 +173,54 @@ async def get_account_by_id_route(
 async def update_account_route(
     account_id: UUID = Path(..., description="Account ID"),
     payload: AccountUpdate = ...,
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit"]}))
 ):
-    """Update account details including address and primary contact"""
-    logger.info(f"Update account request for ID: {account_id}")
-    account = await update_account(account_id, payload, user)
-    logger.info(f"Account updated successfully for ID: {account_id}")
-    return AccountUpdateResponse(
+    
+        account = await update_account(account_id, payload, user)
+        return AccountUpdateResponse(
         status_code=200,
         account_id=str(account.account_id),
-        message="Account updated successfully"
+        message="Account updated"
     )
 
 @router.delete("/{account_id}", response_model=AccountDeleteResponse, operation_id="deleteAccount")
 async def delete_account_route(
     account_id: UUID = Path(..., description="Account ID"),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit", "delete"]}))
 ):
-    """Delete account and all associated contacts"""
-    logger.info(f"Delete account request for ID: {account_id}")
-    await delete_account(account_id, user)
-    logger.info(f"Account deleted successfully for ID: {account_id}")
-    return AccountDeleteResponse(
+    
+        await delete_account(account_id, user)
+        return AccountDeleteResponse(
         status_code=200,
-        message="Account deleted successfully"
+        message="Account deleted"
     )
 
-# Contact management routes
 @router.post("/{account_id}/contacts", response_model=ContactCreateResponse, status_code=201, operation_id="addSecondaryContact")
 async def add_secondary_contact_route(
     account_id: UUID = Path(..., description="Account ID"),
     payload: ContactAddRequest = ...,
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit"]}))
 ):
-    """Add a new secondary contact to an account"""
-    logger.info(f"Add secondary contact request for account ID: {account_id}")
-    contact = await add_secondary_contact(account_id, payload, user)
-    logger.info(f"Secondary contact added successfully with ID: {contact.id} to account ID: {account_id}")
-    return ContactCreateResponse(
+    
+        contact = await add_secondary_contact(account_id, payload, user)
+        return ContactCreateResponse(
         status_code=201,
         contact_id=str(contact.id),
-        message="Secondary contact added successfully"
+        message="Secondary contact added"
     )
 
 @router.get("/{account_id}/contacts", response_model=ContactListResponse, operation_id="getAccountContacts")
 async def get_account_contacts_route(
     account_id: UUID = Path(..., description="Account ID"),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
-    """Get all contacts for an account (primary and secondary)"""
-    logger.info(f"Get contacts request for account ID: {account_id}")
-    contacts = await get_account_contacts(account_id, user)
-    logger.info(f"Retrieved {len(contacts)} contacts for account ID: {account_id}")
     
-    # Convert Contact objects to ContactResponse
+    contacts = await get_account_contacts(account_id, user)
+    
     contact_responses = [
         ContactResponse(
             contact_id=contact.id,
@@ -230,29 +238,27 @@ async def update_contact_route(
     account_id: UUID = Path(..., description="Account ID"),
     contact_id: UUID = Path(..., description="Contact ID"),
     payload: ContactUpdateRequest = ...,
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit"]}))
 ):
-    """Update a contact (primary or secondary)"""
-    logger.info(f"Update contact request for account ID: {account_id}, contact ID: {contact_id}")
-    contact = await update_contact(account_id, contact_id, payload, user)
-    logger.info(f"Contact updated successfully for account ID: {account_id}, contact ID: {contact_id}")
-    return ContactUpdateResponse(
+    
+        contact = await update_contact(account_id, contact_id, payload, user)
+        return ContactUpdateResponse(
         status_code=200,
         contact_id=str(contact.id),
-        message="Contact updated successfully"
+        message="Contact updated"
     )
 
 @router.delete("/{account_id}/contacts/{contact_id}", response_model=ContactDeleteResponse, operation_id="deleteContact")
 async def delete_contact_route(
     account_id: UUID = Path(..., description="Account ID"),
     contact_id: UUID = Path(..., description="Contact ID"),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit", "delete"]}))
 ):
-    """Delete a secondary contact from an account (cannot delete primary contact)"""
-    logger.info(f"Delete contact request for account ID: {account_id}, contact ID: {contact_id}")
-    await delete_contact(account_id, contact_id, user)
-    logger.info(f"Contact deleted successfully for account ID: {account_id}, contact ID: {contact_id}")
-    return ContactDeleteResponse(
+    
+        await delete_contact(account_id, contact_id, user)
+        return ContactDeleteResponse(
         status_code=200,
-        message="Contact deleted successfully"
+        message="Contact deleted"
     )

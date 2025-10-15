@@ -3,7 +3,6 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional, Literal
 
-
 class InviteCreateRequest(BaseModel):
     email: str = Field(..., description="Email address of the user to invite")
     role: str = Field(
@@ -15,7 +14,6 @@ class InviteCreateRequest(BaseModel):
     @classmethod
     def validate_role(cls, v: str) -> str:
         return v.lower()
-
 
 class InviteResponse(BaseModel):
     id: UUID
@@ -31,10 +29,8 @@ class InviteResponse(BaseModel):
     model_config = {
         "from_attributes": True}
 
-
 class AcceptInviteRequest(BaseModel):
     token: str
-
 
 class AcceptInviteResponse(BaseModel):
     message: str
@@ -44,9 +40,8 @@ class AcceptInviteResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
 class AcceptInviteServiceResponse(BaseModel):
-    """Service layer response for accepting an invite"""
+
     email: str
     role: str
     org_id: UUID

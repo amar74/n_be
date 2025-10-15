@@ -6,7 +6,6 @@ from typing import Optional
 from app.db.base import Base
 from app.db.session import get_request_transaction, get_session, get_transaction
 
-
 class FormbricksProject(Base):
     __tablename__ = "formbricks_projects"
 

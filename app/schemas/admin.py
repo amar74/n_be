@@ -1,25 +1,21 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from uuid import UUID
 from app.schemas.auth import AuthUserResponse
-
+from app.schemas.user import Roles
 
 class AdminCreateUserRequest(BaseModel):
-    """Request body for creating a new user via admin endpoint."""
 
     email: str
     password: str
-
+    role: Optional[str] = Field(default=Roles.VENDOR, description="User role (admin, vendor, super_admin)")
 
 class AdminCreateUserResponse(BaseModel):
-    """Response for admin create user endpoint."""
 
     message: str
     user: AuthUserResponse
 
-
 class AdminUser(BaseModel):
-    """User row for admin list response."""
 
     id: UUID
     email: str
@@ -30,12 +26,8 @@ class AdminUser(BaseModel):
     model_config = {
         "from_attributes": True}
 
-
 class AdminUserListResponse(BaseModel):
-    """Response for admin user list/aggregate endpoint."""
 
     total_users: int
     users: List[AdminUser]
-
-
 

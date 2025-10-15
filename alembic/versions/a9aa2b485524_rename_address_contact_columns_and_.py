@@ -21,7 +21,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Drop old FKs safely
     op.drop_constraint(
         "organizations_address_fkey",
         "organizations",
@@ -35,11 +34,9 @@ def upgrade() -> None:
         if_exists=True,
     )
 
-    # Rename columns
     op.alter_column("organizations", "address", new_column_name="address_id")
     op.alter_column("organizations", "contact", new_column_name="contact_id")
 
-    # Recreate new constraints
     op.create_foreign_key(
         "organizations_address_id_fkey",
         "organizations",
@@ -57,7 +54,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Reverse migration
     op.drop_constraint(
         "organizations_address_id_fkey",
         "organizations",

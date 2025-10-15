@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Optional
 import uuid
 
-
 class AccountDocumentCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Document name")
     category: str = Field(..., min_length=1, max_length=100, description="Document category")
@@ -19,7 +18,6 @@ class AccountDocumentCreateRequest(BaseModel):
             raise ValueError("Field cannot be empty or whitespace")
         return v.strip()
 
-
 class AccountDocumentUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Document name")
     category: Optional[str] = Field(None, min_length=1, max_length=100, description="Document category")
@@ -33,7 +31,6 @@ class AccountDocumentUpdateRequest(BaseModel):
         if not v.strip():
             raise ValueError("Field cannot be empty or whitespace")
         return v.strip()
-
 
 class AccountDocumentResponse(BaseModel):
     id: uuid.UUID
@@ -50,13 +47,11 @@ class AccountDocumentResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
 class AccountDocumentListResponse(BaseModel):
     documents: list[AccountDocumentResponse]
     total: int
     page: int
     limit: int
-
 
 class AccountDocumentDeleteResponse(BaseModel):
     id: uuid.UUID

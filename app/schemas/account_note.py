@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Optional
 import uuid
 
-
 class AccountNoteCreateRequest(BaseModel):
     title: str
     content: str
@@ -22,7 +21,6 @@ class AccountNoteCreateRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError("Content cannot be empty")
         return v.strip()
-
 
 class AccountNoteUpdateRequest(BaseModel):
     title: Optional[str] = None
@@ -43,7 +41,6 @@ class AccountNoteUpdateRequest(BaseModel):
             raise ValueError("Content cannot be empty")
         return v.strip() if v is not None else v
 
-
 class AccountNoteResponse(BaseModel):
     id: uuid.UUID
     account_id: uuid.UUID
@@ -54,7 +51,6 @@ class AccountNoteResponse(BaseModel):
     updated_at: Optional[datetime]
 
     model_config = {"from_attributes": True}
-
 
 class AccountNoteListResponse(BaseModel):
     notes: list[AccountNoteResponse]
@@ -67,9 +63,7 @@ class AccountNoteListResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
 class AccountNoteDeleteResponse(BaseModel):
     id: uuid.UUID
     message: str
-
 

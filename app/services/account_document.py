@@ -17,13 +17,11 @@ from app.schemas.account_document import (
 from app.db.session import get_request_transaction
 from app.utils.logger import logger
 
-
 def _normalize_datetime(dt: datetime) -> datetime:
-    """Remove timezone info for database storage"""
+
     if dt.tzinfo is not None:
         return dt.replace(tzinfo=None)
     return dt
-
 
 async def _ensure_account_in_org(account_id: uuid.UUID, user: User) -> Account:
     if not user.org_id:
@@ -34,7 +32,6 @@ async def _ensure_account_in_org(account_id: uuid.UUID, user: User) -> Account:
     if not account:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found or access denied")
     return account
-
 
 async def create_account_document(
     account_id: uuid.UUID, payload: AccountDocumentCreateRequest, user: User
@@ -50,7 +47,6 @@ async def create_account_document(
         file_name=payload.file_name,
         file_size=payload.file_size,
         mime_type=payload.mime_type,
-        # file_path will be set when file upload is implemented
         file_path=None,
     )
     db.add(document)
@@ -59,20 +55,17 @@ async def create_account_document(
     logger.info(f"Created account document {document.id} for account {account_id}")
     return AccountDocumentResponse.model_validate(document)
 
-
 async def list_account_documents(
     account_id: uuid.UUID, user: User, page: int = 1, limit: int = 10
 ) -> AccountDocumentListResponse:
     await _ensure_account_in_org(account_id, user)
     db = get_request_transaction()
     
-    # Count total documents
     count_result = await db.execute(
         select(func.count(AccountDocument.id)).where(AccountDocument.account_id == account_id)
     )
     total = count_result.scalar() or 0
     
-    # Get paginated documents
     offset = (page - 1) * limit
     result = await db.execute(
         select(AccountDocument)
@@ -91,7 +84,6 @@ async def list_account_documents(
         limit=limit,
     )
 
-
 async def get_account_document(account_id: uuid.UUID, document_id: uuid.UUID, user: User) -> AccountDocumentResponse:
     await _ensure_account_in_org(account_id, user)
     db = get_request_transaction()
@@ -106,7 +98,6 @@ async def get_account_document(account_id: uuid.UUID, document_id: uuid.UUID, us
     logger.info(f"Retrieved document {document_id} for account {account_id}")
     return AccountDocumentResponse.model_validate(document)
 
-
 async def update_account_document(
     account_id: uuid.UUID, document_id: uuid.UUID, payload: AccountDocumentUpdateRequest, user: User
 ) -> AccountDocumentResponse:
@@ -120,7 +111,6 @@ async def update_account_document(
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     
-    # Update fields if provided
     if payload.name is not None:
         document.name = payload.name
     if payload.category is not None:
@@ -132,7 +122,6 @@ async def update_account_document(
     await db.refresh(document)
     logger.info(f"Updated document {document_id} for account {account_id}")
     return AccountDocumentResponse.model_validate(document)
-
 
 async def delete_account_document(account_id: uuid.UUID, document_id: uuid.UUID, user: User) -> AccountDocumentDeleteResponse:
     await _ensure_account_in_org(account_id, user)
