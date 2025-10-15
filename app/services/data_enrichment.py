@@ -1,7 +1,7 @@
 import asyncio
 import time
 from typing import Dict, Any, Optional, List
-from app.schemas.ai_suggestions import (
+from app.schemas.data_enrichment import (
     OrganizationNameRequest, OrganizationNameResponse,
     AccountEnhancementRequest, AccountEnhancementResponse,
     AddressValidationRequest, AddressValidationResponse,
@@ -19,20 +19,16 @@ from google.generativeai import types
 
 
 class DataEnrichmentService:
-    """Service for enriching company data from web sources"""
     
     def __init__(self):
         genai.configure(api_key=environment.GEMINI_API_KEY)
         self.model = genai.GenerativeModel('gemini-pro')
-        self.cache = {}  # Simple in-memory cache for demo
+        self.cache = {}
     
     async def suggest_organization_name(
         self, 
         request: OrganizationNameRequest
     ) -> OrganizationNameResponse:
-        """
-        Extract company name from website content.
-        """
         start_time = time.time()
         
         try:
@@ -95,24 +91,10 @@ class DataEnrichmentService:
                 context_info = f"\nAdditional Context: {request.context}"
             
             prompt = f"""
-            Analyze this website and extract the official organization name.
+            Website: {request.website_url}
+            Content: {scraped_data['text'][:3000]}
             
-            Website URL: {request.website_url}{context_info}
-            
-            Website Content:
-            {scraped_data['text'][:3000]}
-            
-            Instructions:
-            1. Look for the official company/organization name
-            2. Check meta tags, page title, about section, footer
-            3. Provide confidence score based on clarity and consistency
-            4. List any alternative names found
-            5. Explain where you found the name and why it's the best choice
-            
-            Important:
-            - Extract the full legal name, not just a shortened version
-            - Be conservative with confidence scores
-            - If uncertain, provide lower confidence and explain why
+            Extract the company name from this website content.
             """
             
             response = self.model.generate_content(
@@ -154,9 +136,6 @@ class DataEnrichmentService:
         self, 
         request: AccountEnhancementRequest
     ) -> AccountEnhancementResponse:
-        """
-        Fill account fields from website data.
-        """
         start_time = time.time()
         
         try:

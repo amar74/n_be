@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from app.schemas.ai_suggestions import AccountEnhancementRequest, AccountEnhancementResponse
-from app.services.ai_suggestions import data_enrichment_service
+from app.schemas.data_enrichment import AccountEnhancementRequest, AccountEnhancementResponse
+from app.services.data_enrichment import data_enrichment_service
 from app.models.user import User
 from app.dependencies.user_auth import get_current_user
 from app.utils.logger import logger
