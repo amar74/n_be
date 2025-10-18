@@ -12,6 +12,13 @@ if TYPE_CHECKING:
     from app.models.user import User
     from app.models.organization import Organization
     from app.models.account import Account
+    from app.models.opportunity_tabs import (
+        OpportunityOverview, OpportunityStakeholder, OpportunityDriver,
+        OpportunityCompetitor, OpportunityStrategy, OpportunityDeliveryModel,
+        OpportunityTeamMember, OpportunityReference, OpportunityFinancial,
+        OpportunityRisk, OpportunityLegalChecklist
+    )
+    from app.models.opportunity_document import OpportunityDocument
 
 class OpportunityStage(enum.Enum):
 
@@ -268,3 +275,17 @@ class Opportunity(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+    # Tab relationships (TODO: add relationships for all tabs) | opportunity tabs 
+    overview: Mapped[Optional["OpportunityOverview"]] = relationship("OpportunityOverview", back_populates="opportunity", uselist=False)
+    stakeholders: Mapped[List["OpportunityStakeholder"]] = relationship("OpportunityStakeholder", back_populates="opportunity")
+    drivers: Mapped[List["OpportunityDriver"]] = relationship("OpportunityDriver", back_populates="opportunity")
+    competitors: Mapped[List["OpportunityCompetitor"]] = relationship("OpportunityCompetitor", back_populates="opportunity")
+    strategies: Mapped[List["OpportunityStrategy"]] = relationship("OpportunityStrategy", back_populates="opportunity")
+    delivery_model: Mapped[Optional["OpportunityDeliveryModel"]] = relationship("OpportunityDeliveryModel", back_populates="opportunity", uselist=False)
+    team_members: Mapped[List["OpportunityTeamMember"]] = relationship("OpportunityTeamMember", back_populates="opportunity")
+    references: Mapped[List["OpportunityReference"]] = relationship("OpportunityReference", back_populates="opportunity")
+    financial: Mapped[Optional["OpportunityFinancial"]] = relationship("OpportunityFinancial", back_populates="opportunity", uselist=False)
+    risks: Mapped[List["OpportunityRisk"]] = relationship("OpportunityRisk", back_populates="opportunity")
+    legal_checklist: Mapped[List["OpportunityLegalChecklist"]] = relationship("OpportunityLegalChecklist", back_populates="opportunity")
+    documents: Mapped[List["OpportunityDocument"]] = relationship("OpportunityDocument", back_populates="opportunity")

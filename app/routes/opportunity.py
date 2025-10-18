@@ -48,7 +48,7 @@ async def list_opportunities(
     stage: Optional[str] = Query(None, description="Filter by stage"),
     search: Optional[str] = Query(None, description="Search query"),
     sort_by: str = Query("created_at", description="Sort field"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     db: AsyncSession = Depends(get_request_transaction),
     current_user: User = Depends(get_current_user),
     user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["view"]}))
@@ -211,7 +211,7 @@ async def get_opportunity_insights(
 @router.get("/{opportunity_id}/forecast", response_model=OpportunityForecastResponse)
 async def get_opportunity_forecast(
     opportunity_id: UUID = Path(..., description="Opportunity ID"),
-    period: str = Query("quarterly", regex="^(monthly|quarterly|yearly)$", description="Forecast period"),
+    period: str = Query("quarterly", pattern="^(monthly|quarterly|yearly)$", description="Forecast period"),
     db: AsyncSession = Depends(get_request_transaction),
     current_user: User = Depends(get_current_user),
     user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["view"]}))

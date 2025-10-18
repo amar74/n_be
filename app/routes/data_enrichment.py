@@ -18,7 +18,7 @@ async def enhance_opportunity_data(
     current_user: User = Depends(get_current_user)
 ) -> AccountEnhancementResponse:
     try:
-        result = await ai_suggestion_service.enhance_opportunity_data(request)
+        result = await data_enrichment_service.enhance_opportunity_data(request)
         
         logger.info(
             f"Opportunity enhancement completed for {request.company_website}: "
@@ -48,7 +48,7 @@ async def enhance_account_data(
     current_user: User = Depends(get_current_user)
 ) -> AccountEnhancementResponse:
     try:
-            result = await data_enrichment_service.enhance_account_data(request)
+        result = await data_enrichment_service.enhance_account_data(request)
         
         logger.info(
             f"Account enhancement completed for {request.company_website}: "

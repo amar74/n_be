@@ -14,7 +14,7 @@ class RequestTransactionMiddleware(BaseHTTPMiddleware):
             async with session.begin():
                 token = _bind_request_transaction(session)
                 response = await call_next(request)
-                await session.commit()
+                # Don't commit here - the context manager handles it
                 return response
         except Exception as exc:
             try:
