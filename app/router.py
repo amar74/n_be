@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.routes.auth import router as auth_router
+from app.routes.simple_auth import router as auth_router
 from app.routes.data_enrichment import router as data_enrichment_router
 from app.routes.organization import router as orgs_router
 from app.routes.account import router as account_router

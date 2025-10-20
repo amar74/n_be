@@ -48,8 +48,6 @@ class Environment(BaseModel):
 
     JWT_SECRET_KEY: str
     DATABASE_URL: str
-    SUPABASE_URL: str
-    SUPABASE_SERVICE_ROLE_KEY: str
     GEMINI_API_KEY: str
     ENVIRONMENT: Literal["dev", "prod", "stag"] = Field(default="dev")
     
@@ -84,12 +82,6 @@ def load_environment() -> Environment:
             os.getenv(
                 "DATABASE_URL"
             )
-        ),
-        "SUPABASE_URL": pick(
-            "SUPABASE_URL"
-        ),
-        "SUPABASE_SERVICE_ROLE_KEY": pick(
-            "SUPABASE_SERVICE_ROLE_KEY"
         ),
         "GEMINI_API_KEY": pick("GEMINI_API_KEY"),
         "ENVIRONMENT": pick("ENVIRONMENT", default="dev"),
