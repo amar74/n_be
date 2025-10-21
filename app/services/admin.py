@@ -45,36 +45,14 @@ async def admin_create_user(
 
     logger.info(f"🚀 Starting admin_create_user for: {email}, role: {role}")
     
-    client = get_supabase_client()
-    if not client:
-        logger.error("❌ Supabase client not initialized")
-        raise MegapolisHTTPException(status_code=500, message="Supabase not configured")
+    # Check if user already exists
+    logger.info(f"🔍 Checking if user exists in local DB: {email}")
+    existing = await User.get_by_email(email)
+    if existing:
+        logger.info(f"✅ User {email} already exists in local DB, returning existing user")
+        return existing
 
     try:
-        logger.info(f"📝 Creating user in Supabase Auth: {email}")
-        response = client.auth.admin.create_user({
-            "email": email,
-            "password": password,
-            "email_confirm": True,
-        })
-        logger.info(f"✅ Supabase admin user created for {email}")
-    
-    except Exception as ex:
-        logger.exception(f"❌ Supabase create user failed for {email}: {str(ex)}", exc_info=True)
-        
-        error_message = str(ex)
-        if "already been registered" in error_message.lower() or "already exists" in error_message.lower():
-            error_message = f"A user with email '{email}' is already registered. Please use a different email address."
-        
-        raise MegapolisHTTPException(status_code=400, message=error_message)
-
-    try:
-        logger.info(f"🔍 Checking if user exists in local DB: {email}")
-        existing = await User.get_by_email(email)
-        if existing:
-            logger.info(f"✅ User {email} already exists in local DB, returning existing user")
-            return existing
-
         logger.info(f"📝 Creating user in local DB: {email} with role '{role}'")
         async with get_transaction() as db:
             user = User(
@@ -90,14 +68,13 @@ async def admin_create_user(
             return user
             
     except Exception as ex:
-        logger.error(f"❌ Error after Supabase user creation for {email}")
-        logger.error(f"⚠️ User was created in Supabase but local DB operations failed!")
+        logger.error(f"❌ Error creating user for {email}")
         logger.error(f"Exception type: {type(ex).__name__}")
         logger.error(f"Exception details: {repr(ex)}")
         logger.exception("Full exception traceback:", exc_info=True)
         raise MegapolisHTTPException(
             status_code=500, 
-            message=f"User created in authentication system but database error occurred. Check server logs for details."
+            message=f"Failed to create user. Check server logs for details."
         )
 
 async def get_vendor_stats() -> Dict[str, int]:

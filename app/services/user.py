@@ -10,7 +10,6 @@ from app.utils.error import MegapolisHTTPException
 
 
 async def create_user(user_data: UserCreateRequest, current_user: User) -> UserResponse:
-    """Create a new user"""
     try:
         async with get_session() as db:
             # Check if user already exists
@@ -57,7 +56,6 @@ async def get_all_users(
     limit: int = 100, 
     current_user: User = None
 ) -> List[UserResponse]:
-    """Get all users for the current user's organization"""
     try:
         async with get_session() as db:
             result = await db.execute(
@@ -88,7 +86,6 @@ async def get_all_users(
 
 
 async def get_user_by_id(user_id: UUID, current_user: User) -> UserResponse:
-    """Get a specific user by ID"""
     try:
         async with get_session() as db:
             result = await db.execute(
@@ -124,7 +121,6 @@ async def get_user_by_id(user_id: UUID, current_user: User) -> UserResponse:
 
 
 async def update_user(user_id: UUID, user_data: UserUpdateRequest, current_user: User) -> UserResponse:
-    """Update a user"""
     try:
         async with get_session() as db:
             # Check if user exists and belongs to the same organization
@@ -170,7 +166,6 @@ async def update_user(user_id: UUID, user_data: UserUpdateRequest, current_user:
 
 
 async def delete_user(user_id: UUID, current_user: User) -> None:
-    """Delete a user"""
     try:
         async with get_session() as db:
             # Check if user exists and belongs to the same organization

@@ -112,22 +112,46 @@ async def authenticate_vendor(email: str, password: str) -> Optional[Dict]:
     }
 
 async def get_vendor_stats() -> VendorStatsResponse:
+    from app.models.user import User
+    from app.schemas.user import Roles
+    from sqlalchemy import select, func
+    from app.db.session import get_session
 
-    total_vendors = await Vendor.count_by_status()
-    total_approved = await Vendor.count_by_status(VendorStatus.APPROVED.value)
-    total_pending = await Vendor.count_by_status(VendorStatus.PENDING.value)
-    total_rejected = await Vendor.count_by_status(VendorStatus.REJECTED.value)
-    
-    return VendorStatsResponse(
-        total_vendors=total_vendors,
-        total_approved=total_approved,
-        total_pending=total_pending,
-        total_rejected=total_rejected,
-    )
+    async with get_session() as session:
+        try:
+            # Count total vendors (users with vendor role)
+            total_result = await session.execute(
+                select(func.count()).select_from(User).where(User.role == Roles.VENDOR)
+            )
+            total_vendors = int(total_result.scalar_one())
+            
+            # For now, all vendors are considered approved since there's no status field in users table
+            # In the future, you might want to add a status field to the users table
+            return VendorStatsResponse(
+                total_vendors=total_vendors,
+                total_approved=total_vendors,  # All are considered approved
+                total_pending=0,  # No pending status in users table
+                total_rejected=0,  # No rejected status in users table
+            )
+        except Exception as ex:
+            logger.error(f"Failed to get vendor stats: {str(ex)}")
+            raise MegapolisHTTPException(status_code=500, message="Failed to get vendor statistics")
 
-async def get_all_vendors(skip: int = 0, limit: int = 100) -> List[Vendor]:
+async def get_all_vendors(skip: int = 0, limit: int = 100) -> List["User"]:
+    from app.models.user import User
+    from app.schemas.user import Roles
+    from sqlalchemy import select
+    from app.db.session import get_session
 
-    return await Vendor.get_all(skip=skip, limit=limit)
+    async with get_session() as session:
+        try:
+            result = await session.execute(
+                select(User).where(User.role == Roles.VENDOR).offset(skip).limit(limit)
+            )
+            return list(result.scalars().all())
+        except Exception as ex:
+            logger.error(f"Failed to get all vendors: {str(ex)}")
+            raise MegapolisHTTPException(status_code=500, message="Failed to get vendors list")
 
 async def get_vendor_by_id(vendor_id: str) -> Optional[Vendor]:
 

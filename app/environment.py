@@ -77,7 +77,8 @@ class Constants():
         "prathamkamthan1306@gmail.com",
         "amar.softication@gmail.com",
         "info@softication.com",
-        "admin@megapolis.com"
+        "admin@megapolis.com",
+        "amar74.soft@gmail.com"
     ]
 
 def load_environment() -> Environment:

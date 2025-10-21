@@ -19,9 +19,13 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",      # Frontend development server
         "http://localhost:5174",      # Frontend development server (alternative port)
+        "http://localhost:5175",      # Frontend development server (port 5175)
+        "http://localhost:5176",      # Frontend development server (port 5176)
         "http://localhost:5177",      # Frontend development server (port 5177)
         "http://127.0.0.1:5173",     # Frontend with 127.0.0.1
         "http://127.0.0.1:5174",     # Frontend with 127.0.0.1 (alternative port)
+        "http://127.0.0.1:5175",     # Frontend with 127.0.0.1 (port 5175)
+        "http://127.0.0.1:5176",     # Frontend with 127.0.0.1 (port 5176)
         "http://127.0.0.1:5177",     # Frontend with 127.0.0.1 (port 5177)
         "http://localhost:3000",      # Another common frontend port
         "http://127.0.0.1:3000",     # Another common frontend port with 127.0.0.1
