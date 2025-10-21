@@ -1,6 +1,7 @@
 import asyncio
 import time
 from typing import Dict, Any, Optional, List
+from datetime import datetime
 from app.schemas.ai_suggestions import (
     OrganizationNameRequest, OrganizationNameResponse,
     AccountEnhancementRequest, AccountEnhancementResponse,
@@ -8,7 +9,7 @@ from app.schemas.ai_suggestions import (
     ContactValidationRequest, ContactValidationResponse,
     IndustrySuggestionRequest, IndustrySuggestionResponse,
     CompanySizeSuggestionRequest, CompanySizeSuggestionResponse,
-    SuggestionValue
+    SuggestionValue, AISuggestionRequest, AISuggestionResponse
 )
 from app.utils.scraper import scrape_text_with_bs4
 from app.utils.logger import logger
@@ -799,4 +800,57 @@ class DataEnrichmentService:
             )
 
 
+class AISuggestionService:
+    """AI Suggestion Service for generating AI-powered suggestions"""
+    
+    def __init__(self):
+        self.logger = logger
+    
+    async def get_suggestions(self, request: AISuggestionRequest) -> AISuggestionResponse:
+        """Generate AI suggestions based on context"""
+        try:
+            # Mock implementation - replace with actual AI logic
+            suggestion_id = f"suggestion_{int(time.time())}"
+            
+            return AISuggestionResponse(
+                id=suggestion_id,
+                suggestion=f"AI suggestion for: {request.context[:50]}...",
+                confidence_score=0.85,
+                suggestion_type=request.suggestion_type,
+                context=request.context,
+                created_at=datetime.utcnow(),
+                user_id=request.user_id,
+                account_id=request.account_id,
+                opportunity_id=request.opportunity_id
+            )
+        except Exception as e:
+            self.logger.error(f"Error generating AI suggestions: {e}")
+            raise MegapolisHTTPException(
+                status_code=500,
+                message="Failed to generate AI suggestions",
+                details=str(e)
+            )
+    
+    async def get_suggestion_by_id(self, suggestion_id: str) -> AISuggestionResponse:
+        """Get a specific AI suggestion by ID"""
+        try:
+            # Mock implementation - replace with actual database lookup
+            return AISuggestionResponse(
+                id=suggestion_id,
+                suggestion="Retrieved AI suggestion",
+                confidence_score=0.90,
+                suggestion_type="general",
+                context="Retrieved context",
+                created_at=datetime.utcnow()
+            )
+        except Exception as e:
+            self.logger.error(f"Error retrieving AI suggestion: {e}")
+            raise MegapolisHTTPException(
+                status_code=500,
+                message="Failed to retrieve AI suggestion",
+                details=str(e)
+            )
+
+
 data_enrichment_service = DataEnrichmentService()
+ai_suggestion_service = AISuggestionService()

@@ -135,7 +135,16 @@ def send_vendor_invitation_email(
         
         Best regards,
         The Megapolis Team
+        """
+        
+        return _send_email_via_smtp(vendor_email, subject, text_body, html_body)
+        
+    except Exception as e:
+        logger.exception(f"Error preparing vendor invitation email: {str(e)}")
+        return False
 
+def _send_email_via_smtp(to_email: str, subject: str, text_body: str, html_body: str) -> bool:
+    """
     Internal function to send email via SMTP
     Configure your email settings in environment variables
     """

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
         OpportunityTeamMember, OpportunityReference, OpportunityFinancial,
         OpportunityRisk, OpportunityLegalChecklist
     )
-    from app.models.opportunity_document import OpportunityDocument
+    # from app.models.opportunity_document import OpportunityDocument  # Commented out to avoid circular import
 
 class OpportunityStage(enum.Enum):
 
@@ -288,4 +288,4 @@ class Opportunity(Base):
     financial: Mapped[Optional["OpportunityFinancial"]] = relationship("OpportunityFinancial", back_populates="opportunity", uselist=False)
     risks: Mapped[List["OpportunityRisk"]] = relationship("OpportunityRisk", back_populates="opportunity")
     legal_checklist: Mapped[List["OpportunityLegalChecklist"]] = relationship("OpportunityLegalChecklist", back_populates="opportunity")
-    documents: Mapped[List["OpportunityDocument"]] = relationship("OpportunityDocument", back_populates="opportunity")
+    # documents: Mapped[List["OpportunityDocument"]] = relationship("OpportunityDocument", back_populates="opportunity")  # Temporarily commented out

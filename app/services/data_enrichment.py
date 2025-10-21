@@ -24,6 +24,66 @@ class DataEnrichmentService:
         genai.configure(api_key=environment.GEMINI_API_KEY)
         self.model = genai.GenerativeModel('gemini-pro')
         self.cache = {}
+        self.timeout = 180  # 30 seconds timeout - shorter for better user experience
+        self.ai_enabled = True  # Flag to enable/disable AI enhancement
+    
+    def disable_ai_enhancement(self):
+        self.ai_enabled = False
+        logger.info("AI enhancement disabled, will use fallback data")
+    
+    def enable_ai_enhancement(self):
+        self.ai_enabled = True
+        logger.info("AI enhancement enabled")
+    
+    async def _call_gemini_with_timeout(self, prompt: str, max_retries: int = 2) -> Any:
+        for attempt in range(max_retries + 1):
+            try:
+                logger.info(f"Gemini API call attempt {attempt + 1}/{max_retries + 1}")
+                # Use asyncio.wait_for to add timeout
+                response = await asyncio.wait_for(
+                    asyncio.get_event_loop().run_in_executor(
+                        None, 
+                        lambda: self.model.generate_content(prompt)
+                    ),
+                    timeout=self.timeout
+                )
+                logger.info(f"Gemini API call successful on attempt {attempt + 1}")
+                return response
+            except asyncio.TimeoutError:
+                logger.error(f"Gemini API call timed out after {self.timeout} seconds (attempt {attempt + 1})")
+                if attempt == max_retries:
+                    raise MegapolisHTTPException(
+                        status_code=408,
+                        message="AI processing timeout. Please try again.",
+                        details=f"Request timed out after {self.timeout} seconds"
+                    )
+                else:
+                    logger.info(f"Retrying Gemini API call (attempt {attempt + 2})")
+                    await asyncio.sleep(2)  # Wait 2 seconds before retry
+            except Exception as e:
+                logger.error(f"Gemini API call failed: {e} (attempt {attempt + 1})")
+                # Check if it's a specific Gemini API error
+                if "quota" in str(e).lower():
+                    raise MegapolisHTTPException(
+                        status_code=429,
+                        message="AI service quota exceeded. Please try again later.",
+                        details="API quota limit reached"
+                    )
+                elif "api" in str(e).lower() and "key" in str(e).lower():
+                    raise MegapolisHTTPException(
+                        status_code=500,
+                        message="AI service configuration error. Please contact support.",
+                        details="API key or configuration issue"
+                    )
+                elif attempt == max_retries:
+                    raise MegapolisHTTPException(
+                        status_code=500,
+                        message="AI processing failed. Please try again.",
+                        details=str(e)
+                    )
+                else:
+                    logger.info(f"Retrying Gemini API call after error (attempt {attempt + 2})")
+                    await asyncio.sleep(2)  # Wait 2 seconds before retry
     
     async def suggest_organization_name(
         self, 
@@ -97,7 +157,7 @@ class DataEnrichmentService:
             Extract the company name from this website content.
             """
             
-            response = self.model.generate_content(
+            response = await self._call_gemini_with_timeout(
                 model="gemini-2.5-flash",
                 contents=[types.Content(parts=[{"text": prompt}])],
                 config=config
@@ -137,6 +197,24 @@ class DataEnrichmentService:
         request: AccountEnhancementRequest
     ) -> AccountEnhancementResponse:
         start_time = time.time()
+        
+        # Check if AI enhancement is disabled
+        if not self.ai_enabled:
+            logger.info("AI enhancement is disabled, returning fallback data")
+            fallback_data = {
+                "company_name": SuggestionValue(
+                    value="Unknown Company",
+                    confidence=0.3,
+                    source="fallback",
+                    reasoning="AI enhancement disabled, using basic data"
+                )
+            }
+            return AccountEnhancementResponse(
+                enhanced_data=fallback_data,
+                processing_time_ms=int((time.time() - start_time) * 1000),
+                warnings=["AI enhancement is disabled"],
+                suggestions_applied=0
+            )
         
         try:
             scraped_data = await scrape_text_with_bs4(str(request.company_website))
@@ -214,38 +292,50 @@ class DataEnrichmentService:
             if request.partial_data:
                 partial_data_str = f"\nAlready entered data: {request.partial_data}"
             
-            prompt = f"""
-            Analyze this company website and enhance account data based on the content.
-            
-            Website URL: {request.company_website}{partial_data_str}
-            
-            Website Content:
-            {scraped_data['text'][:4000]}
-            
-            Enhancement Options: {request.enhancement_options}
-            
-            Instructions:
-            1. Extract company information
-            2. Provide confidence scores for each field (0-1)
-            3. Be conservative with confidence - only high confidence for clear information
-            4. Analyze the company's main services, target market, and stage
-            5. Extract contact information with validation
-            6. Format phone numbers in E.164 format (+917404664714, no hyphens or spaces)
-            7. Provide warnings for any uncertain data
-            
-            Focus on:
-            - Official company name (check meta tags, about page)
-            - Primary industry sector
-            - Company size estimation
-            - Contact information (look for contact page, about page, footer)
-            - Clean phone numbers in international E.164 format
-            - Business address (check contact page, footer)
-            - Main services and target market
-            """
+            prompt = f"""Analyze this website and extract company information:
+
+Website: {request.company_website}
+Content: {scraped_data['text'][:1500]}
+
+Please provide:
+1. Company name
+2. Industry/sector
+3. Company size (small/medium/large)
+4. Contact email
+5. Phone number
+6. Address
+
+Format as JSON with confidence scores (0-1). Be concise and accurate."""
             
             logger.info("Calling Gemini API for account enhancement")
-            response = self.model.generate_content(prompt)
-            logger.info(f"Gemini API response received: {type(response)}")
+            logger.info(f"Processing website: {request.company_website}")
+            logger.info(f"Website content length: {len(scraped_data.get('text', ''))} characters")
+            logger.info(f"Prompt length: {len(prompt)} characters")
+            
+            # Try AI enhancement with retry mechanism
+            try:
+                response = await self._call_gemini_with_timeout(prompt)
+                logger.info(f"Gemini API response received: {type(response)}")
+                logger.info("AI processing completed successfully")
+            except Exception as ai_error:
+                logger.error(f"AI enhancement failed, using fallback: {ai_error}")
+                # Return basic fallback data instead of failing completely
+                fallback_data = {
+                    "company_name": SuggestionValue(
+                        value=request.company_name or "Unknown Company",
+                        confidence=0.3,
+                        source="fallback",
+                        reasoning="AI enhancement failed, using basic data"
+                    )
+                }
+                
+                logger.info("Returning fallback data due to AI enhancement failure")
+                return AccountEnhancementResponse(
+                    enhanced_data=fallback_data,
+                    processing_time_ms=int((time.time() - start_time) * 1000),
+                    warnings=[f"AI enhancement failed: {str(ai_error)}"],
+                    suggestions_applied=0
+                )
             
             enhanced_data = {}
             warnings = []
@@ -387,10 +477,23 @@ class DataEnrichmentService:
             
         except Exception as e:
             logger.error(f"Account enhancement failed: {e}")
-            raise MegapolisHTTPException(
-                status_code=500,
-                message="Failed to enhance account data",
-                details=str(e)
+            
+            # Return fallback data instead of failing completely
+            fallback_data = {
+                "company_name": SuggestionValue(
+                    value=request.company_name or "Unknown Company",
+                    confidence=0.3,
+                    source="fallback",
+                    reasoning="AI enhancement failed, using fallback data"
+                )
+            }
+            
+            logger.info("Returning fallback data due to AI enhancement failure")
+            return AccountEnhancementResponse(
+                enhanced_data=fallback_data,
+                processing_time_ms=int((time.time() - start_time) * 1000),
+                warnings=[f"AI enhancement failed: {str(e)}"],
+                suggestions_applied=0
             )
     
     async def validate_address(
@@ -459,7 +562,7 @@ class DataEnrichmentService:
             - Complete address components
             """
             
-            response = self.model.generate_content(
+            response = await self._call_gemini_with_timeout(
                 model="gemini-2.5-flash",
                 contents=[types.Content(parts=[{"text": prompt}])],
                 config=config
@@ -560,7 +663,7 @@ class DataEnrichmentService:
             Education, Government, Non-profit, Real Estate, Transportation, etc.
             """
             
-            response = self.model.generate_content(
+            response = await self._call_gemini_with_timeout(
                 model="gemini-2.5-flash",
                 contents=[types.Content(parts=[{"text": prompt}])],
                 config=config
@@ -657,7 +760,7 @@ class DataEnrichmentService:
             """
             
             logger.info("Calling Gemini API for opportunity enhancement")
-            response = self.model.generate_content(prompt)
+            response = await self._call_gemini_with_timeout(prompt)
             
             enhanced_data = {}
             warnings = []

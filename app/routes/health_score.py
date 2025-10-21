@@ -22,12 +22,12 @@ async def calculate_account_health_score(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
     
-        try:
+    try:
         health_data = await health_score_service.calculate_health_score_for_account(
             account_id, str(user.org_id)
         )
         
-                return health_data
+        return health_data
         
     except Exception as e:
         logger.error(f"Error calculating health score for account {account_id}: {e}")
@@ -47,12 +47,12 @@ async def update_account_health_score(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit"]}))
 ):
     
-        try:
+    try:
         health_data = await health_score_service.update_account_health_score(
             account_id, str(user.org_id)
         )
         
-                return health_data
+        return health_data
         
     except Exception as e:
         logger.error(f"Error updating health score for account {account_id}: {e}")

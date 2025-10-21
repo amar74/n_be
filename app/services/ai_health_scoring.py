@@ -35,7 +35,7 @@ class AccountHealthScoringService:
         force_recalculation: bool = False
     ) -> HealthScoreResponse:
 
-        async with get_session() as db:
+        async with get_request_transaction() as db:
             stmt = select(Account).where(
                 Account.account_id == account_id,
                 Account.org_id == user.org_id

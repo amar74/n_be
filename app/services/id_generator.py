@@ -9,14 +9,29 @@ class IDGenerator:
 
     @staticmethod
     async def generate_opportunity_id(org_id: str, db: AsyncSession) -> str:
-
+        import time
+        
         try:
             from app.models.opportunity import Opportunity
+            from app.models.organization import Organization
+            
+            # Get organization to extract identifier
+            org_stmt = select(Organization).where(Organization.id == org_id)
+            org_result = await db.execute(org_stmt)
+            organization = org_result.scalar_one_or_none()
+            
+            if not organization:
+                # Fallback if organization not found
+                org_prefix = "ORG"
+            else:
+                # Extract first 2 characters of organization name for prefix
+                org_name = organization.name or "ORG"
+                org_prefix = org_name[:2].upper() if len(org_name) >= 2 else "OR"
             
             stmt = select(Opportunity.custom_id).where(
                 Opportunity.org_id == org_id,
                 Opportunity.custom_id.isnot(None),
-                Opportunity.custom_id.like('OPP-NY%')
+                Opportunity.custom_id.like(f'OPP-NY{org_prefix}%')
             )
             result = await db.execute(stmt)
             existing_ids = [row[0] for row in result.fetchall()]
@@ -25,7 +40,8 @@ class IDGenerator:
                 numbers = []
                 for custom_id in existing_ids:
                     try:
-                        number_part = custom_id.split('-')[-1]
+                        # Extract number from format OPP-NY{ORG_PREFIX}0001
+                        number_part = custom_id.split(org_prefix)[-1]
                         numbers.append(int(number_part))
                     except (ValueError, IndexError):
                         continue
@@ -37,11 +53,13 @@ class IDGenerator:
             else:
                 next_number = 1
             
-            custom_id = f"OPP-NY{next_number:04d}"
+            custom_id = f"OPP-NY{org_prefix}{next_number:04d}"
             return custom_id
             
         except Exception as e:
-            return f"OPP-NY0001"
+            # Generate a unique ID with timestamp to avoid conflicts
+            timestamp = int(time.time())
+            return f"OPP-NY{org_prefix}{timestamp}"
     
     @staticmethod
     async def generate_organization_id(db: AsyncSession) -> str:
@@ -88,14 +106,31 @@ class IDGenerator:
         return result.scalar_one_or_none()
     
     @staticmethod
-    async def generate_account_id(db: AsyncSession) -> str:
-
+    async def generate_account_id(org_id: str, db: AsyncSession) -> str:
+        import time
+        
         try:
             from app.models.account import Account
+            from app.models.organization import Organization
             
+            # Get organization to extract identifier
+            org_stmt = select(Organization).where(Organization.id == org_id)
+            org_result = await db.execute(org_stmt)
+            organization = org_result.scalar_one_or_none()
+            
+            if not organization:
+                # Fallback if organization not found
+                org_prefix = "ORG"
+            else:
+                # Extract first 2 characters of organization name for prefix
+                org_name = organization.name or "ORG"
+                org_prefix = org_name[:2].upper() if len(org_name) >= 2 else "OR"
+            
+            # Try to generate a sequential ID first
             stmt = select(Account.custom_id).where(
                 Account.custom_id.isnot(None),
-                Account.custom_id.like('AC-NY%')
+                Account.custom_id.like(f'AC-NY{org_prefix}%'),
+                Account.org_id == org_id
             )
             result = await db.execute(stmt)
             existing_ids = [row[0] for row in result.fetchall()]
@@ -104,7 +139,8 @@ class IDGenerator:
                 numbers = []
                 for custom_id in existing_ids:
                     try:
-                        number_part = custom_id.split('-')[-1]
+                        # Extract number from format AC-NY{ORG_PREFIX}001
+                        number_part = custom_id.split(org_prefix)[-1]
                         numbers.append(int(number_part))
                     except (ValueError, IndexError):
                         continue
@@ -116,11 +152,21 @@ class IDGenerator:
             else:
                 next_number = 1
             
-            custom_id = f"AC-NY{next_number:03d}"
+            custom_id = f"AC-NY{org_prefix}{next_number:03d}"
+            
+            # Check if this ID already exists (race condition protection)
+            existing = await IDGenerator.get_account_by_custom_id(custom_id, db)
+            if existing:
+                # If it exists, use timestamp-based ID
+                timestamp = int(time.time())
+                custom_id = f"AC-NY{org_prefix}{timestamp}"
+            
             return custom_id
             
         except Exception as e:
-            return f"AC-NY001"
+            # Generate a unique ID with timestamp to avoid conflicts
+            timestamp = int(time.time())
+            return f"AC-NY{org_prefix}{timestamp}"
     
     @staticmethod
     async def get_organization_by_custom_id(custom_id: str, db: AsyncSession):

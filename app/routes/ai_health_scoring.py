@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from typing import List, Optional
 from uuid import UUID
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.schemas.ai_health_scoring import (
     HealthScoreRequest, 
@@ -15,7 +17,9 @@ from app.services.ai_health_scoring import AccountHealthScoringService
 from app.dependencies.user_auth import get_current_user
 from app.dependencies.permissions import get_user_permission
 from app.models.user import User
+from app.models.account import Account
 from app.schemas.user_permission import UserPermissionResponse
+from app.db.session import get_request_transaction
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/ai/health-scoring", tags=["ai-health-scoring"])
@@ -34,13 +38,13 @@ async def calculate_account_health_score(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
     
-        try:
+    try:
         force_recalculation = request.force_recalculation if request else False
         health_response = await health_scoring_service.calculate_health_score_for_account(
             account_id, user, force_recalculation
         )
         
-                return health_response
+        return health_response
         
     except HTTPException:
         raise
@@ -63,7 +67,7 @@ async def get_account_health_score(
     db: AsyncSession = Depends(get_request_transaction)
 ):
     
-        try:
+    try:
         stmt = select(Account).where(
             Account.account_id == account_id,
             Account.org_id == user.org_id
@@ -123,7 +127,7 @@ async def calculate_batch_health_scores(
             valid_account_ids, db, request.force_recalculation
         )
         
-                return batch_response
+        return batch_response
         
     except HTTPException:
         raise
@@ -147,7 +151,7 @@ async def get_health_analytics(
     db: AsyncSession = Depends(get_request_transaction)
 ):
     
-        try:
+    try:
         stmt = select(Account).where(Account.org_id == user.org_id)
         result = await db.execute(stmt)
         accounts = result.scalars().all()
@@ -253,7 +257,7 @@ async def get_account_health_insights(
     db: AsyncSession = Depends(get_request_transaction)
 ):
     
-        try:
+    try:
         stmt = select(Account).where(
             Account.account_id == account_id,
             Account.org_id == user.org_id

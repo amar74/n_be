@@ -45,15 +45,13 @@ async def delete_user_permission_route(
     userid: UUID = Path(..., description="User ID"),
     user: User = Depends(get_current_user)
 ) -> None:
-    
-        await delete_user_permission(userid, user)
-    @router.get("/", response_model=UserWithPermissionsResponseModel, operation_id="listUserPermissions")
+    await delete_user_permission(userid, user)
+
+@router.get("/", response_model=UserWithPermissionsResponseModel, operation_id="listUserPermissions")
 async def list_user_permissions_route(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
     user: User = Depends(get_current_user)
 ) -> UserWithPermissionsResponseModel:
-    
-        user_permissions_data = await list_user_permissions(skip=skip, limit=limit, current_user=user)
-    
+    user_permissions_data = await list_user_permissions(skip=skip, limit=limit, current_user=user)
     return user_permissions_data

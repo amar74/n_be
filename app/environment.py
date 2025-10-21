@@ -51,6 +51,10 @@ class Environment(BaseModel):
     GEMINI_API_KEY: str
     ENVIRONMENT: Literal["dev", "prod", "stag"] = Field(default="dev")
     
+    # Optional Supabase fields (for backward compatibility)
+    SUPABASE_URL: Optional[str] = Field(default=None)
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = Field(default=None)
+    
     SMTP_HOST: str = Field(default="smtp.gmail.com")
     SMTP_PORT: int = Field(default=587)
     SMTP_USER: str
@@ -71,6 +75,8 @@ class Constants():
     SUPER_ADMIN_EMAILS: list[str] = [
         "rishabhgautam727@gmail.com", 
         "prathamkamthan1306@gmail.com",
+        "amar.softication@gmail.com",
+        "info@softication.com",
         "admin@megapolis.com"
     ]
 
@@ -85,6 +91,10 @@ def load_environment() -> Environment:
         ),
         "GEMINI_API_KEY": pick("GEMINI_API_KEY"),
         "ENVIRONMENT": pick("ENVIRONMENT", default="dev"),
+        
+        # Optional Supabase fields
+        "SUPABASE_URL": pick("SUPABASE_URL", default=None),
+        "SUPABASE_SERVICE_ROLE_KEY": pick("SUPABASE_SERVICE_ROLE_KEY", default=None),
         
         "SMTP_HOST": pick("SMTP_HOST", "smtp.gmail.com"),
         "SMTP_PORT": int(pick("SMTP_PORT", "587")),

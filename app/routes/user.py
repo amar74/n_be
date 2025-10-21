@@ -32,7 +32,7 @@ async def get_users(
 ) -> List[UserResponse]:
     
         users = await get_all_users(skip=skip, limit=limit)
-    return [UserResponse.model_validate(user) for user in users]
+        return [UserResponse.model_validate(user) for user in users]
 
 @router.get("/{user_id}", response_model=UserResponse, operation_id="getUserById")
 async def get_user(user_id: int) -> UserResponse:

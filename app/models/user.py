@@ -30,6 +30,7 @@ class User(Base):
 
     role: Mapped[str] = mapped_column(String(50), default=Roles.ADMIN, nullable=False)
     formbricks_user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="users", foreign_keys=[org_id])
 
@@ -40,6 +41,7 @@ class User(Base):
             "email": self.email,
             "org_id": self.org_id,
             "role": self.role,
+            "password_hash": self.password_hash,
         }
 
     @classmethod
@@ -57,7 +59,7 @@ class User(Base):
             return user
 
     @classmethod
-    async def get_by_id(cls, user_id: int) -> Optional["User"]:
+    async def get_by_id(cls, user_id: str) -> Optional["User"]:
 
         async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.id == user_id))

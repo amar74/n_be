@@ -56,7 +56,7 @@ async def create_account(payload: AccountCreate, current_user: User) -> Account:
     await db.flush()  # Get address ID
     
     from app.services.id_generator import IDGenerator
-    custom_id = await IDGenerator.generate_account_id(db)
+    custom_id = await IDGenerator.generate_account_id(str(current_user.org_id), db)
     
     account = Account(
         custom_id=custom_id,

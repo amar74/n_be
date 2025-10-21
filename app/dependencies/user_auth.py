@@ -1,9 +1,11 @@
 from fastapi import Request
 import jwt
 import os
+import asyncpg
 from app.utils.error import MegapolisHTTPException
 from app.models.organization import Organization
 from app.models.user import User
+from app.services.auth_service import AuthService
 from app.utils.logger import logger
 from app.schemas.auth import AuthUserResponse
 from app.environment import environment
@@ -39,12 +41,32 @@ async def get_current_user(
                 status_code=401, details="Invalid token: no user ID found"
             )
 
-        user = await User.get_by_id(user_id)
-        if not user:
-            logger.warning(f"User with ID {user_id} not found")
-            raise MegapolisHTTPException(
-                status_code=404, details=f"User with ID {user_id} not found"
+        # Direct database query to avoid SQLAlchemy relationship issues
+        logger.warning(f"DEBUG: Looking up user with ID: {user_id}")
+        db_url = environment.DATABASE_URL.replace('postgresql+psycopg://', 'postgresql://')
+        conn = await asyncpg.connect(db_url)
+        try:
+            user_row = await conn.fetchrow(
+                'SELECT id, email, org_id, role FROM users WHERE id = $1',
+                user_id
             )
+            logger.warning(f"DEBUG: Database query result: {user_row}")
+            if not user_row:
+                logger.warning(f"User with ID {user_id} not found")
+                raise MegapolisHTTPException(
+                    status_code=404, details=f"User with ID {user_id} not found"
+                )
+            
+            # Create a simple user object
+            from app.schemas.auth import AuthUserResponse
+            user = AuthUserResponse(
+                id=str(user_row['id']),
+                email=user_row['email'],
+                org_id=str(user_row['org_id']) if user_row['org_id'] else None,
+                role=user_row['role']
+            )
+        finally:
+            await conn.close()
             
         return user
 

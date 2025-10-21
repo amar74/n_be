@@ -1,0 +1,329 @@
+"""
+Simple authentication routes that bypass complex model loading issues.
+"""
+from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from datetime import timedelta, datetime
+from pydantic import BaseModel
+from typing import Optional
+import jwt
+import uuid
+from app.environment import environment
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+security = HTTPBearer()
+
+SECRET_KEY = environment.JWT_SECRET_KEY
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class LoginResponse(BaseModel):
+    token: str
+    user: dict
+    expire_at: str
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    role: str
+    org_id: Optional[str] = None
+
+# Simple user data for testing
+USERS = {
+    "admin@megapolis.com": {
+        "id": "4e37368e-8c32-4f38-a593-15558bf38951",
+        "email": "admin@megapolis.com",
+        "role": "super_admin",
+        "org_id": "299cfc3a-9791-4379-9602-9123d9e3043b",
+        "password": "Amar77492$#@"
+    },
+    "amar74.soft@gmail.com": {
+        "id": "edbd0834-d830-411b-aad5-a91f711481cf",
+        "email": "amar74.soft@gmail.com",
+        "role": "admin",
+        "org_id": "299cfc3a-9791-4379-9602-9123d9e3043b",
+        "password": "Amar77492#@$"
+    }
+}
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def verify_token(token: str) -> Optional[dict]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.PyJWTError:
+        return None
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    payload = verify_token(token)
+    
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    # Find user by ID
+    user = None
+    for email, user_data in USERS.items():
+        if user_data["id"] == user_id:
+            user = user_data
+            break
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return user
+
+@router.post("/login", response_model=LoginResponse)
+async def login(request: LoginRequest):
+    user_data = USERS.get(request.email)
+    
+    if not user_data or user_data["password"] != request.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=30)
+    access_token = create_access_token(
+        data={"sub": user_data["id"], "user_id": user_data["id"]},
+        expires_delta=access_token_expires
+    )
+    
+    return LoginResponse(
+        token=access_token,
+        user={
+            "id": user_data["id"],
+            "email": user_data["email"],
+            "role": user_data["role"],
+            "org_id": user_data["org_id"],
+        },
+        expire_at=(datetime.utcnow() + access_token_expires).isoformat()
+    )
+
+@router.post("/super-admin/login", response_model=LoginResponse)
+async def super_admin_login(request: LoginRequest):
+    user_data = USERS.get(request.email)
+    
+    if not user_data or user_data["password"] != request.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user is super admin
+    if user_data["role"] != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Super admin role required.",
+        )
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=30)
+    access_token = create_access_token(
+        data={"sub": user_data["id"], "user_id": user_data["id"]},
+        expires_delta=access_token_expires
+    )
+    
+    return LoginResponse(
+        token=access_token,
+        user={
+            "id": user_data["id"],
+            "email": user_data["email"],
+            "role": user_data["role"],
+            "org_id": user_data["org_id"],
+        },
+        expire_at=(datetime.utcnow() + access_token_expires).isoformat()
+    )
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    return UserResponse(
+        id=current_user["id"],
+        email=current_user["email"],
+        role=current_user["role"],
+        org_id=current_user["org_id"]
+    )
+Simple authentication routes that bypass complex model loading issues.
+"""
+from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from datetime import timedelta, datetime
+from pydantic import BaseModel
+from typing import Optional
+import jwt
+import uuid
+from app.environment import environment
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+security = HTTPBearer()
+
+SECRET_KEY = environment.JWT_SECRET_KEY
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class LoginResponse(BaseModel):
+    token: str
+    user: dict
+    expire_at: str
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    role: str
+    org_id: Optional[str] = None
+
+# Simple user data for testing
+USERS = {
+    "admin@megapolis.com": {
+        "id": "4e37368e-8c32-4f38-a593-15558bf38951",
+        "email": "admin@megapolis.com",
+        "role": "super_admin",
+        "org_id": "299cfc3a-9791-4379-9602-9123d9e3043b",
+        "password": "Amar77492$#@"
+    },
+    "amar74.soft@gmail.com": {
+        "id": "edbd0834-d830-411b-aad5-a91f711481cf",
+        "email": "amar74.soft@gmail.com",
+        "role": "admin",
+        "org_id": "299cfc3a-9791-4379-9602-9123d9e3043b",
+        "password": "Amar77492#@$"
+    }
+}
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def verify_token(token: str) -> Optional[dict]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.PyJWTError:
+        return None
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    payload = verify_token(token)
+    
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    # Find user by ID
+    user = None
+    for email, user_data in USERS.items():
+        if user_data["id"] == user_id:
+            user = user_data
+            break
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return user
+
+@router.post("/login", response_model=LoginResponse)
+async def login(request: LoginRequest):
+    user_data = USERS.get(request.email)
+    
+    if not user_data or user_data["password"] != request.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=30)
+    access_token = create_access_token(
+        data={"sub": user_data["id"], "user_id": user_data["id"]},
+        expires_delta=access_token_expires
+    )
+    
+    return LoginResponse(
+        token=access_token,
+        user={
+            "id": user_data["id"],
+            "email": user_data["email"],
+            "role": user_data["role"],
+            "org_id": user_data["org_id"],
+        },
+        expire_at=(datetime.utcnow() + access_token_expires).isoformat()
+    )
+
+@router.post("/super-admin/login", response_model=LoginResponse)
+async def super_admin_login(request: LoginRequest):
+    user_data = USERS.get(request.email)
+    
+    if not user_data or user_data["password"] != request.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user is super admin
+    if user_data["role"] != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Super admin role required.",
+        )
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=30)
+    access_token = create_access_token(
+        data={"sub": user_data["id"], "user_id": user_data["id"]},
+        expires_delta=access_token_expires
+    )
+    
+    return LoginResponse(
+        token=access_token,
+        user={
+            "id": user_data["id"],
+            "email": user_data["email"],
+            "role": user_data["role"],
+            "org_id": user_data["org_id"],
+        },
+        expire_at=(datetime.utcnow() + access_token_expires).isoformat()
+    )
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    return UserResponse(
+        id=current_user["id"],
+        email=current_user["email"],
+        role=current_user["role"],
+        org_id=current_user["org_id"]
+    )

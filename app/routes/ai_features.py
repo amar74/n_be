@@ -25,7 +25,7 @@ async def enrich_account_data(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit"]}))
 ):
     
-        try:
+    try:
         enrichment_result = await ai_data_enrichment_service.enrich_account_data(
             account_id, str(user.org_id)
         )
@@ -55,7 +55,7 @@ async def batch_enrich_accounts(
             account_ids, str(user.org_id)
         )
         
-                return enrichment_results
+        return enrichment_results
         
     except Exception as e:
         logger.error(f"Error in batch enrichment: {e}")
@@ -75,12 +75,12 @@ async def suggest_account_tier(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
     
-        try:
+    try:
         tier_suggestion = await ai_tiering_service.suggest_account_tier(
             account_id, str(user.org_id)
         )
         
-                return tier_suggestion
+        return tier_suggestion
         
     except Exception as e:
         logger.error(f"Error suggesting tier for account {account_id}: {e}")
@@ -105,7 +105,7 @@ async def batch_suggest_tiers(
             account_ids, str(user.org_id)
         )
         
-                return tier_suggestions
+        return tier_suggestions
         
     except Exception as e:
         logger.error(f"Error in batch tier suggestions: {e}")
@@ -125,12 +125,12 @@ async def generate_account_insights(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
     
-        try:
+    try:
         insights = await ai_insights_service.generate_account_insights(
             account_id, str(user.org_id)
         )
         
-                return insights
+        return insights
         
     except Exception as e:
         logger.error(f"Error generating insights for account {account_id}: {e}")
@@ -149,10 +149,10 @@ async def get_organization_insights_summary(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
     
-        try:
+    try:
         summary = await ai_insights_service.get_organization_insights_summary(str(user.org_id))
         
-                return summary
+        return summary
         
     except Exception as e:
         logger.error(f"Error generating organization insights summary: {e}")
@@ -172,12 +172,12 @@ async def calculate_account_health_score(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
     
-        try:
+    try:
         health_score = await health_score_service.calculate_health_score_for_account(
             account_id, str(user.org_id)
         )
         
-                return health_score
+        return health_score
         
     except Exception as e:
         logger.error(f"Error calculating health score for account {account_id}: {e}")
@@ -197,12 +197,12 @@ async def update_account_health_score(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view", "edit"]}))
 ):
     
-        try:
+    try:
         health_score = await health_score_service.update_account_health_score(
             account_id, str(user.org_id)
         )
         
-                return health_score
+        return health_score
         
     except Exception as e:
         logger.error(f"Error updating health score for account {account_id}: {e}")
@@ -222,7 +222,7 @@ async def comprehensive_account_analysis(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
 ):
     
-        try:
+    try:
         health_score = await health_score_service.calculate_health_score_for_account(account_id, str(user.org_id))
         tier_suggestion = await ai_tiering_service.suggest_account_tier(account_id, str(user.org_id))
         insights = await ai_insights_service.generate_account_insights(account_id, str(user.org_id))
@@ -242,7 +242,7 @@ async def comprehensive_account_analysis(
             }
         }
         
-                return comprehensive_analysis
+        return comprehensive_analysis
         
     except Exception as e:
         logger.error(f"Error in comprehensive analysis for account {account_id}: {e}")
