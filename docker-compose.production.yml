@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  megapolis-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: megapolis-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://megapolis_user:megapolis_password@localhost:5432/megapolis_db
+      - SECRET_KEY=your-super-secret-key-change-this-in-production
+      - GEMINI_API_KEY=your-gemini-api-key
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - CORS_ORIGINS=["http://52.5.133.157:3000", "http://localhost:3000"]
+      - JWT_SECRET_KEY=your-jwt-secret-key-change-this
+      - JWT_ALGORITHM=HS256
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - megapolis-network
+
+networks:
+  megapolis-network:
+    driver: bridge
