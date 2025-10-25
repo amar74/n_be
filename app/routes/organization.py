@@ -14,7 +14,7 @@ from app.schemas.organization import (
 )
 from app.schemas.user import Roles
 from app.dependencies.user_auth import get_current_user
-from app.models.user import User
+from app.schemas.auth import AuthUserResponse
 from app.services.organization import (
     create_organization,
     get_organization_by_id,
@@ -45,7 +45,7 @@ router = APIRouter(prefix="/orgs", tags=["orgs"])
 )
 async def create_org(
     request: OrgCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: AuthUserResponse = Depends(get_current_user),
 ) -> OrgCreatedResponse:
     
         org = await create_organization(current_user, request)
@@ -56,7 +56,7 @@ async def create_org(
     )
 
 @router.get("/me", status_code=200, response_model=OrgResponse, operation_id="me")
-async def get_my_org(current_user: User = Depends(get_current_user)) -> OrgResponse:
+async def get_my_org(current_user: AuthUserResponse = Depends(get_current_user)) -> OrgResponse:
 
     if not current_user.org_id:
         raise MegapolisHTTPException(
@@ -107,7 +107,7 @@ async def get_my_org(current_user: User = Depends(get_current_user)) -> OrgRespo
 @router.get("/{org_id}", status_code=200, response_model=OrgResponse, operation_id="getOrgById")
 async def get_org_by_id(
     org_id: UUID,
-    current_user: User = Depends(get_current_user)
+    current_user: AuthUserResponse = Depends(get_current_user)
 ) -> OrgResponse:
 
     if current_user.role != Roles.SUPER_ADMIN and current_user.org_id != org_id:
@@ -164,7 +164,7 @@ async def get_org_by_id(
 async def patch_organization(
     org_id: str,
     data: Dict[str, Any] = Body(...),
-    current_user: User = Depends(require_role([Roles.VENDOR, Roles.ADMIN])),
+    current_user: AuthUserResponse = Depends(require_role([Roles.VENDOR, Roles.ADMIN])),
 ) -> Dict[str, Any]:
     
     from uuid import UUID
@@ -254,7 +254,7 @@ async def patch_organization(
     operation_id="getOrgMembers",
 )
 async def get_org_members(
-    current_user: User = Depends(get_current_user),
+    current_user: AuthUserResponse = Depends(get_current_user),
 ) -> OrgMembersListResponse:
     
     data = await get_organization_members(current_user)
@@ -293,7 +293,7 @@ async def get_org_members(
 )
 async def create_invite(
     request: InviteCreateRequest,
-    current_user: User = Depends(require_role([Roles.ADMIN])),
+    current_user: AuthUserResponse = Depends(require_role([Roles.ADMIN])),
 ) -> InviteResponse:
     
         invite = await create_user_invite(request, current_user)

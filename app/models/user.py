@@ -4,12 +4,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
+import random
+import string
 from app.schemas.user import Roles
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
 
 if TYPE_CHECKING:
     from app.models.organization import Organization
+
+def generate_short_user_id() -> str:
+    """Generate a short 6-digit user ID"""
+    while True:
+        # Generate a 6-digit alphanumeric code
+        user_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        # Check if it already exists (we'll implement this check in the service)
+        return user_id
 
 class User(Base):
     __tablename__ = "users"
@@ -21,6 +31,8 @@ class User(Base):
         nullable=False,
         index=True,
     )
+
+    short_id: Mapped[str] = mapped_column(String(10), unique=True, nullable=False, index=True)
 
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
 
@@ -38,6 +50,7 @@ class User(Base):
 
         return {
             "id": self.id,
+            "short_id": self.short_id,
             "email": self.email,
             "org_id": self.org_id,
             "role": self.role,

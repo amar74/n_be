@@ -27,6 +27,278 @@ class DataEnrichmentService:
         self.model = genai.GenerativeModel('gemini-pro')
         self.cache = {}  # Simple in-memory cache for demo
     
+    async def discover_and_extract_opportunities(self, base_url: str) -> dict:
+        """
+        Advanced auto-scraper that:
+        1. Scrapes main website to find project/opportunity pages
+        2. Follows links to individual project pages
+        3. Extracts detailed data from each project
+        4. Returns multiple opportunities
+        """
+        import re
+        from urllib.parse import urljoin, urlparse
+        
+        logger.info(f"Starting opportunity discovery for: {base_url}")
+        
+        # Step 1: Scrape main page
+        main_page_data = await scrape_text_with_bs4(base_url)
+        if "error" in main_page_data:
+            return {"error": f"Failed to scrape main page: {main_page_data['error']}"}
+        
+        # Step 2: Find project listing pages and individual project URLs
+        project_keywords = [
+            'projects', 'programs', 'opportunities', 'tenders', 'rfp', 'bids', 
+            'contracts', 'freeway', 'construction', 'in-progress', 'ongoing'
+        ]
+        
+        # Extract all links from main page
+        all_links = re.findall(r'href=["\'](https?://[^"\']+|/[^"\']+)["\']', main_page_data.get('html', ''))
+        
+        # Filter for project-related URLs
+        project_urls = []
+        for link in all_links:
+            full_url = urljoin(base_url, link)
+            # Check if URL contains project keywords
+            if any(keyword in full_url.lower() for keyword in project_keywords):
+                # Avoid duplicate URLs
+                if full_url not in project_urls and urlparse(full_url).netloc == urlparse(base_url).netloc:
+                    project_urls.append(full_url)
+        
+        logger.info(f"Found {len(project_urls)} potential project URLs")
+        
+        # Step 3: Scrape each project page (limit to first 10 to avoid overload)
+        opportunities = []
+        for project_url in project_urls[:10]:
+            try:
+                logger.info(f"Scraping project page: {project_url}")
+                project_data = await scrape_text_with_bs4(project_url)
+                
+                if "error" not in project_data:
+                    # Extract opportunity data from this project page
+                    opportunity = await self._extract_opportunity_from_page(project_url, project_data)
+                    if opportunity:
+                        opportunities.append(opportunity)
+            except Exception as e:
+                logger.error(f"Error scraping {project_url}: {e}")
+                continue
+        
+        return {
+            "base_url": base_url,
+            "opportunities_found": len(opportunities),
+            "opportunities": opportunities
+        }
+    
+    async def _extract_opportunity_from_page(self, page_url: str, page_data: dict) -> dict:
+        """Extract comprehensive opportunity data from a single project page for CRM"""
+        import re
+        
+        content = page_data.get('text', '')
+        html = page_data.get('html', '')
+        
+        # === OPPORTUNITY NAME ===
+        # Extract from H1, H2, or title tag
+        opportunity_name = ""
+        h1_match = re.search(r'<h1[^>]*>([^<]+)</h1>', html, re.IGNORECASE)
+        h2_match = re.search(r'<h2[^>]*>([^<]+)</h2>', html, re.IGNORECASE)
+        title_match = re.search(r'<title>([^<]+)</title>', html, re.IGNORECASE)
+        
+        if h1_match:
+            opportunity_name = h1_match.group(1).strip()
+        elif h2_match:
+            opportunity_name = h2_match.group(1).strip()
+        elif title_match:
+            opportunity_name = title_match.group(1).split('|')[0].strip()
+        
+        # === PROJECT DESCRIPTION (Project Overview) ===
+        # Look for "Project Overview" section
+        project_description = ""
+        overview_patterns = [
+            r'(?:Project Overview|Overview)(.*?)(?:Project Details|Project Milestones|Contact|$)',
+            r'(?:<h2[^>]*>Project Overview</h2>)(.*?)(?:<h2|<div class)',
+            r'(?:##\s*Project Overview)(.*?)(?:##|$)'
+        ]
+        for pattern in overview_patterns:
+            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+            if match:
+                project_description = match.group(1).strip()[:2000]  # Limit to 2000 chars
+                break
+        
+        # If no overview found, use first 1000 characters
+        if not project_description:
+            project_description = content[:1000].strip()
+        
+        # === PROJECT SCOPE (Project Details/Milestones) ===
+        # Extract milestones table or project details section
+        project_scope = ""
+        scope_patterns = [
+            r'(?:Project Details|Project Milestones)(.*?)(?:Back to Top|Contact|$)',
+            r'(?:<h2[^>]*>Project Details</h2>)(.*?)(?:<h2|<div class)',
+            r'(?:##\s*Project Details)(.*?)(?:##|$)'
+        ]
+        for pattern in scope_patterns:
+            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+            if match:
+                project_scope = match.group(1).strip()[:3000]  # Limit to 3000 chars
+                break
+        
+        # Extract milestones/timeline data
+        milestones = []
+        milestone_pattern = r'(?:Timeline|TIMELINE)[:\s]*([^\n]+)'
+        milestone_matches = re.findall(milestone_pattern, content, re.IGNORECASE)
+        milestones = milestone_matches[:10] if milestone_matches else []
+        
+        # === CONTACT DETAILS ===
+        # Extract phone numbers
+        phone_pattern = r'(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})'
+        phones = re.findall(phone_pattern, content)
+        phone_numbers = [f"({p[0]}) {p[1]}-{p[2]}" for p in phones[:3]]
+        
+        # Extract emails
+        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        emails = re.findall(email_pattern, content)
+        
+        # Extract contact section
+        contact_info = ""
+        contact_patterns = [
+            r'(?:Contact|Contact Us|Contact Information|Contact the Project Team)(.*?)(?:\n\n|Back to Top|$)',
+            r'(?:<h2[^>]*>Contact</h2>)(.*?)(?:<h2|<div class)',
+        ]
+        for pattern in contact_patterns:
+            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+            if match:
+                contact_info = match.group(1).strip()[:500]
+                break
+        
+        # === DOCUMENTS (PDFs, DOCs, etc.) ===
+        documents = []
+        doc_patterns = [
+            r'href=["\'](https?://[^"\']*\.(?:pdf|doc|docx|xls|xlsx|ppt|pptx))["\']',
+            r'href=["\'](https?://[^"\']*(?:document|download|report|attachment)[^"\']*)["\']'
+        ]
+        for pattern in doc_patterns:
+            matches = re.findall(pattern, html, re.IGNORECASE)
+            documents.extend(matches)
+        
+        # === IMAGES ===
+        image_pattern = r'src=["\'](https?://[^"\']*\.(?:jpg|jpeg|png|gif|svg|webp))["\']'
+        images = re.findall(image_pattern, html, re.IGNORECASE)
+        
+        # === PROJECT STATUS ===
+        status = "Lead"  # Default
+        status_keywords = {
+            "In Progress": ["in progress", "ongoing", "under construction", "active", "currently"],
+            "Planned": ["planned", "upcoming", "future", "proposed", "estimated"],
+            "Completed": ["completed", "finished", "done", "ended"]
+        }
+        for status_name, keywords in status_keywords.items():
+            if any(keyword in content.lower() for keyword in keywords):
+                status = status_name
+                break
+        
+        # === DATES (Start/End) ===
+        date_pattern = r'(?:Spring|Summer|Fall|Winter|Early|Late|Mid)?\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)?\s*\d{1,2}?,?\s*\d{4}|20\d{2}'
+        dates = re.findall(date_pattern, content, re.IGNORECASE)
+        
+        start_date = dates[0] if len(dates) > 0 else "Not available"
+        end_date = dates[-1] if len(dates) > 1 else "Not available"
+        
+        # === PROJECT VALUE ===
+        value_pattern = r'\$\s*[\d,]+(?:\.\d{2})?(?:\s*(?:million|billion|M|B|K|thousand))?'
+        values = re.findall(value_pattern, content, re.IGNORECASE)
+        project_value = values[0] if values else "Not available"
+        
+        # === LOCATION ===
+        location = self._extract_address_from_content(content)
+        
+        # === MARKET SECTOR ===
+        # Infer from content
+        sector_keywords = {
+            "Infrastructure": ["freeway", "highway", "bridge", "road", "transportation", "transit"],
+            "Construction": ["construction", "building", "development"],
+            "Technology": ["technology", "software", "IT", "digital"],
+            "Healthcare": ["healthcare", "medical", "hospital"],
+            "Energy": ["energy", "power", "utilities"]
+        }
+        market_sector = "Infrastructure"  # Default
+        for sector, keywords in sector_keywords.items():
+            if any(keyword in content.lower() for keyword in keywords):
+                market_sector = sector
+                break
+        
+        return {
+            # === FOR CREATE OPPORTUNITY MODAL ===
+            "opportunity_name": opportunity_name or "Unnamed Project",
+            "project_value": project_value,
+            "location": location if location else "",
+            "market_sector": market_sector,
+            "sales_stage": "Prospecting",
+            
+            # === FOR OPPORTUNITY DETAILS PAGE (Overview & Scope) ===
+            "project_description": project_description,
+            "project_scope": project_scope,
+            "project_status": status,
+            "milestones": milestones,
+            
+            # === CONTACT DETAILS ===
+            "contact_phone": phone_numbers[0] if phone_numbers else "",
+            "contact_emails": emails[:3],
+            "contact_info": contact_info,
+            
+            # === RESOURCES ===
+            "documents": list(set(documents))[:20],  # Limit to 20 docs
+            "images": list(set(images))[:10],  # Limit to 10 images
+            
+            # === METADATA ===
+            "project_url": page_url,
+            "start_date": start_date,
+            "end_date": end_date,
+            "extracted_dates": dates[:5],
+            "tag": "in-progress" if status == "In Progress" else "lead"
+        }
+    
+    def _extract_address_from_content(self, content: str) -> str:
+        """Extract full address from website content using comprehensive regex patterns"""
+        import re
+        
+        # Enhanced address patterns for various formats
+        address_patterns = [
+            # Indian address format: Building, Block, Sector, City, State, Pincode
+            r'([A-Z]-?\d+[^,]*,\s*(?:Block\s+[A-Z0-9][^,]*,\s*)?[A-Z0-9-]+[^,]*,\s*(?:Sector\s*\d+[^,]*,\s*)?[A-Z][^,]*,\s*[A-Z]{2,}[^,]*,\s*(?:India[^,]*)?\d{6})',
+            # Standard address with building number, street, city, state, zip
+            r'(\d+[^,]*,\s*[A-Z][^,]*,\s*[A-Z][^,]*,\s*[A-Z]{2,}[^,]*\d{5,6})',
+            # Address in contact section
+            r'(?:address|located|office|headquarters)[:\s]*([A-Z0-9][^<>\n]{20,200}(?:India|USA|UK|Canada|Australia)[^<>\n]*)',
+            # Building + area + city pattern
+            r'([A-Z]-?\d+[^,]{0,100},\s*[^,]+,\s*[^,]+,\s*[A-Z]{2,}[^,]*\d{5,6})',
+            # Simple format: Street, City, State, Zip
+            r'([A-Z][^,]+,\s*[A-Z][^,]+,\s*[A-Z]{2,}[^,]*\d{5,6})',
+            # Contact section with full address
+            r'(?:contact|reach|visit)[^:]*:([A-Z0-9][^<>\n]{30,200}(?:India|USA|UK)[^<>\n]*)'
+        ]
+        
+        for i, pattern in enumerate(address_patterns):
+            matches = re.findall(pattern, content, re.IGNORECASE | re.MULTILINE)
+            if matches:
+                for match in matches:
+                    # Clean up the address
+                    address = match.strip()
+                    # Remove HTML tags
+                    address = re.sub(r'<[^>]+>', '', address)
+                    # Remove extra whitespace and newlines
+                    address = ' '.join(address.split())
+                    # Remove common prefixes
+                    address = re.sub(r'^(address|located|office|headquarters)[:\s]*', '', address, flags=re.IGNORECASE)
+                    
+                    # Validate address quality
+                    if (len(address) > 20 and  # Minimum length
+                        any(char.isdigit() for char in address) and  # Contains numbers
+                        any(char.isalpha() for char in address) and  # Contains letters
+                        not address.lower().startswith(('email', 'phone', 'tel', 'fax'))):  # Not contact info
+                        print(f"Pattern {i+1} found address: {address}")
+                        return address
+        
+        return "Address not available"
+    
     async def suggest_organization_name(
         self, 
         request: OrganizationNameRequest
@@ -628,55 +900,150 @@ class DataEnrichmentService:
                 partial_data_str = f"\nAlready entered data: {request.partial_data}"
             
             prompt = f"""
-            Analyze this company website and extract opportunity-specific information for creating a sales opportunity.
-            
-            Website URL: {request.company_website}{partial_data_str}
-            
-            Website Content:
-            {scraped_data['text'][:4000]}
-            
-            Instructions:
-            1. Focus on identifying potential business opportunities and projects
-            2. Look for services offered, case studies, project portfolios, or bidding opportunities
-            3. Extract or infer opportunity-specific information:
-               - Opportunity name from services, projects, or current offerings
-               - Project value from pricing pages, case studies, or service descriptions
-               - Project description from detailed service offerings or case studies
-               - Location from service areas, office locations, or project locations
-               - Market sector from industries served or project types
-               - Sales stage based on project status or business development stage
-            4. Provide confidence scores for each field (0-1)
-            5. Be conservative with confidence - only high confidence for clear information
-            6. If information is not available, provide reasonable estimates or leave empty
-            
-            Focus on finding:
-            - Current projects or services that could be opportunities
-            - Pricing information or budget ranges
-            - Service areas and locations
-            - Target industries and market sectors
-            - Project status or business development stage
-            - Case studies or project portfolios
-            - Bidding opportunities or RFP mentions
-            
-            Please return the information in the following JSON format:
-            {{
-                "opportunity_name": "suggested opportunity name",
-                "project_value": "estimated project value or budget range",
-                "project_description": "detailed project description",
-                "location": "primary service location",
-                "market_sector": "primary market sector",
-                "sales_stage": "suggested sales stage",
-                "confidence_scores": {{
-                    "opportunity_name": 0.8,
-                    "project_value": 0.6,
-                    "project_description": 0.7,
-                    "location": 0.9,
-                    "market_sector": 0.8,
-                    "sales_stage": 0.5
-                }},
-                "warnings": ["any warnings about data quality or confidence"]
-            }}
-            """
+You are an expert Business Data Analyst AI trained to analyze company websites and extract **high-value business opportunities, projects, and leads** with 90%+ accuracy.
+
+Your task is to analyze the following website and identify **in-progress or potential opportunities**, along with all relevant project details.
+
+🌐 Website URL:
+{request.company_website}{partial_data_str}
+
+📄 Website Content:
+{scraped_data['text'][:4000]}
+
+---
+
+### 🎯 OBJECTIVE
+Your goal is to:
+1. Detect all **in-progress, active, or upcoming projects/opportunities**.
+2. Extract detailed project and company data.
+3. Generate structured, high-confidence JSON output.
+4. Tag and categorize opportunities for **automatic dumping into our CRM**.
+
+---
+
+### 🧩 EXTRACTION RULES
+
+#### 🏗️ 1. OPPORTUNITY & PROJECT DETECTION
+- Look for sections or pages mentioning:
+  - "Projects", "Programs", "Opportunities", "RFPs", "Tenders", "Contracts", "Bids"
+  - Status tags like "In Progress", "Ongoing", "Active", "Under Construction", "Upcoming"
+- If the website contains URLs or subpages like `/projects/`, `/programs/`, `/tenders/`, `/rfp/`, or `/contracts/` — note them for crawling.
+- Extract the following:
+  - Project/Opportunity Name
+  - Current Status (In-progress, Planned, Completed)
+  - Project Scope or Description
+  - Budget, Value, or Funding Amount
+  - Start Date, End Date (if available)
+  - Key Documents or Reports (links to PDFs or attachments)
+  - Related Stakeholders, Contractors, or Departments
+
+Example:
+- Website: `https://octa.net/programs-projects/projects/freeway-projects/overview`
+  - Found: "I-5 County Line to Avenida Pico Improvement Project"
+  - Extract details: Description, status (in progress), documents, and other available metadata.
+
+---
+
+#### 📍 2. LOCATION EXTRACTION
+- Identify full company or project address from:
+  - Footer, Contact page, About page, or Project details page.
+- Look for keywords: "Address:", "Location:", "Headquarters:", "Contact:"
+- Extract complete structured address:
+  **Building/Street + City + State + Zip + Country**
+- Example: "B-6, Block E, E-59, Noida Sector 3, Noida, UP, India-201301"
+- If not found → return "Address not available" with low confidence (0.2).
+
+---
+
+#### 💼 3. MARKET SECTOR ANALYSIS
+Determine the **primary business sector** of the company:
+- **Technology** → SaaS, IT, AI, software, web/app development
+- **Infrastructure** → Roads, bridges, public works, transportation
+- **Construction** → Buildings, real estate, contracting
+- **Energy** → Utilities, renewable energy, oil & gas
+- **Healthcare** → Medical, pharma, clinical services
+- **Finance** → Banking, insurance, fintech
+- **Education** → Universities, training, e-learning
+- **Manufacturing** → Production, industrial
+Return only the **most relevant** sector name.
+
+---
+
+#### 📈 4. SALES STAGE IDENTIFICATION
+Based on project or content wording:
+- **Prospecting** → Default for new opportunities
+- **Qualification** → If company is "evaluating", "reviewing", or "shortlisting"
+- **Proposal** → If "bidding", "tender submitted", or "proposal stage"
+- **Negotiation** → If "negotiating", "finalizing", or "awarding"
+- **Closed Won** → If "contract awarded", "project executed", or "completed successfully"
+- **Closed Lost** → If "unsuccessful", "not selected", or "cancelled"
+
+---
+
+#### 💰 5. PROJECT VALUE ESTIMATION
+- Identify or infer project value or range from:
+  - Budget, funding, cost, or tender value.
+- Use these standard ranges:
+  - "<$50K", "$50K-$100K", "$100K-$500K", "$500K-$2M", "$2M+"
+- If not mentioned, estimate based on company or project type.
+
+---
+
+#### 🧾 6. PROJECT DESCRIPTION
+Write a detailed, professional, and concise description covering:
+- Objective or goal of the project
+- Scope of work
+- Technologies or methodologies (if mentioned)
+- Key deliverables or milestones
+- Target beneficiaries or industries
+
+---
+
+#### 🏷️ 7. TAGGING & STATUS
+Add an internal tag for dumping into CRM:
+- `"tag": "in-progress"` → for ongoing opportunities
+- `"tag": "planned"` → for upcoming projects
+- `"tag": "completed"` → for closed or finished projects
+- `"tag": "lead"` → for potential opportunities
+
+---
+
+### 🧮 CONFIDENCE SCORING
+For each extracted element, assign confidence levels:
+- 0.9–1.0 → Explicitly mentioned
+- 0.7–0.8 → Strongly inferred
+- 0.5–0.6 → Moderately inferred
+- 0.3–0.4 → Weak inference
+- 0.1–0.2 → Very uncertain / not found
+
+---
+
+### 📦 RETURN FORMAT (STRICT JSON)
+Return a **valid JSON object** only:
+
+{{
+    "opportunity_name": "Project/Opportunity Name",
+    "project_status": "In Progress / Planned / Completed",
+    "project_value": "$100K-$500K",
+    "project_description": "Detailed professional description of the project or opportunity.",
+    "documents": ["list of document URLs if available"],
+    "start_date": "YYYY-MM-DD or 'Not available'",
+    "end_date": "YYYY-MM-DD or 'Not available'",
+    "location": "Complete company or project address",
+    "market_sector": "Primary sector (e.g., Infrastructure, Technology, Construction)",
+    "sales_stage": "Prospecting / Proposal / Negotiation / Closed Won",
+    "tag": "in-progress / planned / completed / lead",
+    "confidence_scores": {{
+        "opportunity_name": 0.9,
+        "project_value": 0.7,
+        "project_description": 0.8,
+        "location": 0.9,
+        "market_sector": 0.9,
+        "sales_stage": 0.6
+    }},
+    "warnings": []
+}}
+"""
             
             logger.info("Calling Gemini API for opportunity enhancement")
             response = self.model.generate_content(prompt)
@@ -740,40 +1107,99 @@ class DataEnrichmentService:
                     suggestions_applied += 1
                 
                 location_conf = safe_confidence("location")
+                location_value = result.get("location", "")
+                # If location is empty or generic, try to extract from scraped data
+                if not location_value or location_value == "Address not available":
+                    location_value = self._extract_address_from_content(scraped_data['text'])
+                # If still not found, leave blank (not "Address not available")
+                if location_value == "Address not available":
+                    location_value = ""
                 enhanced_data["location"] = SuggestionValue(
-                    value=result.get("location", ""),
-                    confidence=location_conf,
-                    source="extracted from service areas",
-                    reasoning="Based on service locations or project areas",
-                    should_auto_apply=location_conf > 0.7
+                    value=location_value,
+                    confidence=location_conf if location_value else 0.1,
+                    source="extracted from website footer, contact, or about pages",
+                    reasoning="Complete address with street, city, state, zip code extracted from website",
+                    should_auto_apply=location_conf > 0.6 and location_value != ""
                 )
                 
                 if enhanced_data["location"].should_auto_apply:
                     suggestions_applied += 1
                 
                 market_sector_conf = safe_confidence("market_sector")
+                market_sector_value = result.get("market_sector", "Technology")  # Default to Technology for tech companies
+                if not market_sector_value or market_sector_value.strip() == "":
+                    market_sector_value = "Technology"
                 enhanced_data["market_sector"] = SuggestionValue(
-                    value=result.get("market_sector", ""),
-                    confidence=market_sector_conf,
-                    source="inferred from industries served",
-                    reasoning="Based on target industries or project types",
-                    should_auto_apply=market_sector_conf > 0.7
+                    value=market_sector_value,
+                    confidence=market_sector_conf if market_sector_value != "Technology" else 0.7,
+                    source="analyzed from company's primary business focus and services",
+                    reasoning="Based on company's main business activities, services offered, and target market",
+                    should_auto_apply=market_sector_conf > 0.6
                 )
                 
                 if enhanced_data["market_sector"].should_auto_apply:
                     suggestions_applied += 1
                 
                 sales_stage_conf = safe_confidence("sales_stage")
+                sales_stage_value = result.get("sales_stage", "Prospecting")  # Default to Prospecting
+                if not sales_stage_value or sales_stage_value.strip() == "":
+                    sales_stage_value = "Prospecting"
                 enhanced_data["sales_stage"] = SuggestionValue(
-                    value=result.get("sales_stage", ""),
-                    confidence=sales_stage_conf,
-                    source="inferred from business stage",
-                    reasoning="Based on project status or business development stage",
-                    should_auto_apply=sales_stage_conf > 0.7
+                    value=sales_stage_value,
+                    confidence=sales_stage_conf if sales_stage_value != "Prospecting" else 0.6,
+                    source="inferred from business stage or defaulted to Prospecting",
+                    reasoning="Based on project status indicators or defaulted to Prospecting for new opportunities",
+                    should_auto_apply=sales_stage_conf > 0.6
                 )
                 
                 if enhanced_data["sales_stage"].should_auto_apply:
                     suggestions_applied += 1
+                
+                # Add new fields from enhanced prompt
+                project_status_value = result.get("project_status", "Not available")
+                enhanced_data["project_status"] = SuggestionValue(
+                    value=project_status_value,
+                    confidence=safe_confidence("project_status", 0.5),
+                    source="extracted from project status indicators",
+                    reasoning="Based on project timeline and status mentions",
+                    should_auto_apply=False  # For display only
+                )
+                
+                documents_value = result.get("documents", [])
+                enhanced_data["documents"] = SuggestionValue(
+                    value=documents_value if documents_value else [],
+                    confidence=safe_confidence("documents", 0.5),
+                    source="extracted document links from website",
+                    reasoning="PDFs, reports, and attachments found on website",
+                    should_auto_apply=False  # For display only
+                )
+                
+                start_date_value = result.get("start_date", "Not available")
+                enhanced_data["start_date"] = SuggestionValue(
+                    value=start_date_value,
+                    confidence=safe_confidence("start_date", 0.5),
+                    source="extracted from project timeline",
+                    reasoning="Project start date if explicitly mentioned",
+                    should_auto_apply=False  # For display only
+                )
+                
+                end_date_value = result.get("end_date", "Not available")
+                enhanced_data["end_date"] = SuggestionValue(
+                    value=end_date_value,
+                    confidence=safe_confidence("end_date", 0.5),
+                    source="extracted from project timeline",
+                    reasoning="Project end/completion date if mentioned",
+                    should_auto_apply=False  # For display only
+                )
+                
+                tag_value = result.get("tag", "lead")
+                enhanced_data["tag"] = SuggestionValue(
+                    value=tag_value,
+                    confidence=safe_confidence("tag", 0.7),
+                    source="categorized based on project status",
+                    reasoning="Tag for CRM dumping: in-progress, planned, completed, or lead",
+                    should_auto_apply=False  # For display only
+                )
                     
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON response: {e}")

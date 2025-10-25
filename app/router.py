@@ -18,7 +18,8 @@ from app.routes.user import router as user_router
 from app.routes.admin import router as admin_router
 from app.routes.ai_suggestions import router as ai_suggestions_router
 from app.routes.scraper import router as scraper_router
-from app.routes.formbricks import router as formbricks_router
+from app.routes.survey import router as survey_router
+from app.routes.public_survey import router as public_survey_router
 
 api_router = APIRouter()
 
@@ -41,4 +42,5 @@ api_router.include_router(user_router)
 api_router.include_router(admin_router)
 api_router.include_router(ai_suggestions_router)
 api_router.include_router(scraper_router)
-api_router.include_router(formbricks_router)
+api_router.include_router(survey_router)
+api_router.include_router(public_survey_router)

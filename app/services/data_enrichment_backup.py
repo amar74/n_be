@@ -1,7 +1,7 @@
 import asyncio
 import time
 from typing import Dict, Any, Optional, List
-from app.schemas.ai_suggestions import (
+from app.schemas.data_enrichment import (
     OrganizationNameRequest, OrganizationNameResponse,
     AccountEnhancementRequest, AccountEnhancementResponse,
     AddressValidationRequest, AddressValidationResponse,
@@ -18,24 +18,199 @@ import google.generativeai as genai
 from google.generativeai import types
 
 
-class AISuggestionService:
-    """Enhanced AI suggestion service with multiple capabilities"""
+class DataEnrichmentService:
     
     def __init__(self):
-        genai.configure(api_key=environment.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-pro')
-        self.cache = {}  # Simple in-memory cache for demo
+        # Disable AI by default due to DNS/network issues
+        self.ai_enabled = False
+        self.cache = {}
+        self.timeout = 10  # 10 seconds timeout for scraper-only approach
+        logger.info("AI enhancement disabled, using scraper-only approach")
+    
+    def disable_ai_enhancement(self):
+        self.ai_enabled = False
+        logger.info("AI enhancement disabled, will use fallback data")
+    
+    def enable_ai_enhancement(self):
+        self.ai_enabled = True
+        logger.info("AI enhancement enabled")
+    
+    def _extract_basic_info_from_website(self, website_content: str, website_url: str) -> Dict[str, Any]:
+        """Enhanced scraper-only data extraction without AI"""
+        import re
+        from urllib.parse import urlparse
+        
+        # Extract company name from title, h1, or domain
+        company_name = "Unknown Company"
+        
+        # Try to get from title tag
+        title_match = re.search(r'<title[^>]*>(.*?)</title>', website_content, re.IGNORECASE | re.DOTALL)
+        if title_match:
+            title_text = title_match.group(1).strip()
+            # Clean up the title - remove common suffixes
+            title_text = re.sub(r'\s*[-|]\s*(Home|Welcome|Official|Website|Site).*$', '', title_text, flags=re.IGNORECASE)
+            company_name = re.sub(r'[^\w\s-]', '', title_text).strip()
+            if len(company_name) > 50:
+                company_name = company_name[:50] + "..."
+        
+        # If no good title, try h1 tag
+        if company_name == "Unknown Company" or len(company_name) < 3:
+            h1_match = re.search(r'<h1[^>]*>(.*?)</h1>', website_content, re.IGNORECASE | re.DOTALL)
+            if h1_match:
+                h1_text = h1_match.group(1).strip()
+                company_name = re.sub(r'[^\w\s-]', '', h1_text).strip()
+                if len(company_name) > 50:
+                    company_name = company_name[:50] + "..."
+        
+        # If still no good name, use domain
+        if company_name == "Unknown Company" or len(company_name) < 3:
+            domain = urlparse(website_url).netloc
+            if domain:
+                company_name = domain.replace('www.', '').replace('.com', '').replace('.org', '').replace('.net', '')
+                company_name = company_name.replace('-', ' ').replace('_', ' ').title()
+        
+        # Extract email addresses with better patterns
+        email_patterns = [
+            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+            r'mailto:([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})',
+        ]
+        emails = []
+        for pattern in email_patterns:
+            emails.extend(re.findall(pattern, website_content, re.IGNORECASE))
+        
+        # Filter out common non-business emails
+        business_emails = [email for email in emails if not any(domain in email.lower() for domain in ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'])]
+        contact_email = business_emails[0] if business_emails else (emails[0] if emails else "Unknown")
+        
+        # Extract phone numbers with multiple formats
+        phone_patterns = [
+            r'(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})',
+            r'(\+1\s?)?([0-9]{3})[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})',
+            r'\(([0-9]{3})\)\s?([0-9]{3})[-.\s]?([0-9]{4})',
+        ]
+        phones = []
+        for pattern in phone_patterns:
+            phones.extend(re.findall(pattern, website_content))
+        
+        contact_phone = "Unknown"
+        if phones:
+            phone_match = phones[0]
+            if len(phone_match) >= 3:
+                contact_phone = f"({phone_match[-3]}) {phone_match[-2]}-{phone_match[-1]}"
+        
+        # Extract address with better patterns
+        address_patterns = [
+            r'(\d+\s+[A-Za-z0-9\s,.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Way|Circle|Ct|Place|Pl))',
+            r'(\d+\s+[A-Za-z0-9\s,.-]+(?:Suite|Ste|Unit|Apt|#)\s*\d*)',
+            r'([A-Za-z0-9\s,.-]+,\s*[A-Za-z]{2}\s+\d{5}(?:-\d{4})?)',  # City, State ZIP
+        ]
+        addresses = []
+        for pattern in address_patterns:
+            addresses.extend(re.findall(pattern, website_content, re.IGNORECASE))
+        
+        address = addresses[0] if addresses else "Unknown"
+        
+        # Enhanced industry detection
+        industry = "Technology"
+        content_lower = website_content.lower()
+        
+        industry_keywords = {
+            "Sports & Fitness": ['sports', 'fitness', 'athletic', 'gym', 'workout', 'training', 'exercise'],
+            "Healthcare": ['health', 'medical', 'hospital', 'clinic', 'doctor', 'physician', 'healthcare'],
+            "Finance": ['finance', 'banking', 'investment', 'financial', 'bank', 'credit', 'loan'],
+            "Education": ['education', 'school', 'university', 'learning', 'academy', 'college', 'student'],
+            "Retail": ['retail', 'shop', 'store', 'commerce', 'shopping', 'market', 'buy'],
+            "Technology": ['tech', 'software', 'app', 'digital', 'computer', 'programming', 'development'],
+            "Real Estate": ['real estate', 'property', 'housing', 'home', 'apartment', 'rental'],
+            "Food & Beverage": ['restaurant', 'food', 'cafe', 'dining', 'catering', 'chef', 'kitchen'],
+            "Automotive": ['auto', 'car', 'vehicle', 'automotive', 'garage', 'repair', 'mechanic'],
+            "Legal": ['law', 'legal', 'attorney', 'lawyer', 'court', 'justice', 'legal services'],
+        }
+        
+        for industry_name, keywords in industry_keywords.items():
+            if any(keyword in content_lower for keyword in keywords):
+                industry = industry_name
+                break
+        
+        # Extract company size based on content analysis
+        company_size = "Small"
+        if any(word in content_lower for word in ['enterprise', 'corporation', 'global', 'international', 'worldwide']):
+            company_size = "Large"
+        elif any(word in content_lower for word in ['team', 'employees', 'staff', 'company', 'organization']):
+            company_size = "Medium"
+        
+        return {
+            "company_name": company_name,
+            "industry": industry,
+            "company_size": company_size,
+            "contact_email": contact_email,
+            "contact_phone": contact_phone,
+            "address": address
+        }
+    
+    async def _call_gemini_with_timeout(self, prompt: str, max_retries: int = 1) -> Any:
+        """Call Gemini API with timeout and better error handling"""
+        for attempt in range(max_retries + 1):
+            try:
+                logger.info(f"Gemini API call attempt {attempt + 1}/{max_retries + 1}")
+                # Use asyncio.wait_for to add timeout
+                response = await asyncio.wait_for(
+                    asyncio.get_event_loop().run_in_executor(
+                        None, 
+                        lambda: self.model.generate_content(prompt)
+                    ),
+                    timeout=self.timeout
+                )
+                logger.info(f"Gemini API call successful on attempt {attempt + 1}")
+                return response
+            except asyncio.TimeoutError:
+                logger.error(f"Gemini API call timed out after {self.timeout} seconds (attempt {attempt + 1})")
+                if attempt == max_retries:
+                    raise MegapolisHTTPException(
+                        status_code=408,
+                        message="AI processing timeout. Please try again.",
+                        details=f"Request timed out after {self.timeout} seconds"
+                    )
+                else:
+                    logger.info(f"Retrying Gemini API call (attempt {attempt + 2})")
+                    await asyncio.sleep(2)  # Wait 2 seconds before retry
+            except Exception as e:
+                logger.error(f"Gemini API call failed: {e} (attempt {attempt + 1})")
+                # Check for DNS/network issues
+                if any(keyword in str(e).lower() for keyword in ["dns", "network", "unavailable", "connection"]):
+                    logger.warning("Network connectivity issue detected, will use fallback")
+                    raise MegapolisHTTPException(
+                        status_code=503,
+                        message="AI service temporarily unavailable. Using fallback data.",
+                        details="Network connectivity issue with AI service"
+                    )
+                # Check if it's a specific Gemini API error
+                elif "quota" in str(e).lower():
+                    raise MegapolisHTTPException(
+                        status_code=429,
+                        message="AI service quota exceeded. Please try again later.",
+                        details="API quota limit reached"
+                    )
+                elif "api" in str(e).lower() and "key" in str(e).lower():
+                    raise MegapolisHTTPException(
+                        status_code=500,
+                        message="AI service configuration error. Please contact support.",
+                        details="API key or configuration issue"
+                    )
+                elif attempt == max_retries:
+                    raise MegapolisHTTPException(
+                        status_code=500,
+                        message="AI processing failed. Please try again.",
+                        details=str(e)
+                    )
+                else:
+                    logger.info(f"Retrying Gemini API call after error (attempt {attempt + 2})")
+                    await asyncio.sleep(2)  # Wait 2 seconds before retry
     
     async def suggest_organization_name(
         self, 
         request: OrganizationNameRequest
     ) -> OrganizationNameResponse:
-        """
-        Suggest organization name from website URL using AI.
-        
-        This is a focused endpoint that only extracts the company name
-        with high accuracy and confidence scoring.
-        """
         start_time = time.time()
         
         try:
@@ -98,27 +273,13 @@ class AISuggestionService:
                 context_info = f"\nAdditional Context: {request.context}"
             
             prompt = f"""
-            Analyze this website and extract the official organization name.
+            Website: {request.website_url}
+            Content: {scraped_data['text'][:3000]}
             
-            Website URL: {request.website_url}{context_info}
-            
-            Website Content:
-            {scraped_data['text'][:3000]}
-            
-            Instructions:
-            1. Look for the official company/organization name
-            2. Check meta tags, page title, about section, footer
-            3. Provide confidence score based on clarity and consistency
-            4. List any alternative names found
-            5. Explain where you found the name and why it's the best choice
-            
-            Important:
-            - Extract the full legal name, not just a shortened version
-            - Be conservative with confidence scores
-            - If uncertain, provide lower confidence and explain why
+            Extract the company name from this website content.
             """
             
-            response = self.model.generate_content(
+            response = await self._call_gemini_with_timeout(
                 model="gemini-2.5-flash",
                 contents=[types.Content(parts=[{"text": prompt}])],
                 config=config
@@ -157,15 +318,13 @@ class AISuggestionService:
         self, 
         request: AccountEnhancementRequest
     ) -> AccountEnhancementResponse:
-        """
-        Enhance multiple account fields using AI based on website and partial data.
-        
-        This is the main enhancement endpoint that can fill multiple fields
-        based on what the user has already entered.
-        """
         start_time = time.time()
         
+        logger.info("Using enhanced scraper-only approach for data extraction")
+        logger.info(f"Processing website: {request.company_website}")
+        
         try:
+            # Scrape website content
             scraped_data = await scrape_text_with_bs4(str(request.company_website))
             if "error" in scraped_data:
                 raise MegapolisHTTPException(
@@ -173,7 +332,86 @@ class AISuggestionService:
                     message=f"Failed to scrape website: {scraped_data['error']}"
                 )
             
-            enhance_account_function = {
+            logger.info(f"Website content length: {len(scraped_data.get('text', ''))} characters")
+            
+            # Use enhanced scraper extraction
+            basic_info = self._extract_basic_info_from_website(
+                scraped_data.get('text', ''), 
+                request.company_website
+            )
+            
+            # Create enhanced data with confidence scores
+            enhanced_data = {
+                "company_name": SuggestionValue(
+                    value=basic_info.get("company_name") or request.partial_data.get("company_name") or "Unknown Company",
+                    confidence=0.8 if basic_info.get("company_name") != "Unknown Company" else 0.3,
+                    source="enhanced_scraper",
+                    reasoning="Company name extracted from website title/domain"
+                ),
+                "industry": SuggestionValue(
+                    value=basic_info.get("industry", "Technology"),
+                    confidence=0.7,
+                    source="enhanced_scraper",
+                    reasoning="Industry detected from website keywords"
+                ),
+                "company_size": SuggestionValue(
+                    value=basic_info.get("company_size", "Small"),
+                    confidence=0.6,
+                    source="enhanced_scraper",
+                    reasoning="Company size estimated from content analysis"
+                ),
+                "contact_email": SuggestionValue(
+                    value=basic_info.get("contact_email", "Unknown"),
+                    confidence=0.8 if basic_info.get("contact_email") != "Unknown" else 0.3,
+                    source="enhanced_scraper",
+                    reasoning="Email extracted from website content"
+                ),
+                "contact_phone": SuggestionValue(
+                    value=basic_info.get("contact_phone", "Unknown"),
+                    confidence=0.8 if basic_info.get("contact_phone") != "Unknown" else 0.3,
+                    source="enhanced_scraper",
+                    reasoning="Phone number extracted from website content"
+                ),
+                "address": SuggestionValue(
+                    value=basic_info.get("address", "Unknown"),
+                    confidence=0.6 if basic_info.get("address") != "Unknown" else 0.3,
+                    source="enhanced_scraper",
+                    reasoning="Address extracted from website content"
+                )
+            }
+            
+            # Count suggestions applied
+            suggestions_applied = len([k for k, v in enhanced_data.items() if v.confidence > 0.5])
+            
+            logger.info(f"Enhanced scraper extraction completed: {suggestions_applied} fields extracted")
+            
+            return AccountEnhancementResponse(
+                enhanced_data=enhanced_data,
+                processing_time_ms=int((time.time() - start_time) * 1000),
+                warnings=[],
+                suggestions_applied=suggestions_applied
+            )
+            
+        except Exception as e:
+            logger.error(f"Enhanced scraper extraction failed: {e}")
+            # Final fallback - basic data
+            fallback_data = {
+                "company_name": SuggestionValue(
+                    value=request.partial_data.get("company_name") or "Unknown Company",
+                    confidence=0.3,
+                    source="basic_fallback",
+                    reasoning="Enhanced scraper extraction failed, using basic data"
+                )
+            }
+            
+            return AccountEnhancementResponse(
+                enhanced_data=fallback_data,
+                processing_time_ms=int((time.time() - start_time) * 1000),
+                warnings=[f"Enhanced scraper extraction failed: {str(e)}"],
+                suggestions_applied=0
+            )
+    
+    async def validate_address(
                 "name": "enhance_account_data",
                 "description": "Extract company information from website content",
                 "parameters": {
@@ -241,38 +479,101 @@ class AISuggestionService:
             if request.partial_data:
                 partial_data_str = f"\nAlready entered data: {request.partial_data}"
             
-            prompt = f"""
-            Analyze this company website and enhance account data based on the content.
-            
-            Website URL: {request.company_website}{partial_data_str}
-            
-            Website Content:
-            {scraped_data['text'][:4000]}
-            
-            Enhancement Options: {request.enhancement_options}
-            
-            Instructions:
-            1. Extract comprehensive company information
-            2. Provide confidence scores for each field (0-1)
-            3. Be conservative with confidence - only high confidence for clear information
-            4. Analyze the company's main services, target market, and stage
-            5. Extract contact information with validation
-            6. Format phone numbers in E.164 format (+917404664714, no hyphens or spaces)
-            7. Provide warnings for any uncertain data
-            
-            Focus on:
-            - Official company name (check meta tags, about page)
-            - Primary industry sector
-            - Company size estimation
-            - Contact information (look for contact page, about page, footer)
-            - Clean phone numbers in international E.164 format
-            - Business address (check contact page, footer)
-            - Main services and target market
-            """
+            prompt = f"""Analyze this website and extract company information:
+
+Website: {request.company_website}
+Content: {scraped_data['text'][:1500]}
+
+Please provide:
+1. Company name
+2. Industry/sector
+3. Company size (small/medium/large)
+4. Contact email
+5. Phone number
+6. Address
+
+Format as JSON with confidence scores (0-1). Be concise and accurate."""
             
             logger.info("Calling Gemini API for account enhancement")
-            response = self.model.generate_content(prompt)
-            logger.info(f"Gemini API response received: {type(response)}")
+            logger.info(f"Processing website: {request.company_website}")
+            logger.info(f"Website content length: {len(scraped_data.get('text', ''))} characters")
+            logger.info(f"Prompt length: {len(prompt)} characters")
+            
+            # Try AI enhancement with retry mechanism
+            try:
+                response = await self._call_gemini_with_timeout(prompt)
+                logger.info(f"Gemini API response received: {type(response)}")
+                logger.info("AI processing completed successfully")
+            except Exception as ai_error:
+                logger.error(f"AI enhancement failed, using intelligent fallback: {ai_error}")
+                
+                # Use intelligent fallback extraction
+                try:
+                    basic_info = self._extract_basic_info_from_website(
+                        scraped_data.get('text', ''), 
+                        request.company_website
+                    )
+                    
+                    fallback_data = {
+                        "company_name": SuggestionValue(
+                            value=basic_info.get("company_name") or request.partial_data.get("company_name") or "Unknown Company",
+                            confidence=0.7,
+                            source="intelligent_fallback",
+                            reasoning="AI unavailable, extracted from website content"
+                        ),
+                        "industry": SuggestionValue(
+                            value=basic_info.get("industry", "Technology"),
+                            confidence=0.6,
+                            source="intelligent_fallback",
+                            reasoning="Industry detected from website keywords"
+                        ),
+                        "contact_email": SuggestionValue(
+                            value=basic_info.get("contact_email", "Unknown"),
+                            confidence=0.8 if basic_info.get("contact_email") != "Unknown" else 0.3,
+                            source="intelligent_fallback",
+                            reasoning="Email extracted from website content"
+                        ),
+                        "contact_phone": SuggestionValue(
+                            value=basic_info.get("contact_phone", "Unknown"),
+                            confidence=0.8 if basic_info.get("contact_phone") != "Unknown" else 0.3,
+                            source="intelligent_fallback",
+                            reasoning="Phone number extracted from website content"
+                        ),
+                        "address": SuggestionValue(
+                            value=basic_info.get("address", "Unknown"),
+                            confidence=0.6 if basic_info.get("address") != "Unknown" else 0.3,
+                            source="intelligent_fallback",
+                            reasoning="Address extracted from website content"
+                        )
+                    }
+                    
+                    logger.info("Using intelligent fallback extraction")
+                    return AccountEnhancementResponse(
+                        enhanced_data=fallback_data,
+                        processing_time_ms=int((time.time() - start_time) * 1000),
+                        warnings=[f"AI enhancement failed, using intelligent fallback: {str(ai_error)}"],
+                        suggestions_applied=len([k for k, v in fallback_data.items() if v.confidence > 0.5])
+                    )
+                    
+                except Exception as fallback_error:
+                    logger.error(f"Fallback extraction also failed: {fallback_error}")
+                    # Final fallback - basic data
+                    fallback_data = {
+                        "company_name": SuggestionValue(
+                            value=request.partial_data.get("company_name") or "Unknown Company",
+                            confidence=0.3,
+                            source="basic_fallback",
+                            reasoning="AI and fallback extraction failed, using basic data"
+                        )
+                    }
+                    
+                    logger.info("Using basic fallback data")
+                    return AccountEnhancementResponse(
+                        enhanced_data=fallback_data,
+                        processing_time_ms=int((time.time() - start_time) * 1000),
+                        warnings=[f"AI enhancement failed: {str(ai_error)}", f"Fallback extraction failed: {str(fallback_error)}"],
+                        suggestions_applied=0
+                    )
             
             enhanced_data = {}
             warnings = []
@@ -414,10 +715,23 @@ class AISuggestionService:
             
         except Exception as e:
             logger.error(f"Account enhancement failed: {e}")
-            raise MegapolisHTTPException(
-                status_code=500,
-                message="Failed to enhance account data",
-                details=str(e)
+            
+            # Return fallback data instead of failing completely
+            fallback_data = {
+                "company_name": SuggestionValue(
+                    value=request.partial_data.get("company_name") or "Unknown Company",
+                    confidence=0.3,
+                    source="fallback",
+                    reasoning="AI enhancement failed, using fallback data"
+                )
+            }
+            
+            logger.info("Returning fallback data due to AI enhancement failure")
+            return AccountEnhancementResponse(
+                enhanced_data=fallback_data,
+                processing_time_ms=int((time.time() - start_time) * 1000),
+                warnings=[f"AI enhancement failed: {str(e)}"],
+                suggestions_applied=0
             )
     
     async def validate_address(
@@ -486,7 +800,7 @@ class AISuggestionService:
             - Complete address components
             """
             
-            response = self.model.generate_content(
+            response = await self._call_gemini_with_timeout(
                 model="gemini-2.5-flash",
                 contents=[types.Content(parts=[{"text": prompt}])],
                 config=config
@@ -587,7 +901,7 @@ class AISuggestionService:
             Education, Government, Non-profit, Real Estate, Transportation, etc.
             """
             
-            response = self.model.generate_content(
+            response = await self._call_gemini_with_timeout(
                 model="gemini-2.5-flash",
                 contents=[types.Content(parts=[{"text": prompt}])],
                 config=config
@@ -614,7 +928,7 @@ class AISuggestionService:
                 details=str(e)
             )
 
-    async def enhance_opportunity_data(self, request) -> dict:
+    async def enhance_opportunity_data(self, request) -> AccountEnhancementResponse:
         """
         Enhance opportunity data using AI based on company website.
         Focuses on opportunity-specific fields like project values, descriptions, stages, etc.
@@ -626,58 +940,7 @@ class AISuggestionService:
             if "error" in scraped_data:
                 raise Exception(f"Failed to scrape website: {scraped_data['error']}")
             
-            enhance_opportunity_function = types.FunctionDeclaration(
-                name="enhance_opportunity_data",
-                description="Extract opportunity-specific information from company website",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "opportunity_name": {
-                            "type": "string",
-                            "description": "Suggested opportunity/project name based on services or current projects"
-                        },
-                        "project_value": {
-                            "type": "string",
-                            "description": "Estimated project value or budget range (e.g., '$50K-$100K', '$500K+')"
-                        },
-                        "project_description": {
-                            "type": "string",
-                            "description": "Detailed project description based on services offered"
-                        },
-                        "location": {
-                            "type": "string",
-                            "description": "Primary service location or project area"
-                        },
-                        "market_sector": {
-                            "type": "string",
-                            "description": "Primary market sector or industry focus"
-                        },
-                        "sales_stage": {
-                            "type": "string",
-                            "description": "Suggested sales stage based on project status (lead, qualification, proposal, etc.)"
-                        },
-                        "confidence_scores": {
-                            "type": "object",
-                            "properties": {
-                                "opportunity_name": {"type": "number"},
-                                "project_value": {"type": "number"},
-                                "project_description": {"type": "number"},
-                                "location": {"type": "number"},
-                                "market_sector": {"type": "number"},
-                                "sales_stage": {"type": "number"}
-                            }
-                        },
-                        "warnings": {
-                            "type": "array",
-                            "items": {"type": "string"}
-                        }
-                    },
-                    "required": ["opportunity_name", "market_sector", "confidence_scores"]
-                }
-            )
-            
-            tools = types.Tool(function_declarations=[enhance_opportunity_function])
-            config = types.GenerateContentConfig(tools=[tools])
+            # Use the new API format without function declarations
             
             partial_data_str = ""
             if hasattr(request, 'partial_data') and request.partial_data:
@@ -697,7 +960,7 @@ class AISuggestionService:
             3. Extract or infer opportunity-specific information:
                - Opportunity name from services, projects, or current offerings
                - Project value from pricing pages, case studies, or service descriptions
-               - Project description from detailed service offerings or case studies
+               - Project description from service offerings
                - Location from service areas, office locations, or project locations
                - Market sector from industries served or project types
                - Sales stage based on project status or business development stage
@@ -713,113 +976,139 @@ class AISuggestionService:
             - Project status or business development stage
             - Case studies or project portfolios
             - Bidding opportunities or RFP mentions
+            
+            Please return the information in the following JSON format:
+            {{
+                "opportunity_name": "suggested opportunity name",
+                "project_value": "estimated project value or budget range",
+                "project_description": "project description",
+                "location": "primary service location",
+                "market_sector": "primary market sector",
+                "sales_stage": "suggested sales stage",
+                "confidence_scores": {{
+                    "opportunity_name": 0.8,
+                    "project_value": 0.6,
+                    "project_description": 0.7,
+                    "location": 0.9,
+                    "market_sector": 0.8,
+                    "sales_stage": 0.5
+                }},
+                "warnings": ["any warnings about data quality or confidence"]
+            }}
             """
             
             logger.info("Calling Gemini API for opportunity enhancement")
-            response = self.model.generate_content(
-                model="gemini-2.5-flash",
-                contents=[types.Content(parts=[{"text": prompt}])],
-                config=config
-            )
+            response = await self._call_gemini_with_timeout(prompt)
             
             enhanced_data = {}
             warnings = []
             suggestions_applied = 0
             
-            for part in response.candidates[0].content.parts:
-                if hasattr(part, "function_call") and part.function_call:
-                    args = part.function_call.args
-                    confidence_scores = args.get("confidence_scores", {}) or {}
-                    warnings = args.get("warnings", []) or []
+            try:
+                import json
+                response_text = response.text.strip()
+                
+                if response_text.startswith('```json'):
+                    response_text = response_text[7:]
+                if response_text.endswith('```'):
+                    response_text = response_text[:-3]
+                
+                result = json.loads(response_text)
+                
+                confidence_scores = result.get("confidence_scores", {}) or {}
+                warnings = result.get("warnings", []) or []
+                
+                def safe_confidence(key: str, default: float = 0.5) -> float:
+                    value = confidence_scores.get(key, default)
+                    return float(value) if value is not None else default
+                
+                opportunity_name_conf = safe_confidence("opportunity_name")
+                enhanced_data["opportunity_name"] = SuggestionValue(
+                    value=result.get("opportunity_name", ""),
+                    confidence=opportunity_name_conf,
+                    source="extracted from website content",
+                    reasoning="Based on services offered or current projects",
+                    should_auto_apply=opportunity_name_conf > 0.7
+                )
+                
+                if enhanced_data["opportunity_name"].should_auto_apply:
+                    suggestions_applied += 1
+                
+                project_value_conf = safe_confidence("project_value")
+                enhanced_data["project_value"] = SuggestionValue(
+                    value=result.get("project_value", ""),
+                    confidence=project_value_conf,
+                    source="inferred from pricing or case studies",
+                    reasoning="Estimated based on pricing information or project examples",
+                    should_auto_apply=project_value_conf > 0.7
+                )
+                
+                if enhanced_data["project_value"].should_auto_apply:
+                    suggestions_applied += 1
+                
+                project_desc_conf = safe_confidence("project_description")
+                enhanced_data["project_description"] = SuggestionValue(
+                    value=result.get("project_description", ""),
+                    confidence=project_desc_conf,
+                    source="extracted from service descriptions",
+                    reasoning="Based on service offerings",
+                    should_auto_apply=project_desc_conf > 0.7
+                )
+                
+                if enhanced_data["project_description"].should_auto_apply:
+                    suggestions_applied += 1
+                
+                location_conf = safe_confidence("location")
+                enhanced_data["location"] = SuggestionValue(
+                    value=result.get("location", ""),
+                    confidence=location_conf,
+                    source="extracted from service areas",
+                    reasoning="Based on service locations or project areas",
+                    should_auto_apply=location_conf > 0.7
+                )
+                
+                if enhanced_data["location"].should_auto_apply:
+                    suggestions_applied += 1
+                
+                market_sector_conf = safe_confidence("market_sector")
+                enhanced_data["market_sector"] = SuggestionValue(
+                    value=result.get("market_sector", ""),
+                    confidence=market_sector_conf,
+                    source="inferred from industries served",
+                    reasoning="Based on target industries or project types",
+                    should_auto_apply=market_sector_conf > 0.7
+                )
+                
+                if enhanced_data["market_sector"].should_auto_apply:
+                    suggestions_applied += 1
+                
+                sales_stage_conf = safe_confidence("sales_stage")
+                enhanced_data["sales_stage"] = SuggestionValue(
+                    value=result.get("sales_stage", ""),
+                    confidence=sales_stage_conf,
+                    source="inferred from business stage",
+                    reasoning="Based on project status or business development stage",
+                    should_auto_apply=sales_stage_conf > 0.7
+                )
+                
+                if enhanced_data["sales_stage"].should_auto_apply:
+                    suggestions_applied += 1
                     
-                    def safe_confidence(key: str, default: float = 0.5) -> float:
-                        value = confidence_scores.get(key, default)
-                        return float(value) if value is not None else default
-                    
-                    opportunity_name_conf = safe_confidence("opportunity_name")
-                    enhanced_data["opportunity_name"] = SuggestionValue(
-                        value=args.get("opportunity_name", ""),
-                        confidence=opportunity_name_conf,
-                        source="extracted from website content",
-                        reasoning="Based on services offered or current projects",
-                        should_auto_apply=opportunity_name_conf > 0.7
-                    )
-                    
-                    if enhanced_data["opportunity_name"].should_auto_apply:
-                        suggestions_applied += 1
-                    
-                    project_value_conf = safe_confidence("project_value")
-                    enhanced_data["project_value"] = SuggestionValue(
-                        value=args.get("project_value", ""),
-                        confidence=project_value_conf,
-                        source="inferred from pricing or case studies",
-                        reasoning="Estimated based on pricing information or project examples",
-                        should_auto_apply=project_value_conf > 0.7
-                    )
-                    
-                    if enhanced_data["project_value"].should_auto_apply:
-                        suggestions_applied += 1
-                    
-                    project_desc_conf = safe_confidence("project_description")
-                    enhanced_data["project_description"] = SuggestionValue(
-                        value=args.get("project_description", ""),
-                        confidence=project_desc_conf,
-                        source="extracted from service descriptions",
-                        reasoning="Based on detailed service offerings or case studies",
-                        should_auto_apply=project_desc_conf > 0.7
-                    )
-                    
-                    if enhanced_data["project_description"].should_auto_apply:
-                        suggestions_applied += 1
-                    
-                    location_conf = safe_confidence("location")
-                    enhanced_data["location"] = SuggestionValue(
-                        value=args.get("location", ""),
-                        confidence=location_conf,
-                        source="extracted from service areas",
-                        reasoning="Based on service locations or project areas",
-                        should_auto_apply=location_conf > 0.7
-                    )
-                    
-                    if enhanced_data["location"].should_auto_apply:
-                        suggestions_applied += 1
-                    
-                    market_sector_conf = safe_confidence("market_sector")
-                    enhanced_data["market_sector"] = SuggestionValue(
-                        value=args.get("market_sector", ""),
-                        confidence=market_sector_conf,
-                        source="inferred from industries served",
-                        reasoning="Based on target industries or project types",
-                        should_auto_apply=market_sector_conf > 0.7
-                    )
-                    
-                    if enhanced_data["market_sector"].should_auto_apply:
-                        suggestions_applied += 1
-                    
-                    sales_stage_conf = safe_confidence("sales_stage")
-                    enhanced_data["sales_stage"] = SuggestionValue(
-                        value=args.get("sales_stage", ""),
-                        confidence=sales_stage_conf,
-                        source="inferred from business stage",
-                        reasoning="Based on project status or business development stage",
-                        should_auto_apply=sales_stage_conf > 0.7
-                    )
-                    
-                    if enhanced_data["sales_stage"].should_auto_apply:
-                        suggestions_applied += 1
-                    
-                    break
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                logger.error(f"Response text: {response.text}")
+                raise Exception(f"Failed to parse AI response: {e}")
             
             processing_time = int((time.time() - start_time) * 1000)
             
             logger.info(f"Opportunity enhancement completed in {processing_time}ms")
             
-            return {
-                "enhanced_data": enhanced_data,
-                "processing_time_ms": processing_time,
-                "warnings": warnings,
-                "suggestions_applied": suggestions_applied
-            }
+            return AccountEnhancementResponse(
+                enhanced_data=enhanced_data,
+                processing_time_ms=processing_time,
+                warnings=warnings,
+                suggestions_applied=suggestions_applied
+            )
             
         except Exception as e:
             logger.error(f"Opportunity enhancement failed: {e}")
@@ -830,4 +1119,4 @@ class AISuggestionService:
             )
 
 
-ai_suggestion_service = AISuggestionService()
+data_enrichment_service = DataEnrichmentService()

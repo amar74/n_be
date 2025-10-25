@@ -25,18 +25,14 @@ def require_role(allowed_roles: list[str]):
 
 def require_super_admin():
 
-    async def super_admin_checker(current: User = Depends(get_current_user)) -> User:
-        db_user = await User.get_by_id(current.id)
-        if not db_user:
-            raise MegapolisHTTPException(status_code=404, details="User not found")
-
+    async def super_admin_checker(current_user: AuthUserResponse = Depends(get_current_user)) -> str:
         allowed_emails = Constants.SUPER_ADMIN_EMAILS
-        if db_user.email not in allowed_emails:
+        if current_user.email not in allowed_emails:
             raise MegapolisHTTPException(
                 status_code=403,
                 details="You do not have permission to perform this action",
             )
-        return db_user
+        return current_user.id
 
     return super_admin_checker
 
@@ -46,6 +42,13 @@ def get_user_permission(required_permissions: Dict[str, List[str]]):
 
         user_permission = await UserPermission.get_by_userid(current_user.id)
         organization = await Organization.get_by_id(current_user.org_id)
+        
+        if not organization:
+            raise MegapolisHTTPException(
+                status_code=404,
+                details="Organization not found"
+            )
+        
         if organization.owner_id == current_user.id:
             return UserPermissionResponse(
                 userid=current_user.id,

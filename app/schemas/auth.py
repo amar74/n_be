@@ -10,6 +10,7 @@ class OnSignUpRequest(BaseModel):
 class AuthUserResponse(BaseModel):
 
     id: UUID
+    short_id: str
     org_id: Optional[UUID] = None
     role: Optional[str]
     email: str

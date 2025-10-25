@@ -64,6 +64,7 @@ class Organization(Base):
 
     users: Mapped[List["User"]] = relationship("User", back_populates="organization", foreign_keys="User.org_id")
     accounts: Mapped[List["Account"]] = relationship("Account", back_populates="organization")
+    surveys: Mapped[List["Survey"]] = relationship("Survey", back_populates="organization")
     address: Mapped[Optional["Address"]] = relationship("Address", foreign_keys="[Organization.address_id]")
     contact: Mapped[Optional["Contact"]] = relationship("Contact", foreign_keys="[Organization.contact_id]")
 

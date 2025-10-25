@@ -1,5 +1,6 @@
 from app.db.session import get_request_transaction
-from app.models.formbricks_projects import FormbricksProject
+# Formbricks integration temporarily disabled
+# from app.models.formbricks_projects import FormbricksProject
 from app.models.organization import Organization
 from uuid import UUID
 from typing import List, Optional
@@ -11,9 +12,11 @@ from app.schemas.organization import (
 )
 from app.schemas.user import Roles
 from app.schemas.auth import AuthUserResponse
-from app.services.formbricks import create_formbricks_organization, create_formbricks_project, signup_user_in_formbricks
+# Formbricks integration temporarily disabled
+# from app.services.formbricks import create_formbricks_organization, create_formbricks_project, signup_user_in_formbricks
 from app.utils.logger import logger
 from app.utils.error import MegapolisHTTPException
+from app.schemas.auth import AuthUserResponse
 from app.models.user import User
 from app.models.invite import Invite, InviteStatus
 from app.schemas.invite import InviteCreateRequest, InviteResponse, AcceptInviteRequest, AcceptInviteServiceResponse
@@ -23,7 +26,7 @@ from app.environment import environment
 import jwt
 
 async def create_organization(
-    current_user: User, request: OrgCreateRequest
+    current_user: AuthUserResponse, request: OrgCreateRequest
 ) -> Organization:
 
     transaction = get_request_transaction()
@@ -34,30 +37,23 @@ async def create_organization(
         raise MegapolisHTTPException(
             status_code=400, details="Organization already exists for user"
         )
-    organization = await Organization.create(current_user, request)
     
-    try:
-        formbricks_organization = await create_formbricks_organization(organization)
-        organization.formbricks_organization_id = formbricks_organization.id
-        
-        formbricks_user = await signup_user_in_formbricks(organization, current_user)
-        current_user.formbricks_user_id = formbricks_user.id
-
-        formbricks_project = await create_formbricks_project(organization)
-        
-        await FormbricksProject.create(
-            organization_id=organization.id, 
-            project_id=formbricks_project.id, 
-            dev_env_id=formbricks_project.environments[0].id, 
-            prod_env_id=formbricks_project.environments[1].id
+    # Fetch the actual User model from database
+    db_user = await transaction.get(User, current_user.id)
+    if not db_user:
+        raise MegapolisHTTPException(
+            status_code=404, details="User not found"
         )
-    except Exception as e:
-        logger.warning(f"Continuing without formbricks: {e}")
+    
+    organization = await Organization.create(db_user, request)
+    
+    # Skip Formbricks integration for now - it's optional and causing issues
+    # TODO: Re-enable Formbricks integration later if needed for surveys/feedback
+    logger.info(f"Organization created successfully without Formbricks integration: {organization.name}")
+    
     transaction.add(organization)
-    transaction.add(current_user)
     await transaction.flush()
     await transaction.refresh(organization)
-    await transaction.refresh(current_user)
 
     return organization
 

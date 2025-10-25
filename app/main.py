@@ -41,7 +41,7 @@ app.add_middleware(
 app.add_middleware(RequestTransactionMiddleware)
 
 
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api")
 
 def custom_openapi():
     if app.openapi_schema:

@@ -40,7 +40,8 @@ async def list_users(skip: int = 0, limit: int = 100) -> Tuple[int, List[User]]:
 async def admin_create_user(
     email: str, 
     password: str,
-    role: str = Roles.VENDOR
+    role: str = Roles.VENDOR,
+    contact_number: Optional[str] = None
 ) -> User:
 
     logger.info(f"🚀 Starting admin_create_user for: {email}, role: {role}")
@@ -49,21 +50,43 @@ async def admin_create_user(
     logger.info(f"🔍 Checking if user exists in local DB: {email}")
     existing = await User.get_by_email(email)
     if existing:
-        logger.info(f"✅ User {email} already exists in local DB, returning existing user")
-        return existing
+        logger.info(f"❌ User {email} already exists in local DB")
+        raise MegapolisHTTPException(
+            status_code=400, 
+            message=f"User with email {email} already exists"
+        )
 
     try:
         logger.info(f"📝 Creating user in local DB: {email} with role '{role}'")
+        
+        # Import AuthService to hash password
+        from app.services.auth_service import AuthService
+        
         async with get_transaction() as db:
+            # Generate unique short ID
+            from app.models.user import generate_short_user_id
+            short_id = generate_short_user_id()
+            
+            # Check if short_id already exists and regenerate if needed
+            while True:
+                existing = await db.execute(select(User).where(User.short_id == short_id))
+                if not existing.scalar_one_or_none():
+                    break
+                short_id = generate_short_user_id()
+            
             user = User(
                 email=email,
                 role=role,
-                org_id=None  # No organization yet - vendor will create on first login
+                org_id=None,  # No organization yet - vendor will create on first login
+                password_hash=AuthService.get_password_hash(password),  # Hash the password
+                short_id=short_id  # Add short ID
             )
+            # Note: Contact number is not stored in User model currently
+            # This would need to be added to the User model if contact info is needed
             db.add(user)
             await db.flush()
             await db.refresh(user)
-            logger.info(f"✅ Created user {email} (ID: {user.id}) with role '{role}'")
+            logger.info(f"✅ Created user {email} (ID: {user.id}) with role '{role}' and hashed password")
             logger.info(f"📋 Vendor will create organization on first login")
             return user
             

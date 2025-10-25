@@ -217,3 +217,21 @@ dist-ssr
 .env
 .pre-commit-config.yaml
 trufflehog/
+
+# Production and backup environment files
+env.production
+.env.production
+.env.backup*
+*.env.backup*
+
+# Build artifacts and archives
+*.tar.gz
+*.zip
+
+# Backup files
+*.backup
+*.bak
+
+# Test files (exclude from production)
+test_*.py
+debug_*.py

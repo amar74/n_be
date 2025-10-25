@@ -42,12 +42,11 @@ async def get_current_user(
             )
 
         # Direct database query to avoid SQLAlchemy relationship issues
-        logger.warning(f"DEBUG: Looking up user with ID: {user_id}")
         db_url = environment.DATABASE_URL.replace('postgresql+psycopg://', 'postgresql://')
         conn = await asyncpg.connect(db_url)
         try:
             user_row = await conn.fetchrow(
-                'SELECT id, email, org_id, role FROM users WHERE id = $1',
+                'SELECT id, short_id, email, org_id, role FROM users WHERE id = $1',
                 user_id
             )
             logger.warning(f"DEBUG: Database query result: {user_row}")
@@ -61,6 +60,7 @@ async def get_current_user(
             from app.schemas.auth import AuthUserResponse
             user = AuthUserResponse(
                 id=str(user_row['id']),
+                short_id=user_row['short_id'],
                 email=user_row['email'],
                 org_id=str(user_row['org_id']) if user_row['org_id'] else None,
                 role=user_row['role']

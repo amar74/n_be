@@ -39,7 +39,8 @@ async def admin_create_new_user(
     user = await admin_create_user(
         email=payload.email,
         password=payload.password,
-        role=payload.role or Roles.VENDOR
+        role=payload.role or Roles.VENDOR,
+        contact_number=payload.contact_number
     )
     return AdminCreateUserResponse(
         message=f"User created successfully with role '{user.role}'",

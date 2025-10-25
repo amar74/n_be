@@ -11,11 +11,28 @@ class ClientType(str, Enum):
     tier_3 = "tier_3"
 
 class AddressCreate(BaseModel):
-    line1: str = Field(..., min_length=1, max_length=255, description="Address line 1 is required")
-    line2: Optional[str] = Field(None, max_length=255, description="Optional address line 2")
-    city: Optional[str] = Field(None, max_length=255, description="Optional city")
-    state: Optional[str] = Field(None, max_length=100, description="Optional state/province")
-    pincode: Optional[int] = Field(None, ge=10000, le=999999, description="Valid 5 or 6-digit postal/pin code")
+    line1: Optional[str] = Field(None, description="Address line 1")
+    line2: Optional[str] = Field(None, description="Optional address line 2")
+    city: Optional[str] = Field(None, description="Optional city")
+    state: Optional[str] = Field(None, description="Optional state/province")
+    pincode: Optional[int] = Field(None, description="Optional postal/pin code")
+    
+    @field_validator('line1', 'line2', 'city', 'state', mode='before')
+    @classmethod
+    def validate_string_fields(cls, v):
+        if v is None or v == '' or v == 'null' or v == 'undefined':
+            return None
+        return str(v) if v is not None else None
+    
+    @field_validator('pincode', mode='before')
+    @classmethod
+    def validate_pincode(cls, v):
+        if v is None or v == '' or v == 'null' or v == 'undefined':
+            return None
+        try:
+            return int(v) if v is not None else None
+        except (ValueError, TypeError):
+            return None
 
 class AddressResponse(AddressCreate):
     address_id: UUID
@@ -23,31 +40,18 @@ class AddressResponse(AddressCreate):
     model_config = {"from_attributes": True}
 
 class ContactCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255, description="Contact name is required")
-    email: str = Field(..., max_length=255, description="Valid email address is required")
-    phone: str = Field(..., min_length=10, max_length=15, description="Valid phone number is required")
-    title: Optional[str] = Field(None, max_length=100, description="Optional job title")
-
-    @field_validator('email')
+    name: Optional[str] = Field(None, description="Contact name")
+    email: Optional[str] = Field(None, description="Email address")
+    phone: Optional[str] = Field(None, description="Phone number")
+    title: Optional[str] = Field(None, description="Optional job title")
+    
+    @field_validator('name', 'email', 'phone', 'title', mode='before')
     @classmethod
-    def validate_email(cls, v: str) -> str:
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(email_pattern, v):
-            raise ValueError('not valid email format')
-        return v.lower().strip()
+    def validate_string_fields(cls, v):
+        if v is None or v == '' or v == 'null' or v == 'undefined':
+            return None
+        return str(v) if v is not None else None
 
-    @field_validator('phone')
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        phone_digits = re.sub(r'\D', '', v)
-        if len(phone_digits) < 10 or len(phone_digits) > 15:
-            raise ValueError('Phone number must be between 10-15 digits')
-        return v.strip()
-
-    @field_validator('name')
-    @classmethod
-    def validate_name(cls, v: str) -> str:
-        return v.strip()
 
 class ContactResponse(ContactCreate):
     contact_id: UUID
@@ -61,40 +65,33 @@ class ContactListResponse(BaseModel):
 
 class AccountCreate(BaseModel):
     company_website: Optional[HttpUrl] = Field(None, description="Optional company website URL")
-    client_name: str = Field(..., min_length=1, max_length=255, description="Client name is required")
-    client_address: AddressCreate = Field(..., description="Client address is required")
-    primary_contact: ContactCreate = Field(..., description="Primary contact is required")
-    secondary_contacts: List[ContactCreate] = Field(default_factory=list, max_length=10, description="Optional secondary contacts (max 10)")
-    client_type: ClientType = Field(..., description="Client tier classification is required")
-    market_sector: Optional[str] = Field(None, max_length=255, description="Optional market sector")
-
-    @field_validator('client_name')
+    client_name: Optional[str] = Field(None, description="Client name")
+    client_address: Optional[AddressCreate] = Field(None, description="Client address")
+    primary_contact: Optional[ContactCreate] = Field(None, description="Primary contact")
+    secondary_contacts: List[ContactCreate] = Field(default_factory=list, description="Optional secondary contacts")
+    client_type: Optional[ClientType] = Field(None, description="Client tier classification")
+    market_sector: Optional[str] = Field(None, description="Optional market sector")
+    total_value: Optional[float] = Field(None, description="Optional total project value")
+    hosting_area: Optional[str] = Field(None, description="Optional hosting area/office location")
+    notes: Optional[str] = Field(None, description="Optional notes about the account")
+    
+    @field_validator('client_name', 'market_sector', 'hosting_area', 'notes', mode='before')
     @classmethod
-    def validate_client_name(cls, v: str) -> str:
-        return v.strip()
-
-    @field_validator('secondary_contacts')
+    def validate_string_fields(cls, v):
+        if v is None or v == '' or v == 'null' or v == 'undefined':
+            return None
+        return str(v) if v is not None else None
+    
+    @field_validator('total_value', mode='before')
     @classmethod
-    def validate_secondary_contacts(cls, v: List[ContactCreate]) -> List[ContactCreate]:
-        if len(v) > 10:
-            raise ValueError('Maximum 10 secondary contacts allowed')
-        
-        emails = [contact.email.lower() for contact in v]
-        if len(emails) != len(set(emails)):
-            raise ValueError('Duplicate emails found in secondary contacts')
-        
-        return v
+    def validate_total_value(cls, v):
+        if v is None or v == '' or v == 'null' or v == 'undefined':
+            return None
+        try:
+            return float(v) if v is not None else None
+        except (ValueError, TypeError):
+            return None
 
-    @model_validator(mode='after')
-    def validate_all_contacts_unique(self) -> 'AccountCreate':
-        if self.primary_contact and self.secondary_contacts:
-            primary_email = self.primary_contact.email.lower()
-            secondary_emails = [contact.email.lower() for contact in self.secondary_contacts]
-            
-            if primary_email in secondary_emails:
-                raise ValueError('Primary contact email cannot be the same as any secondary contact email')
-        
-        return self
 
 class AccountListItem(BaseModel):
     account_id: UUID
@@ -110,6 +107,9 @@ class AccountListItem(BaseModel):
     health_trend: Optional[str] = None  # "up", "down", "stable"
     risk_level: Optional[str] = None  # "low", "medium", "high"
     last_contact: Optional[datetime] = None
+    approval_status: Optional[str] = None  # "pending", "approved", "declined"
+    account_approver: Optional[str] = None
+    approval_date: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

@@ -9,6 +9,7 @@ class AdminCreateUserRequest(BaseModel):
     email: str
     password: str
     role: Optional[str] = Field(default=Roles.VENDOR, description="User role (admin, vendor, super_admin)")
+    contact_number: Optional[str] = Field(default=None, description="Contact number with country code")
 
 class AdminCreateUserResponse(BaseModel):
 

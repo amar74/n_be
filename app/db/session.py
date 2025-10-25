@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import (
 from app.environment import environment
 
 def get_database_url() -> str:
-    return environment.DATABASE_URL
+    from app.environment import normalize_psycopg
+    return normalize_psycopg(environment.DATABASE_URL)
 
 engine: AsyncEngine = create_async_engine(get_database_url(), echo=False, future=True)
 AsyncSessionLocal = async_sessionmaker(

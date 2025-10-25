@@ -18,8 +18,8 @@ if TYPE_CHECKING:
         OpportunityTeamMember, OpportunityReference, OpportunityFinancial,
         OpportunityRisk, OpportunityLegalChecklist
     )
-    # from app.models.opportunity_document import OpportunityDocument  # Commented out to avoid circular import
-
+    from app.models.opportunity_document import OpportunityDocument
+     
 class OpportunityStage(enum.Enum):
 
     lead = "lead"
