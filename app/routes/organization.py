@@ -199,31 +199,66 @@ async def patch_organization(
         if 'website' in data:
             org.website = data['website']
         
-        if 'address' in data and org.address:
+        # Handle address - update existing or create new
+        if 'address' in data:
             addr = data['address']
-            if 'line1' in addr:
-                org.address.line1 = addr['line1']
-            if 'line2' in addr:
-                org.address.line2 = addr['line2']
-            if 'city' in addr:
-                org.address.city = addr['city']
-            if 'state' in addr:
-                org.address.state = addr['state']
-            if 'pincode' in addr:
-                org.address.pincode = addr['pincode']
-            
-            from sqlalchemy.orm import attributes
-            attributes.flag_modified(org, "address")
+            if org.address:
+                # Update existing address
+                if 'line1' in addr:
+                    org.address.line1 = addr['line1']
+                if 'line2' in addr:
+                    org.address.line2 = addr['line2']
+                if 'city' in addr:
+                    org.address.city = addr['city']
+                if 'state' in addr:
+                    org.address.state = addr['state']
+                if 'pincode' in addr:
+                    org.address.pincode = addr['pincode']
+                
+                from sqlalchemy.orm import attributes
+                attributes.flag_modified(org, "address")
+            else:
+                # Create new address if it doesn't exist
+                import uuid
+                new_address = Address(
+                    id=uuid.uuid4(),
+                    line1=addr.get('line1'),
+                    line2=addr.get('line2'),
+                    city=addr.get('city'),
+                    state=addr.get('state'),
+                    pincode=addr.get('pincode'),
+                    org_id=org.id,
+                )
+                db.add(new_address)
+                await db.flush()
+                org.address_id = new_address.id
+                await db.refresh(org)
         
-        if 'contact' in data and org.contact:
+        # Handle contact - update existing or create new
+        if 'contact' in data:
             cont = data['contact']
-            if 'email' in cont:
-                org.contact.email = cont['email']
-            if 'phone' in cont:
-                org.contact.phone = cont['phone']
-            
-            from sqlalchemy.orm import attributes
-            attributes.flag_modified(org, "contact")
+            if org.contact:
+                # Update existing contact
+                if 'email' in cont:
+                    org.contact.email = cont['email']
+                if 'phone' in cont:
+                    org.contact.phone = cont['phone']
+                
+                from sqlalchemy.orm import attributes
+                attributes.flag_modified(org, "contact")
+            else:
+                # Create new contact if it doesn't exist
+                import uuid
+                new_contact = Contact(
+                    id=uuid.uuid4(),
+                    email=cont.get('email'),
+                    phone=cont.get('phone'),
+                    org_id=org.id,
+                )
+                db.add(new_contact)
+                await db.flush()
+                org.contact_id = new_contact.id
+                await db.refresh(org)
         
         await db.commit()
         return {

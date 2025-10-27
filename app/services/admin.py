@@ -41,7 +41,8 @@ async def admin_create_user(
     email: str, 
     password: str,
     role: str = Roles.VENDOR,
-    contact_number: Optional[str] = None
+    contact_number: Optional[str] = None,
+    name: Optional[str] = None
 ) -> User:
 
     logger.info(f"🚀 Starting admin_create_user for: {email}, role: {role}")
@@ -77,6 +78,7 @@ async def admin_create_user(
             user = User(
                 email=email,
                 role=role,
+                name=name,  # Add vendor name
                 org_id=None,  # No organization yet - vendor will create on first login
                 password_hash=AuthService.get_password_hash(password),  # Hash the password
                 short_id=short_id  # Add short ID

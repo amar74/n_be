@@ -23,6 +23,16 @@ class LoginResponse(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    bio: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    country: Optional[str] = None
+    timezone: Optional[str] = None
+    language: Optional[str] = None
     role: str
     org_id: Optional[str] = None
 
@@ -48,40 +58,18 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
     
     user_id: str = payload.get("sub")
-    if user_id is None:
+    
+    # Open and close connection immediately after getting user
+    user = await AuthService.get_user_by_id(user_id)
+    
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
+            detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Direct database query to avoid SQLAlchemy relationship issues
-    import asyncpg
-    from app.environment import environment
-    # Convert SQLAlchemy URL to asyncpg format
-    db_url = environment.DATABASE_URL.replace('postgresql+psycopg://', 'postgresql://')
-    conn = await asyncpg.connect(db_url)
-    try:
-        user_row = await conn.fetchrow(
-            'SELECT id, email, org_id, role FROM users WHERE id = $1',
-            user_id
-        )
-        if not user_row:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        # Create a simple user object
-        user = User()
-        user.id = user_row['id']
-        user.email = user_row['email']
-        user.org_id = user_row['org_id']
-        user.role = user_row['role']
-        return user
-    finally:
-        await conn.close()
+    return user
 
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
@@ -90,62 +78,25 @@ async def login(request: LoginRequest):
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Incorrect email or password",
         )
     
-    # Create access token
+    # Create JWT token
     access_token_expires = timedelta(minutes=30)
+    expire_at = datetime.utcnow() + access_token_expires
     access_token = AuthService.create_access_token(
-        data={"sub": str(user.id), "user_id": str(user.id)},
-        expires_delta=access_token_expires
+        data={"sub": str(user.id)},
+        expires_delta=access_token_expires,
     )
     
     return LoginResponse(
         token=access_token,
+        expire_at=expire_at.isoformat(),
         user={
             "id": str(user.id),
             "email": user.email,
             "role": user.role,
-            "org_id": str(user.org_id) if user.org_id else None,
-        },
-        expire_at=(datetime.utcnow() + access_token_expires).isoformat()
-    )
-
-@router.post("/super-admin/login", response_model=LoginResponse)
-async def super_admin_login(request: LoginRequest):
-    user = await AuthService.authenticate_user(request.email, request.password)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Check if user is super admin
-    if user.role != "super_admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Super admin role required.",
-        )
-    
-    # Create access token
-    access_token_expires = timedelta(minutes=30)
-    access_token = AuthService.create_access_token(
-        data={"sub": str(user.id), "user_id": str(user.id)},
-        expires_delta=access_token_expires
-    )
-    
-    return LoginResponse(
-        token=access_token,
-        user={
-            "id": str(user.id),
-            "email": user.email,
-            "role": user.role,
-            "org_id": str(user.org_id) if user.org_id else None,
-        },
-        expire_at=(datetime.utcnow() + access_token_expires).isoformat()
+        }
     )
 
 @router.post("/signup", response_model=SignupResponse)
@@ -155,14 +106,14 @@ async def signup(request: SignupRequest):
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Email already registered",
         )
     
     # Create new user
     user = await AuthService.create_user(
         email=request.email,
         password=request.password,
-        role=request.role
+        role=request.role,
     )
     
     return SignupResponse(
@@ -174,14 +125,101 @@ async def signup(request: SignupRequest):
         }
     )
 
-@router.get("/me", response_model=UserResponse)
+class CurrentUserResponse(BaseModel):
+    user: UserResponse
+
+@router.get("/me", response_model=CurrentUserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
-    return UserResponse(
+    user_data = UserResponse(
         id=str(current_user.id),
         email=current_user.email,
+        name=current_user.name,
+        phone=current_user.phone,
+        bio=current_user.bio,
+        address=current_user.address,
+        city=current_user.city,
+        state=current_user.state,
+        zip_code=current_user.zip_code,
+        country=current_user.country,
+        timezone=current_user.timezone,
+        language=current_user.language,
         role=current_user.role,
         org_id=str(current_user.org_id) if current_user.org_id else None
     )
+    return CurrentUserResponse(user=user_data)
+
+class ProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    bio: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    country: Optional[str] = None
+    timezone: Optional[str] = None
+    language: Optional[str] = None
+
+@router.put("/profile", response_model=UserResponse)
+async def update_profile(
+    profile_data: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Update the current user's profile information"""
+    try:
+        # Update user profile in database
+        success = await AuthService.update_user_profile(
+            str(current_user.id),
+            name=profile_data.name,
+            phone=profile_data.phone,
+            bio=profile_data.bio,
+            address=profile_data.address,
+            city=profile_data.city,
+            state=profile_data.state,
+            zip_code=profile_data.zip_code,
+            country=profile_data.country,
+            timezone=profile_data.timezone,
+            language=profile_data.language
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update profile"
+            )
+        
+        # Fetch updated user
+        updated_user = await User.get_by_id(str(current_user.id))
+        
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        return UserResponse(
+            id=str(updated_user.id),
+            email=updated_user.email,
+            name=updated_user.name,
+            phone=updated_user.phone,
+            bio=updated_user.bio,
+            address=updated_user.address,
+            city=updated_user.city,
+            state=updated_user.state,
+            zip_code=updated_user.zip_code,
+            country=updated_user.country,
+            timezone=updated_user.timezone,
+            language=updated_user.language,
+            role=updated_user.role,
+            org_id=str(updated_user.org_id) if updated_user.org_id else None
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update profile: {str(e)}"
+        )
 
 @router.post("/change-password")
 async def change_password(

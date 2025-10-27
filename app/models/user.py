@@ -14,12 +14,9 @@ if TYPE_CHECKING:
     from app.models.organization import Organization
 
 def generate_short_user_id() -> str:
-    """Generate a short 6-digit user ID"""
-    while True:
-        # Generate a 6-digit alphanumeric code
-        user_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        # Check if it already exists (we'll implement this check in the service)
-        return user_id
+    """Generate a short 4-5 digit numeric vendor ID"""
+    vendor_id = str(random.randint(1000, 99999))
+    return vendor_id
 
 class User(Base):
     __tablename__ = "users"
@@ -35,6 +32,17 @@ class User(Base):
     short_id: Mapped[str] = mapped_column(String(10), unique=True, nullable=False, index=True)
 
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    bio: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    state: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
+    zip_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default='United States')
+    timezone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default='America/New_York')
+    language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default='en')
 
     org_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
@@ -52,6 +60,16 @@ class User(Base):
             "id": self.id,
             "short_id": self.short_id,
             "email": self.email,
+            "name": self.name,
+            "phone": self.phone,
+            "bio": self.bio,
+            "address": self.address,
+            "city": self.city,
+            "state": self.state,
+            "zip_code": self.zip_code,
+            "country": self.country,
+            "timezone": self.timezone,
+            "language": self.language,
             "org_id": self.org_id,
             "role": self.role,
             "password_hash": self.password_hash,
@@ -65,6 +83,7 @@ class User(Base):
                 email=email,
                 org_id=None,
                 role=Roles.ADMIN,
+                short_id=generate_short_user_id(),
             )
             db.add(user)
             await db.flush()
@@ -91,8 +110,9 @@ class User(Base):
         async with get_transaction() as db:
             result = await db.execute(select(cls).offset(skip).limit(limit))
             return list(result.scalars().all())
+    
     @classmethod
-    async def get_all_org_users(cls,org_id:uuid.UUID, skip: int = 0, limit: int = 100) -> List["User"]:
+    async def get_all_org_users(cls, org_id: uuid.UUID, skip: int = 0, limit: int = 100) -> List["User"]:
 
         async with get_transaction() as db:
             result = await db.execute(select(cls).where(cls.org_id == org_id).offset(skip).limit(limit))

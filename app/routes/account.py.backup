@@ -4,7 +4,6 @@ from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
 import csv
 import io
 import tempfile
@@ -15,8 +14,7 @@ from app.schemas.account import (
     ContactCreate, ContactResponse, ContactListResponse, AddressResponse,
     ContactAddRequest, ContactUpdateRequest,
     AccountCreateResponse, AccountUpdateResponse, AccountDeleteResponse,
-    ContactCreateResponse, ContactUpdateResponse, ContactDeleteResponse,
-    AccountApprovalRequest
+    ContactCreateResponse, ContactUpdateResponse, ContactDeleteResponse
 )
 from app.services.account import account_service
 from app.dependencies.user_auth import get_current_user
@@ -76,17 +74,10 @@ async def list_accounts(
                 logger.error(f"Error creating AddressResponse: {str(e)}")
                 client_address = None
             
-            # Get approval status from database or default to pending
-            approval_status = getattr(account, 'approval_status', None) or "pending"
-            approval_notes = getattr(account, 'approval_notes', None)
-            
-            # Get creator name if available
-            created_by_name = None
-            try:
-                if hasattr(account, 'creator') and account.creator:
-                    created_by_name = account.creator.name or account.creator.email
-            except Exception as e:
-                logger.error(f"Error accessing creator: {str(e)}")
+            # Determine approval status
+            approval_status = "pending"
+            if account.account_approver and account.approval_date:
+                approval_status = "approved"
             
             account_items.append(AccountListItem(
                 account_id=account.account_id,
@@ -104,9 +95,7 @@ async def list_accounts(
                 last_contact=account.last_contact,
                 approval_status=approval_status,
                 account_approver=account.account_approver,
-                approval_date=account.approval_date,
-                created_by_name=created_by_name,
-                created_at=account.created_at
+                approval_date=account.approval_date
             ))
         
         return AccountListResponse(
@@ -120,7 +109,7 @@ async def list_accounts(
         )
         
     except Exception as e:
-        logger.error(f"Error listing accounts: {str(e).replace('{', '{{').replace('}', '}}')}", exc_info=True)
+        logger.error(f"Error listing accounts: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve accounts")
 
 # Get single account by ID
@@ -190,10 +179,8 @@ async def export_accounts(
             except Exception:
                 pass
             
-            # Get approval status (derived from account_approver and approval_date)
-            approval_status = "pending"
-            if account.account_approver and account.approval_date:
-                approval_status = "approved"
+            # Get approval status
+            approval_status = getattr(account, 'approval_status', 'pending')
             
             writer.writerow([
                 account.client_name or '',
@@ -201,7 +188,7 @@ async def export_accounts(
                 account.hosting_area or '',
                 account.market_sector or '',
                 primary_contact_name or '',
-                account.client_type.value if account.client_type else '',
+                account.tier_type or '',
                 f"{health_score}%",
                 risk,
                 f"${(account.total_value or 0):.1f}M",
@@ -240,6 +227,71 @@ async def export_accounts(
     except Exception as e:
         logger.error(f"Error exporting accounts: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to export accounts: {str(e)}")
+        from app.services.contact import ContactService
+        contact_service = ContactService()
+        contacts = await contact_service.get_contacts_by_account(UUID(account_id))
+        
+        contact_to_update = None
+        for contact in contacts:
+            if str(contact.id) == contact_id:
+                contact_to_update = contact
+                break
+        
+        if not contact_to_update:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        
+        # Use raw SQL to avoid circular dependency issues
+        from app.db.session import get_request_transaction
+        from sqlalchemy import text
+        db = get_request_transaction()
+        
+        # Build update query dynamically
+        update_parts = []
+        params = {'contact_id': contact_id}
+        
+        if contact_data.name is not None:
+            update_parts.append("name = :name")
+            params['name'] = contact_data.name
+        if contact_data.email is not None:
+            update_parts.append("email = :email")
+            params['email'] = contact_data.email
+        if contact_data.phone is not None:
+            update_parts.append("phone = :phone")
+            params['phone'] = contact_data.phone
+        if contact_data.title is not None:
+            update_parts.append("title = :title")
+            params['title'] = contact_data.title
+        
+        # Execute raw SQL update
+        if update_parts:
+            update_query = f"UPDATE contacts SET {', '.join(update_parts)} WHERE id = :contact_id RETURNING id, name, email, phone, title"
+            result = await db.execute(text(update_query), params)
+            updated = result.fetchone()
+            
+            logger.info(f"Updated contact {contact_id} for account {account_id}")
+            
+            return ContactResponse(
+                contact_id=updated[0],
+                name=updated[1],
+                email=updated[2],
+                phone=updated[3],
+                title=updated[4]
+            )
+        else:
+            # No updates provided, return current data
+            return ContactResponse(
+                contact_id=contact_to_update.id,
+                name=contact_to_update.name,
+                email=contact_to_update.email,
+                phone=contact_to_update.phone,
+                title=contact_to_update.title
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating contact {contact_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update contact: {str(e)}")
 
 @router.delete("/{account_id}/contacts/{contact_id}")
 async def delete_account_contact(
@@ -348,29 +400,6 @@ async def get_account(
             logger.error(f"Error loading secondary contacts: {str(e)}")
             # Continue without secondary contacts
         
-        # Get creator and updater names
-        created_by_name = None
-        updated_by_name = None
-        try:
-            from app.models.user import User
-            
-            if account.created_by:
-                creator_stmt = select(User).where(User.id == account.created_by)
-                creator_result = await db.execute(creator_stmt)
-                creator = creator_result.scalar_one_or_none()
-                if creator:
-                    created_by_name = creator.name or creator.email.split('@')[0] if creator.email else None
-            
-            if account.updated_by:
-                updater_stmt = select(User).where(User.id == account.updated_by)
-                updater_result = await db.execute(updater_stmt)
-                updater = updater_result.scalar_one_or_none()
-                if updater:
-                    updated_by_name = updater.name or updater.email.split('@')[0] if updater.email else None
-        except Exception as e:
-            logger.error(f"Error loading creator/updater names: {str(e)}")
-            # Continue without names
-        
         return AccountDetailResponse(
             account_id=account.account_id,
             custom_id=account.custom_id,
@@ -397,9 +426,7 @@ async def get_account(
             account_approver=account.account_approver,
             approval_date=account.approval_date,
             created_at=account.created_at,
-            updated_at=account.updated_at,
-            created_by_name=created_by_name,
-            updated_by_name=updated_by_name
+            updated_at=account.updated_at
         )
         
     except HTTPException:
@@ -438,8 +465,7 @@ async def create_account(
         # Create account using the service
         account = await account_service.create_account(
             org_id=current_user.org_id,
-            account_data=account_data.dict() if hasattr(account_data, 'dict') else account_data,
-            created_by=current_user.id
+            account_data=account_data.dict() if hasattr(account_data, 'dict') else account_data
         )
         
         logger.info(f"Account created successfully: {account.account_id}")
@@ -460,7 +486,6 @@ async def create_account(
 # Approve account
 @router.post("/{account_id}/approve", response_model=AccountUpdateResponse)
 async def approve_account(
-    request_data: AccountApprovalRequest,
     account_id: UUID = Path(..., description="Account ID to approve"),
     current_user: AuthUserResponse = Depends(get_current_user)
 ):
@@ -471,9 +496,6 @@ async def approve_account(
             raise HTTPException(status_code=404, detail="Account not found")
         
         # Update account status
-        account.approval_status = "approved"
-        if request_data.notes:
-            account.approval_notes = request_data.notes
         account.account_approver = current_user.email
         account.approval_date = datetime.now()
         
@@ -498,7 +520,6 @@ async def approve_account(
 # Decline account
 @router.post("/{account_id}/decline", response_model=AccountUpdateResponse)
 async def decline_account(
-    request_data: AccountApprovalRequest,
     account_id: UUID = Path(..., description="Account ID to decline"),
     current_user: AuthUserResponse = Depends(get_current_user)
 ):
@@ -508,10 +529,7 @@ async def decline_account(
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
         
-        # Update account status
-        account.approval_status = "declined"
-        if request_data.notes:
-            account.approval_notes = request_data.notes
+        # Update account status (you might want to add a status field)
         account.account_approver = current_user.email
         account.approval_date = datetime.now()
         
@@ -576,15 +594,9 @@ async def get_account_contacts(
 async def add_account_contact(
     account_id: str,
     contact_data: ContactCreate,
-    current_user: AuthUserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_request_transaction)
+    current_user: AuthUserResponse = Depends(get_current_user)
 ):
     try:
-        logger.info(f"🔍 RAW contact_data type: {type(contact_data)}")
-        logger.info(f"🔍 RAW contact_data: {contact_data}")
-        logger.info(f"🔍 contact_data.model_dump(): {contact_data.model_dump()}")
-        logger.info(f"🔍 Contact fields - name: '{contact_data.name}', email: '{contact_data.email}', phone: '{contact_data.phone}', title: '{contact_data.title}'")
-        
         org_id = current_user.org_id
         if not org_id:
             raise HTTPException(status_code=401, detail="Organization ID not found")
@@ -597,6 +609,9 @@ async def add_account_contact(
         
         # Create the contact
         from app.models.contact import Contact
+        from app.db.session import get_request_transaction
+        
+        db = get_request_transaction()
         
         # Convert to UUID if needed
         account_uuid = UUID(account_id) if isinstance(account_id, str) else account_id
@@ -614,26 +629,14 @@ async def add_account_contact(
         
         db.add(contact)
         await db.flush()
-        
-        # Get the ID from the flushed contact
-        contact_id = contact.id
-        
-        # Query back to get the full contact data
-        from app.services.contact import ContactService
-        contact_service = ContactService()
-        created_contact = await contact_service.get_contact_by_id(contact_id)
-        
-        if not created_contact:
-            raise HTTPException(status_code=500, detail="Failed to retrieve created contact")
-        
-        logger.info(f"Successfully created contact {created_contact.id} for account {account_id}")
+        await db.refresh(contact)
         
         return ContactResponse(
-            contact_id=created_contact.id,
-            name=created_contact.name,
-            email=created_contact.email,
-            phone=created_contact.phone,
-            title=created_contact.title
+            contact_id=contact.id,
+            name=contact.name,
+            email=contact.email,
+            phone=contact.phone,
+            title=contact.title
         )
         
     except HTTPException:
@@ -661,116 +664,7 @@ async def update_account_contact(
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
         
-        # Update contact
-        from app.services.contact import ContactService
-        contact_service = ContactService()
-        updated_contact = await contact_service.update_contact(
-            UUID(contact_id),
-            contact_data.model_dump(exclude_unset=True)
-        )
-        
-        if not updated_contact:
-            raise HTTPException(status_code=404, detail="Contact not found")
-        
-        logger.info(f"Successfully updated contact {contact_id} for account {account_id}")
-            
-        return ContactResponse(
-            contact_id=updated_contact.id,
-            name=updated_contact.name,
-            email=updated_contact.email,
-            phone=updated_contact.phone,
-            title=updated_contact.title
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating contact {contact_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to update contact: {str(e)}")
-
-# Update account
-@router.put("/{account_id}", response_model=AccountUpdateResponse)
-async def update_account(
-    account_id: UUID,
-    account_data: AccountUpdate,
-    current_user: AuthUserResponse = Depends(get_current_user)
-):
-    """Update account details including address and primary contact"""
-    try:
-        # Get the account
-        account = await account_service.get_account_by_id(account_id, current_user.org_id)
-        if not account:
-            raise HTTPException(status_code=404, detail="Account not found")
-        
-        # Update account fields
-        if account_data.client_name is not None:
-            account.client_name = account_data.client_name
-        if account_data.client_type is not None:
-            account.client_type = account_data.client_type
-        if account_data.market_sector is not None:
-            account.market_sector = account_data.market_sector
-        if account_data.company_website is not None:
-            account.company_website = str(account_data.company_website) if account_data.company_website else None
-        if account_data.hosting_area is not None:
-            account.hosting_area = account_data.hosting_area
-        if account_data.notes is not None:
-            account.notes = account_data.notes
-        if account_data.account_approver is not None:
-            account.account_approver = account_data.account_approver
-        if account_data.approval_date is not None:
-            account.approval_date = account_data.approval_date
-        
-        # Update address if provided
-        if account_data.client_address is not None:
-            from app.models.address import Address
-            
-            if account.client_address:
-                # Update existing address
-                if account_data.client_address.line1:
-                    account.client_address.line1 = account_data.client_address.line1
-                if account_data.client_address.line2 is not None:
-                    account.client_address.line2 = account_data.client_address.line2
-                if account_data.client_address.city is not None:
-                    account.client_address.city = account_data.client_address.city
-                if account_data.client_address.state is not None:
-                    account.client_address.state = account_data.client_address.state
-                if account_data.client_address.pincode is not None:
-                    account.client_address.pincode = account_data.client_address.pincode
-            elif account_data.client_address.line1:
-                # Create new address
-                new_address = Address(
-                    line1=account_data.client_address.line1,
-                    line2=account_data.client_address.line2,
-                    city=account_data.client_address.city,
-                    state=account_data.client_address.state,
-                    pincode=account_data.client_address.pincode,
-                    org_id=current_user.org_id
-                )
-                db = get_request_transaction()
-                db.add(new_address)
-                await db.flush()
-                account.client_address_id = new_address.id
-        
-        # Set updated_by
-        account.updated_by = current_user.id
-        
-        # Save to database
-        db = get_request_transaction()
-        db.add(account)
-        await db.commit()
-        
-        logger.info(f"Account {account_id} updated by {current_user.email}")
-        
-        return AccountUpdateResponse(
-            account_id=str(account.account_id),
-            message="Account updated successfully"
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating account {account_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to update account: {str(e)}")
+        # Get the contact and verify it belongs to the account
 
 # Health check endpoint
 @router.get("/health", status_code=200)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.routes.auth import router as auth_router
+from app.routes.password_reset import router as password_reset_router
 from app.routes.data_enrichment import router as data_enrichment_router
 from app.routes.organization import router as orgs_router
 from app.routes.account import router as account_router
@@ -20,10 +21,15 @@ from app.routes.ai_suggestions import router as ai_suggestions_router
 from app.routes.scraper import router as scraper_router
 from app.routes.survey import router as survey_router
 from app.routes.public_survey import router as public_survey_router
+from app.routes.profile_stats import router as profile_stats_router
+from app.routes.dashboard import router as dashboard_router
 
 api_router = APIRouter()
 
 api_router.include_router(auth_router)
+api_router.include_router(password_reset_router)
+api_router.include_router(profile_stats_router)
+api_router.include_router(dashboard_router)
 api_router.include_router(data_enrichment_router)
 api_router.include_router(orgs_router)
 api_router.include_router(account_router)

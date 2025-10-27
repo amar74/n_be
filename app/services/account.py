@@ -179,7 +179,7 @@ class AccountService:
             logger.error(f"Error fetching accounts with filters {filters}: {str(e)}")
             raise
 
-    async def create_account(self, org_id: UUID, account_data: dict) -> Account:
+    async def create_account(self, org_id: UUID, account_data: dict, created_by: Optional[UUID] = None) -> Account:
         db = get_request_transaction()
         
         try:
@@ -238,7 +238,8 @@ class AccountService:
                 total_value=account_data.get('total_value'),
                 ai_health_score=account_data.get('ai_health_score', 50.0),  # Default 50% health score
                 hosting_area=account_data.get('hosting_area'),
-                notes=account_data.get('notes')
+                notes=account_data.get('notes'),
+                created_by=created_by
             )
             
             db.add(account)

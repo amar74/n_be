@@ -42,6 +42,8 @@ class IDGenerator:
                     try:
                         # Extract number from format OPP-NY{ORG_PREFIX}0001
                         number_part = custom_id.split(org_prefix)[-1]
+                        # Remove spaces if any
+                        number_part = number_part.strip().replace(' ', '')
                         numbers.append(int(number_part))
                     except (ValueError, IndexError):
                         continue
@@ -54,6 +56,15 @@ class IDGenerator:
                 next_number = 1
             
             custom_id = f"OPP-NY{org_prefix}{next_number:04d}"
+            
+            # Check if this ID already exists (race condition protection)
+            existing = await IDGenerator.get_opportunity_by_custom_id(custom_id, db)
+            if existing:
+                # If it exists, use timestamp-based ID
+                import time
+                timestamp = int(time.time())
+                custom_id = f"OPP-NY{org_prefix}{timestamp}"
+            
             return custom_id
             
         except Exception as e:

@@ -12,7 +12,7 @@ from app.schemas.vendor import (
     VendorLoginRequest,
 )
 from app.services import vendor as vendor_service
-from app.services.email import send_vendor_invitation_email
+from app.services.email import send_vendor_invitation_email, send_vendor_welcome_email
 from app.utils.logger import logger
 from app.environment import environment
 
@@ -48,15 +48,30 @@ async def create_vendor(request: VendorCreateRequest):
             'http://localhost:3000/vendor/login'
         )
         
-        email_sent = send_vendor_invitation_email(
+        # Send invitation email with credentials
+        invitation_sent = send_vendor_invitation_email(
+            vendor_id=str(vendor.id),
             vendor_name=vendor.vendor_name,
+            company_name=vendor.organisation,
             vendor_email=vendor.email,
             password=plain_password,
             login_url=vendor_login_url
         )
         
-        if not email_sent:
-            return VendorResponse(**vendor.to_dict())
+        if not invitation_sent:
+            logger.warning(f"Failed to send invitation email to {vendor.email}")
+        
+        # Send welcome email
+        welcome_sent = send_vendor_welcome_email(
+            vendor_name=vendor.vendor_name,
+            company_name=vendor.organisation,
+            vendor_email=vendor.email
+        )
+        
+        if not welcome_sent:
+            logger.warning(f"Failed to send welcome email to {vendor.email}")
+        
+        return VendorResponse(**vendor.to_dict())
         
     except ValueError as e:
         logger.error(f"Error creating vendor: {str(e)}")

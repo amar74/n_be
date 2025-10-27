@@ -4,33 +4,25 @@ from datetime import datetime
 import uuid
 
 class OpportunityDocumentBase(BaseModel):
-    file_name: str = Field(..., min_length=1, max_length=255)
-    original_name: str = Field(..., min_length=1, max_length=255)
-    file_type: str = Field(..., min_length=1, max_length=100)
-    file_size: int = Field(..., gt=0)
-    category: str = Field(..., pattern="^(Documents & Reports|Technical Drawings|Images & Photos|Presentations|Spreadsheets|Other)$")
-    purpose: str = Field(..., pattern="^(Project Reference|Proposal Content|Technical Specification|Client Communication|Internal Documentation|Other)$")
-    description: Optional[str] = Field(None, max_length=1000)
-    tags: Optional[str] = Field(None, max_length=500)
+    document_name: str = Field(..., min_length=1, max_length=255)
+    document_url: Optional[str] = None
+    document_type: Optional[str] = Field(None, max_length=50)
+    file_size: Optional[int] = Field(None, gt=0)
 
 class OpportunityDocumentCreate(OpportunityDocumentBase):
     pass
 
 class OpportunityDocumentUpdate(BaseModel):
-    file_name: Optional[str] = Field(None, min_length=1, max_length=255)
-    category: Optional[str] = Field(None, pattern="^(Documents & Reports|Technical Drawings|Images & Photos|Presentations|Spreadsheets|Other)$")
-    purpose: Optional[str] = Field(None, pattern="^(Project Reference|Proposal Content|Technical Specification|Client Communication|Internal Documentation|Other)$")
-    description: Optional[str] = Field(None, max_length=1000)
-    tags: Optional[str] = Field(None, max_length=500)
-    is_available_for_proposal: Optional[bool] = None
+    document_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    document_url: Optional[str] = None
+    document_type: Optional[str] = Field(None, max_length=50)
+    file_size: Optional[int] = Field(None, gt=0)
 
 class OpportunityDocumentResponse(OpportunityDocumentBase):
     id: uuid.UUID
     opportunity_id: uuid.UUID
-    file_path: Optional[str] = None
-    status: str
-    is_available_for_proposal: bool
-    uploaded_at: datetime
+    uploaded_by: Optional[uuid.UUID] = None
+    created_at: datetime
     updated_at: datetime
 
     class Config:

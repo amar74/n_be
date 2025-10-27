@@ -13,11 +13,13 @@ class UserCreateRequest(BaseModel):
 
 class UserUpdateRequest(BaseModel):
     email: Optional[str] = None
+    name: Optional[str] = None
     role: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: str
     email: str
+    name: Optional[str] = None
     role: str
     org_id: Optional[str] = None
     model_config = {

@@ -148,3 +148,49 @@ class AuthService:
             user.password_hash = AuthService.get_password_hash(new_password)
             await db.commit()
             return True
+    
+    @staticmethod
+    async def update_user_profile(
+        user_id: str, 
+        name: Optional[str] = None,
+        phone: Optional[str] = None,
+        bio: Optional[str] = None,
+        address: Optional[str] = None,
+        city: Optional[str] = None,
+        state: Optional[str] = None,
+        zip_code: Optional[str] = None,
+        country: Optional[str] = None,
+        timezone: Optional[str] = None,
+        language: Optional[str] = None
+    ) -> bool:
+        """Update user profile information"""
+        async with get_session() as db:
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+            
+            if not user:
+                return False
+            
+            if name is not None:
+                user.name = name
+            if phone is not None:
+                user.phone = phone
+            if bio is not None:
+                user.bio = bio
+            if address is not None:
+                user.address = address
+            if city is not None:
+                user.city = city
+            if state is not None:
+                user.state = state
+            if zip_code is not None:
+                user.zip_code = zip_code
+            if country is not None:
+                user.country = country
+            if timezone is not None:
+                user.timezone = timezone
+            if language is not None:
+                user.language = language
+            
+            await db.commit()
+            return True

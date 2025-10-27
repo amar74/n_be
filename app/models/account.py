@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.address import Address
     from app.models.contact import Contact
     from app.models.organization import Organization
+    from app.models.user import User
     from app.models.account_note import AccountNote
     from app.models.account_document import AccountDocument
     from app.models.opportunity import Opportunity
@@ -50,6 +51,10 @@ class Account(Base):
     hosting_area: Mapped[Optional[str]] = mapped_column(String(255))
     account_approver: Mapped[Optional[str]] = mapped_column(String(255))
     approval_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    approval_status: Mapped[Optional[str]] = mapped_column(String(20), default="pending")  # "pending", "approved", "declined"
+    approval_notes: Mapped[Optional[str]] = mapped_column(String(1024))
+    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    updated_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, onupdate=func.now())
 
@@ -61,6 +66,8 @@ class Account(Base):
     primary_contact: Mapped[Optional["Contact"]] = relationship("Contact", foreign_keys=[primary_contact_id])
     contacts: Mapped[List["Contact"]] = relationship("Contact", back_populates="account", foreign_keys="Contact.account_id", cascade="all, delete-orphan")
     organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="accounts")
+    creator: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by])
+    updater: Mapped[Optional["User"]] = relationship("User", foreign_keys=[updated_by])
     account_notes: Mapped[List["AccountNote"]] = relationship("AccountNote", back_populates="account", cascade="all, delete-orphan")
     account_documents: Mapped[List["AccountDocument"]] = relationship("AccountDocument", back_populates="account", cascade="all, delete-orphan")
     opportunities_list: Mapped[List["Opportunity"]] = relationship("Opportunity", back_populates="account", foreign_keys="Opportunity.account_id")

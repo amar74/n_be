@@ -177,23 +177,56 @@ class Organization(Base):
             if request.website is not None:
                 org.website = request.website
 
-            if request.address is not None and org.address:
-                if request.address.line1 is not None:
-                    org.address.line1 = request.address.line1
-                if request.address.line2 is not None:
-                    org.address.line2 = request.address.line2
-                if request.address.city is not None:
-                    org.address.city = request.address.city
-                if request.address.state is not None:
-                    org.address.state = request.address.state
-                if request.address.pincode is not None:
-                    org.address.pincode = request.address.pincode
+            # Handle address update or creation
+            if request.address is not None:
+                if org.address:
+                    # Update existing address
+                    if request.address.line1 is not None:
+                        org.address.line1 = request.address.line1
+                    if request.address.line2 is not None:
+                        org.address.line2 = request.address.line2
+                    if request.address.city is not None:
+                        org.address.city = request.address.city
+                    if request.address.state is not None:
+                        org.address.state = request.address.state
+                    if request.address.pincode is not None:
+                        org.address.pincode = request.address.pincode
+                else:
+                    # Create new address if it doesn't exist
+                    address = Address(
+                        id=uuid.uuid4(),
+                        line1=request.address.line1,
+                        line2=request.address.line2,
+                        city=request.address.city,
+                        state=request.address.state,
+                        pincode=request.address.pincode,
+                        org_id=org.id,
+                    )
+                    db.add(address)
+                    await db.flush()
+                    org.address_id = address.id
+                    await db.refresh(org)  # Refresh to load the new address relationship
 
-            if request.contact is not None and org.contact:
-                if request.contact.email is not None:
-                    org.contact.email = request.contact.email
-                if request.contact.phone is not None:
-                    org.contact.phone = request.contact.phone
+            # Handle contact update or creation
+            if request.contact is not None:
+                if org.contact:
+                    # Update existing contact
+                    if request.contact.email is not None:
+                        org.contact.email = request.contact.email
+                    if request.contact.phone is not None:
+                        org.contact.phone = request.contact.phone
+                else:
+                    # Create new contact if it doesn't exist
+                    contact = Contact(
+                        id=uuid.uuid4(),
+                        phone=request.contact.phone,
+                        email=request.contact.email,
+                        org_id=org.id,
+                    )
+                    db.add(contact)
+                    await db.flush()
+                    org.contact_id = contact.id
+                    await db.refresh(org)  # Refresh to load the new contact relationship
 
             await db.flush()
             await db.refresh(org)

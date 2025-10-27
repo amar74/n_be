@@ -110,6 +110,8 @@ class AccountListItem(BaseModel):
     approval_status: Optional[str] = None  # "pending", "approved", "declined"
     account_approver: Optional[str] = None
     approval_date: Optional[datetime] = None
+    created_by_name: Optional[str] = None  # Name of the user who created the account
+    created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -144,6 +146,8 @@ class AccountDetailResponse(BaseModel):
     approval_date: Optional[datetime] = None
     created_at: datetime  # has default in DB, should always be present
     updated_at: Optional[datetime] = None
+    created_by_name: Optional[str] = None  # Name of the user who created the account
+    updated_by_name: Optional[str] = None  # Name of the user who last updated the account
 
     model_config = {"from_attributes": True}
 
@@ -236,3 +240,12 @@ class ContactUpdateResponse(BaseModel):
 class ContactDeleteResponse(BaseModel):
 
     status_code: int = 200
+
+class AccountApprovalRequest(BaseModel):
+    notes: Optional[str] = Field(None, description="Optional notes for approval/decline")
+
+class AccountApprovalResponse(BaseModel):
+    status_code: int = 200
+    account_id: str
+    message: str
+    approval_status: str

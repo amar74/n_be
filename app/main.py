@@ -17,6 +17,7 @@ logger.info("Starting Megapolis API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # Local development
         "http://localhost:5173",      # Frontend development server
         "http://localhost:5174",      # Frontend development server (alternative port)
         "http://localhost:5175",      # Frontend development server (port 5175)
@@ -31,7 +32,11 @@ app.add_middleware(
         "http://127.0.0.1:3000",     # Another common frontend port with 127.0.0.1
         "http://localhost:8000",      # API server
         "http://127.0.0.1:8000",     # API server with 127.0.0.1
-        "*",                          # Allow all origins for development (remove in production)
+        # Production servers
+        "http://100.24.73.6",        # Production frontend server
+        "http://52.55.26.148",       # Production backend server
+        "http://52.55.26.148:8000",  # Production backend server with port
+        "http://52.5.133.157:3000",  # Additional production frontend
     ],
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, PATCH, DELETE, etc.)

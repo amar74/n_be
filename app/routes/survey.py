@@ -443,6 +443,8 @@ async def get_survey_responses(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        logger.info(f"Fetching responses for survey {survey_id}, page={page}, page_size={page_size}")
+        
         survey = await survey_service.get_survey(survey_id)
         if not survey:
             raise HTTPException(
@@ -460,13 +462,28 @@ async def get_survey_responses(
             survey_id, page, page_size
         )
         
-        return [SurveyResponseModel.model_validate(r) for r in responses]
+        logger.info(f"Found {len(responses)} responses for survey {survey_id}")
+        
+        # Validate and return responses
+        validated_responses = []
+        for r in responses:
+            try:
+                validated = SurveyResponseModel.model_validate(r)
+                validated_responses.append(validated)
+            except Exception as e:
+                logger.error(f"Error validating response {r.id}: {str(e)}", exc_info=True)
+                # Continue with other responses
+                continue
+        
+        logger.info(f"Successfully validated {len(validated_responses)} responses")
+        return validated_responses
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching survey responses: {str(e)}")
+        logger.error(f"Error fetching survey responses: {str(e)}", exc_info=True)
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch responses"
+            detail=f"Failed to fetch responses: {str(e)}"
         )

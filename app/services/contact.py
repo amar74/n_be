@@ -153,6 +153,41 @@ class ContactService:
         except Exception as e:
             logger.error(f"Error fetching contacts with email: {str(e)}")
             raise
+    
+    async def update_contact(self, contact_id: UUID, contact_data: dict) -> Optional[Contact]:
+        """Update an existing contact"""
+        db = get_request_transaction()
+        
+        try:
+            stmt = select(Contact).where(Contact.id == contact_id)
+            result = await db.execute(stmt)
+            contact = result.scalar_one_or_none()
+            
+            if not contact:
+                logger.warning(f"Contact {contact_id} not found for update")
+                return None
+            
+            # Update fields if provided
+            if 'name' in contact_data and contact_data['name'] is not None:
+                contact.name = contact_data['name']
+            if 'email' in contact_data and contact_data['email'] is not None:
+                contact.email = contact_data['email']
+            if 'phone' in contact_data and contact_data['phone'] is not None:
+                contact.phone = contact_data['phone']
+            if 'title' in contact_data and contact_data['title'] is not None:
+                contact.title = contact_data['title']
+            
+            # Don't commit here - the transaction is managed by the route handler
+            db.add(contact)
+            await db.flush()
+            await db.refresh(contact)
+            
+            logger.info(f"Updated contact {contact_id}")
+            return contact
+            
+        except Exception as e:
+            logger.error(f"Error updating contact {contact_id}: {str(e)}")
+            raise
 
 
 # Singleton instance

@@ -57,10 +57,15 @@ class SurveyResponse(BaseModel):
     description: Optional[str]
     survey_type: str
     status: str
+    questions: Optional[List[Dict[str, Any]]] = None
+    settings: Optional[Dict[str, Any]] = None
     org_id: UUID
     created_by: Optional[UUID]
     created_at: datetime
     updated_at: Optional[datetime]
+    # Optional computed fields
+    total_responses: Optional[int] = None
+    avg_rating: Optional[float] = None
     
     class Config:
         from_attributes = True

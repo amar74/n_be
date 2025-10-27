@@ -15,11 +15,16 @@ from app.environment import environment
 class DataEnrichmentService:
     
     def __init__(self):
-        # Disable AI by default due to DNS/network issues
-        self.ai_enabled = False
+        # Enable AI if GEMINI_API_KEY is configured
+        gemini_key = getattr(environment, 'GEMINI_API_KEY', None)
+        self.ai_enabled = bool(gemini_key and gemini_key.strip())
         self.cache = {}
         self.timeout = 10  # 10 seconds timeout for scraper-only approach
-        logger.info("AI enhancement disabled, using scraper-only approach")
+        
+        if self.ai_enabled:
+            logger.info("✅ AI enhancement ENABLED with Gemini API")
+        else:
+            logger.warning("⚠️ AI enhancement DISABLED - GEMINI_API_KEY not configured, using scraper-only approach")
     
     def disable_ai_enhancement(self):
         self.ai_enabled = False
