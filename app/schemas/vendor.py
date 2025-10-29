@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 
@@ -43,7 +43,7 @@ class VendorResponse(BaseModel):
 
 class VendorListResponse(BaseModel):
 
-    vendors: list[VendorResponse]
+    vendors: List[VendorResponse]
     total: int
     skip: int
     limit: int

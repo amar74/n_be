@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 import uuid
 
 class AccountNoteCreateRequest(BaseModel):
@@ -53,7 +53,7 @@ class AccountNoteResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class AccountNoteListResponse(BaseModel):
-    notes: list[AccountNoteResponse]
+    notes: List[AccountNoteResponse]
     total_count: int
     page: int
     limit: int

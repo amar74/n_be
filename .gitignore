@@ -217,3 +217,9 @@ dist-ssr
 .env
 .pre-commit-config.yaml
 trufflehog/
+
+# Environment backup files
+*.env.bak*
+*.env.backup*
+.env.bak*
+.env.backup*

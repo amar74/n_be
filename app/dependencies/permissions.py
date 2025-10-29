@@ -9,7 +9,7 @@ from app.schemas.auth import AuthUserResponse
 from app.schemas.user_permission import Permission, UserPermissionResponse
 from typing import Dict, List
 
-def require_role(allowed_roles: list[str]):
+def require_role(allowed_roles: List[str]):
     async def role_checker(current_user: AuthUserResponse = Depends(get_current_user)):
         if current_user.role not in allowed_roles:
             raise MegapolisHTTPException(

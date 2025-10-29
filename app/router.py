@@ -23,6 +23,9 @@ from app.routes.survey import router as survey_router
 from app.routes.public_survey import router as public_survey_router
 from app.routes.profile_stats import router as profile_stats_router
 from app.routes.dashboard import router as dashboard_router
+from app.routes.employees import router as employees_router
+from app.routes.onboarding import router as onboarding_router
+from app.routes.employee_surveys import router as employee_surveys_router
 
 api_router = APIRouter()
 
@@ -50,3 +53,6 @@ api_router.include_router(ai_suggestions_router)
 api_router.include_router(scraper_router)
 api_router.include_router(survey_router)
 api_router.include_router(public_survey_router)
+api_router.include_router(employees_router)
+api_router.include_router(onboarding_router)
+api_router.include_router(employee_surveys_router)

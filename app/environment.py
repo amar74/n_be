@@ -1,5 +1,5 @@
 import os
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 load_dotenv()
@@ -69,10 +69,16 @@ class Environment(BaseModel):
     FORMBRICKS_SERVER_URL: str
     FORMBRICKS_ADMIN_SECRET: str
     FORMBRICKS_JWT_SECRET: str
+    
+    # AWS S3 Configuration
+    AWS_ACCESS_KEY_ID: Optional[str] = Field(default=None)
+    AWS_SECRET_ACCESS_KEY: Optional[str] = Field(default=None)
+    AWS_S3_BUCKET_NAME: Optional[str] = Field(default="megapolis-resumes")
+    AWS_S3_REGION: Optional[str] = Field(default="us-east-1")
 
 class Constants():
 
-    SUPER_ADMIN_EMAILS: list[str] = [
+    SUPER_ADMIN_EMAILS: List[str] = [
         "rishabhgautam727@gmail.com", 
         "prathamkamthan1306@gmail.com",
         "amar.softication@gmail.com",
@@ -111,6 +117,12 @@ def load_environment() -> Environment:
         "FORMBRICKS_SERVER_URL": pick("FORMBRICKS_SERVER_URL", default="https://formbricks-production-7090.up.railway.app"),
         "FORMBRICKS_ADMIN_SECRET": pick("FORMBRICKS_ADMIN_SECRET", default="password"),
         "FORMBRICKS_JWT_SECRET": pick("FORMBRICKS_JWT_SECRET", default="your-shared-secret"),
+        
+        # AWS S3
+        "AWS_ACCESS_KEY_ID": pick("AWS_ACCESS_KEY_ID", default=None),
+        "AWS_SECRET_ACCESS_KEY": pick("AWS_SECRET_ACCESS_KEY", default=None),
+        "AWS_S3_BUCKET_NAME": pick("AWS_S3_BUCKET_NAME", default="megapolis-resumes"),
+        "AWS_S3_REGION": pick("AWS_S3_REGION", default="us-east-1"),
     }
 
     return Environment.model_validate(env)

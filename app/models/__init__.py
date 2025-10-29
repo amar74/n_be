@@ -9,5 +9,5 @@ from .user_permission import *
 from .account_note import *
 from .account_document import *
 from .opportunity import *
-
-from .opportunity import *
+from .employee import *
+from .candidate import *

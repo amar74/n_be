@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 import uuid
 
 class AccountDocumentCreateRequest(BaseModel):
@@ -48,7 +48,7 @@ class AccountDocumentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class AccountDocumentListResponse(BaseModel):
-    documents: list[AccountDocumentResponse]
+    documents: List[AccountDocumentResponse]
     total: int
     page: int
     limit: int

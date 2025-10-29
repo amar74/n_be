@@ -32,7 +32,7 @@ class CreateUserInFormBricksResponse(BaseModel):
     lastLoginAt: Optional[str] = None
     isActive: bool
     role: str
-    teams: list
+    teams: List
 
     model_config = {
         "from_attributes": True}
@@ -73,8 +73,8 @@ class CreateFormBricksProjectResponse(BaseModel):
     placement: str
     clickOutsideClose: bool
     darkOverlay: bool
-    environments: list[Environment]
-    languages: list
+    environments: List[Environment]
+    languages: List
     logo: Logo
 
     model_config = {

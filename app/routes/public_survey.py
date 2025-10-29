@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 from uuid import UUID
 from pydantic import BaseModel
 
@@ -17,8 +17,8 @@ class PublicSurveyResponse(BaseModel):
     id: str
     survey_code: str
     title: str
-    description: str | None
-    questions: list[Dict[str, Any]]
+    description: Optional[str]
+    questions: List[Dict[str, Any]]
     status: str
 
 
@@ -26,7 +26,7 @@ class SurveySubmission(BaseModel):
     response_data: Dict[str, Any]
     contact_name: str
     contact_email: str
-    contact_phone: str | None = None
+    contact_phone: Optional[str] = None
 
 
 @router.get("/{survey_id}", response_model=PublicSurveyResponse)

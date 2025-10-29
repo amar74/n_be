@@ -128,31 +128,52 @@ class SurveyService:
         
         distributions = []
         
-        # Get target contacts
-        target_contacts = await self._get_target_contacts(
-            org_id,
-            request.account_ids,
-            request.contact_ids,
-            request.filters
-        )
-        
-        logger.info(f"Distributing survey {survey.id} to {len(target_contacts)} contacts")
-        
-        # Create distribution for each contact
-        for contact in target_contacts:
-            # Generate personalized survey link
-            survey_link = f"/survey/{survey.id}?contact={contact.id}&token={contact.id}"  # Simple token for now
+        # Handle employee distribution
+        if request.employee_ids:
+            target_employees = await self._get_target_employees(org_id, request.employee_ids)
+            logger.info(f"Distributing survey {survey.id} to {len(target_employees)} employees")
             
-            distribution = SurveyDistribution(
-                survey_id=survey.id,
-                account_id=contact.account_id,
-                contact_id=contact.id,
-                survey_link=survey_link,
-                is_sent=False  # Will be set to True when actually sent via email
+            for employee in target_employees:
+                # Generate personalized survey link
+                survey_link = f"/survey/{survey.id}?employee={employee.id}&token={employee.id}"
+                
+                distribution = SurveyDistribution(
+                    survey_id=survey.id,
+                    employee_id=employee.id,
+                    account_id=None,
+                    contact_id=None,
+                    survey_link=survey_link,
+                    is_sent=False
+                )
+                
+                db.add(distribution)
+                distributions.append(distribution)
+        else:
+            # Handle contact/account distribution (existing logic)
+            target_contacts = await self._get_target_contacts(
+                org_id,
+                request.account_ids,
+                request.contact_ids,
+                request.filters
             )
             
-            db.add(distribution)
-            distributions.append(distribution)
+            logger.info(f"Distributing survey {survey.id} to {len(target_contacts)} contacts")
+            
+            for contact in target_contacts:
+                # Generate personalized survey link
+                survey_link = f"/survey/{survey.id}?contact={contact.id}&token={contact.id}"
+                
+                distribution = SurveyDistribution(
+                    survey_id=survey.id,
+                    account_id=contact.account_id,
+                    contact_id=contact.id,
+                    employee_id=None,
+                    survey_link=survey_link,
+                    is_sent=False
+                )
+                
+                db.add(distribution)
+                distributions.append(distribution)
         
         await db.flush()
         
@@ -217,6 +238,29 @@ class SurveyService:
                 stmt = select(Contact).where(Contact.account_id.in_(account_ids))
                 result = await db.execute(stmt)
                 return list(result.scalars().all())
+        
+        return []
+    
+    async def _get_target_employees(
+        self,
+        org_id: UUID,
+        employee_ids: Optional[List[UUID]]
+    ):
+        """Get target employees for survey distribution"""
+        db = get_request_transaction()
+        
+        from app.models.employee import Employee
+        
+        # If specific employee IDs provided, use those
+        if employee_ids:
+            stmt = select(Employee).where(
+                and_(
+                    Employee.id.in_(employee_ids),
+                    Employee.company_id == org_id
+                )
+            )
+            result = await db.execute(stmt)
+            return list(result.scalars().all())
         
         return []
     

@@ -16,13 +16,15 @@ from app.schemas.survey import (
     SurveyResponseModel,
     SurveyAnalyticsSummary,
     SurveyAccountResponse,
-    SurveyContactResponse
+    SurveyContactResponse,
+    SurveyEmployeeResponse
 )
 from app.services.survey import survey_service
 from app.services.account import account_service
 from app.services.contact import contact_service
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
+from app.models.survey import SurveyType
 from app.utils.logger import logger
 
 
@@ -36,6 +38,7 @@ async def create_survey(
 ):
     try:
         logger.info(f"Creating survey: {request.title} for org: {current_user.org_id}")
+        logger.info(f"Survey type: {request.survey_type}")
         
         survey = await survey_service.create_survey(
             request=request,
@@ -47,16 +50,19 @@ async def create_survey(
         return SurveyResponse.model_validate(survey)
         
     except ValueError as e:
-        logger.warning(f"Validation error creating survey: {str(e)}")
+        error_msg = str(e).replace('{', '{{').replace('}', '}}')
+        logger.warning(f"Validation error creating survey: {error_msg}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Unexpected error creating survey: {str(e)}", exc_info=True)
+        error_msg = str(e).replace('{', '{{').replace('}', '}}')
+        logger.error(f"Unexpected error creating survey: {error_msg}")
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred while creating the survey. Please try again."
+            detail=f"Failed to create survey: {str(e)}"
         )
 
 
@@ -158,6 +164,69 @@ async def get_survey_accounts(
         )
 
 
+@router.get("/employees", response_model=List[SurveyEmployeeResponse])
+async def get_survey_employees(
+    current_user: User = Depends(get_current_user)
+):
+    """Get employees for survey distribution"""
+    try:
+        logger.info(f"Fetching employees for survey distribution for org: {current_user.org_id}")
+        
+        # Get employees for the organization using the employee service
+        from app.services.employee_service import employee_service
+        
+        # Get all employees for the organization
+        employee_responses = await employee_service.get_employees(
+            company_id=current_user.org_id,
+            status=None,  # Get all statuses, we'll filter
+            skip=0,
+            limit=1000
+        )
+        
+        logger.info(f"Found {len(employee_responses)} employees total")
+        
+        # Filter to only active and accepted employees
+        active_statuses = ['active', 'accepted']
+        active_employees = [
+            emp for emp in employee_responses 
+            if emp.status.lower() in active_statuses
+        ]
+        
+        logger.info(f"Found {len(active_employees)} active/accepted employees from {len(employee_responses)} total")
+        
+        # Format the response
+        result = []
+        for employee in active_employees:
+            try:
+                employee_data = {
+                    "id": str(employee.id),
+                    "name": str(employee.name) if employee.name else "Unnamed Employee",
+                    "email": str(employee.email) if employee.email else "no-email@example.com",
+                    "employee_number": str(employee.employee_number) if employee.employee_number else "N/A",
+                    "job_title": str(employee.job_title) if employee.job_title else None,
+                    "department": str(employee.department) if employee.department else None,
+                    "role": str(employee.role) if employee.role else None,
+                    "status": str(employee.status)
+                }
+                
+                result.append(employee_data)
+                logger.debug(f"Added employee: {employee_data['name']} ({employee_data['email']})")
+            except Exception as e:
+                logger.error(f"Error processing employee {employee.id}: {str(e)}", exc_info=True)
+                continue
+        
+        logger.info(f"Returning {len(result)} employees for survey distribution")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error fetching employees for survey distribution: {str(e)}", exc_info=True)
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch employees: {str(e)}"
+        )
+ 
+ 
 # ========== Survey CRUD Endpoints ==========
 @router.get("/{survey_id}", response_model=SurveyResponse)
 async def get_survey(
@@ -205,7 +274,7 @@ async def update_survey(
         # Update survey fields
         survey.title = request.title
         survey.description = request.description
-        survey.survey_type = SurveyType[request.survey_type.value]
+        survey.survey_type = SurveyType(request.survey_type.value)  # Convert from schema enum to model enum
         survey.questions = request.questions
         survey.settings = request.settings
         

@@ -26,6 +26,8 @@ class SurveyType(enum.Enum):
     customer_satisfaction = "customer_satisfaction"
     nps = "nps"
     opportunity_feedback = "opportunity_feedback"
+    employee_feedback = "employee_feedback"
+    employee_satisfaction = "employee_satisfaction"
     general = "general"
 
 class Survey(Base):
@@ -105,6 +107,9 @@ class SurveyDistribution(Base):
     contact_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("contacts.id", ondelete="CASCADE")
     )
+    employee_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="CASCADE")
+    )
     
     # Personalized survey link
     survey_link: Mapped[Optional[str]] = mapped_column(String(500))
@@ -130,6 +135,7 @@ class SurveyDistribution(Base):
             "survey_id": str(self.survey_id),
             "account_id": str(self.account_id) if self.account_id else None,
             "contact_id": str(self.contact_id) if self.contact_id else None,
+            "employee_id": str(self.employee_id) if self.employee_id else None,
             "survey_link": self.survey_link,
             "sent_at": self.sent_at.isoformat() if self.sent_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
@@ -165,6 +171,9 @@ class SurveyResponse(Base):
     contact_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("contacts.id", ondelete="CASCADE")
     )
+    employee_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="CASCADE")
+    )
     
     # Response Data
     response_data: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
@@ -191,6 +200,7 @@ class SurveyResponse(Base):
             "survey_id": str(self.survey_id),
             "account_id": str(self.account_id) if self.account_id else None,
             "contact_id": str(self.contact_id) if self.contact_id else None,
+            "employee_id": str(self.employee_id) if self.employee_id else None,
             "response_data": self.response_data,
             "finished": self.finished,
             "meta": self.meta,

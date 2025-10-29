@@ -9,6 +9,8 @@ class SurveyTypeEnum(str, Enum):
     customer_satisfaction = "customer_satisfaction"
     nps = "nps"
     opportunity_feedback = "opportunity_feedback"
+    employee_feedback = "employee_feedback"
+    employee_satisfaction = "employee_satisfaction"
     general = "general"
 
 class SurveyStatusEnum(str, Enum):
@@ -75,8 +77,9 @@ class SurveyDistributionCreate(BaseModel):
     survey_id: UUID
     account_ids: Optional[List[UUID]] = Field(None, description="Specific accounts to target")
     contact_ids: Optional[List[UUID]] = Field(None, description="Specific contacts to target")
+    employee_ids: Optional[List[UUID]] = Field(None, description="Specific employees to target")
     
-    # If neither account_ids nor contact_ids provided, can use filters
+    # If neither account_ids nor contact_ids nor employee_ids provided, can use filters
     filters: Optional[Dict[str, Any]] = Field(
         None, 
         description="Filters to select accounts (e.g., client_type, market_sector)"
@@ -98,6 +101,7 @@ class SurveyDistributionResponse(BaseModel):
     survey_id: UUID
     account_id: Optional[UUID]
     contact_id: Optional[UUID]
+    employee_id: Optional[UUID]
     survey_link: Optional[str]
     sent_at: Optional[datetime]
     is_sent: bool
@@ -144,6 +148,7 @@ class SurveyResponseModel(BaseModel):
     survey_id: UUID
     account_id: Optional[UUID]
     contact_id: Optional[UUID]
+    employee_id: Optional[UUID]
     response_data: Dict[str, Any]
     finished: bool
     meta: Optional[Dict[str, Any]]
@@ -196,3 +201,15 @@ class SurveyAccountResponse(BaseModel):
     client_type: str
     market_sector: Optional[str] = None
     contacts: List[SurveyContactResponse] = []
+
+# ========== Survey Target Employees ==========
+class SurveyEmployeeResponse(BaseModel):
+    """Employee information for survey distribution"""
+    id: str
+    name: str
+    email: str
+    employee_number: str
+    job_title: Optional[str] = None
+    department: Optional[str] = None
+    role: Optional[str] = None
+    status: str

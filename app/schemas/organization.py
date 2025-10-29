@@ -99,7 +99,7 @@ class OrgMemberResponse(BaseModel):
 
 class OrgMembersListResponse(BaseModel):
 
-    members: list[OrgMemberResponse]
+    members: List[OrgMemberResponse]
     total_count: int
 
     model_config = {
