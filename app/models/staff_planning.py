@@ -3,11 +3,13 @@ Staff Planning Models
 Handles project staffing allocation and cost estimation
 """
 from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, TIMESTAMP, Text, JSON, Boolean
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
 from datetime import datetime, date
 from typing import Optional, Dict, Any
-from app.models.base import Base
+import uuid
+from app.db.base import Base
 
 
 class StaffPlan(Base):
@@ -20,7 +22,7 @@ class StaffPlan(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     
     # Project Details
-    project_id: Mapped[int] = mapped_column(Integer, ForeignKey("projects.id"), nullable=False)
+    project_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("opportunities.id"), nullable=True)
     project_name: Mapped[str] = mapped_column(String(255), nullable=False)
     project_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     project_start_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -45,7 +47,7 @@ class StaffPlan(Base):
     status: Mapped[str] = mapped_column(String(50), default="draft")  # draft, active, completed, archived
     
     # Audit fields
-    created_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     
@@ -55,7 +57,7 @@ class StaffPlan(Base):
     def to_dict(self):
         return {
             "id": self.id,
-            "project_id": self.project_id,
+            "project_id": str(self.project_id) if self.project_id else None,
             "project_name": self.project_name,
             "project_description": self.project_description,
             "project_start_date": self.project_start_date.isoformat() if self.project_start_date else None,
@@ -88,7 +90,7 @@ class StaffAllocation(Base):
     staff_plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("staff_plans.id"), nullable=False)
     
     # Resource/Employee details
-    resource_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False)
+    resource_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False)
     resource_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(100), nullable=False)
     level: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # Junior, Mid, Senior, Expert
@@ -118,7 +120,7 @@ class StaffAllocation(Base):
         return {
             "id": self.id,
             "staff_plan_id": self.staff_plan_id,
-            "resource_id": self.resource_id,
+            "resource_id": str(self.resource_id) if self.resource_id else None,
             "resource_name": self.resource_name,
             "role": self.role,
             "level": self.level,
@@ -143,7 +145,7 @@ class ResourceUtilization(Base):
     __tablename__ = "resource_utilization"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    resource_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False)
+    resource_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False)
     
     # Utilization metrics
     month: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-12
@@ -161,7 +163,7 @@ class ResourceUtilization(Base):
     def to_dict(self):
         return {
             "id": self.id,
-            "resource_id": self.resource_id,
+            "resource_id": str(self.resource_id) if self.resource_id else None,
             "month": self.month,
             "year": self.year,
             "total_allocated_hours": self.total_allocated_hours,

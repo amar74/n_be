@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.models.account_note import AccountNote
     from app.models.account_document import AccountDocument
     from app.models.opportunity import Opportunity
+    from app.models.account_team import AccountTeam
 
 class ClientType(enum.Enum):
     tier_1 = "tier_1"
@@ -71,6 +72,7 @@ class Account(Base):
     account_notes: Mapped[List["AccountNote"]] = relationship("AccountNote", back_populates="account", cascade="all, delete-orphan")
     account_documents: Mapped[List["AccountDocument"]] = relationship("AccountDocument", back_populates="account", cascade="all, delete-orphan")
     opportunities_list: Mapped[List["Opportunity"]] = relationship("Opportunity", back_populates="account", foreign_keys="Opportunity.account_id")
+    team_members: Mapped[List["AccountTeam"]] = relationship("AccountTeam", back_populates="account", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {

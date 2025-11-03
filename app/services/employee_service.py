@@ -162,11 +162,18 @@ class EmployeeService:
     @staticmethod
     async def change_employee_stage(
         employee_id: UUID,
-        new_stage: str
+        new_stage: str,
+        notes: Optional[str] = None
     ) -> Optional[EmployeeResponse]:
-        """Change employee onboarding stage"""
+        """Change employee onboarding stage with optional notes"""
         try:
-            employee = await Employee.update(employee_id, status=new_stage)
+            # Update both status and review notes if provided
+            update_data = {"status": new_stage}
+            if notes:
+                update_data["review_notes"] = notes
+                logger.info(f"Stage change notes: {notes[:100]}...")  # Log first 100 chars
+            
+            employee = await Employee.update(employee_id, **update_data)
             if employee:
                 logger.info(f"Employee {employee.email} moved to stage: {new_stage}")
                 

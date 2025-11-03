@@ -6,6 +6,7 @@ from app.routes.organization import router as orgs_router
 from app.routes.account import router as account_router
 from app.routes.account_note import router as account_note_router
 from app.routes.account_document import router as account_document_router
+from app.routes.account_team import router as account_team_router
 from app.routes.opportunity import router as opportunity_router
 from app.routes.opportunity_tabs import router as opportunity_tabs_router
 from app.routes.opportunity_document import router as opportunity_document_router
@@ -26,6 +27,7 @@ from app.routes.dashboard import router as dashboard_router
 from app.routes.employees import router as employees_router
 from app.routes.onboarding import router as onboarding_router
 from app.routes.employee_surveys import router as employee_surveys_router
+from app.routes.staff_planning import router as staff_planning_router
 
 api_router = APIRouter()
 
@@ -38,6 +40,7 @@ api_router.include_router(orgs_router)
 api_router.include_router(account_router)
 api_router.include_router(account_note_router)
 api_router.include_router(account_document_router)
+api_router.include_router(account_team_router)
 api_router.include_router(opportunity_router)
 api_router.include_router(opportunity_tabs_router)
 api_router.include_router(opportunity_document_router)
@@ -56,3 +59,4 @@ api_router.include_router(public_survey_router)
 api_router.include_router(employees_router)
 api_router.include_router(onboarding_router)
 api_router.include_router(employee_surveys_router)
+api_router.include_router(staff_planning_router)

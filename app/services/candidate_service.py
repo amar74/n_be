@@ -54,10 +54,10 @@ Analyze this LinkedIn profile and return JSON:
 
 Extract professional data and return this JSON structure:
 {{
-  "name": "Full Name",
-  "email": "email@example.com",
-  "phone": "+1 234 567 8900",
-  "title": "Job Title",
+  "name": "Full Name from profile",
+  "email": null,
+  "phone": null,
+  "title": "Current Job Title",
   "experience_summary": "Brief summary of experience",
   "total_experience_years": 5,
   "top_skills": ["Skill1", "Skill2", "Skill3"],
@@ -72,7 +72,10 @@ Extract professional data and return this JSON structure:
   "confidence_score": 0.9
 }}
 
-Important: Return ONLY the JSON object, no other text.
+IMPORTANT NOTES:
+- LinkedIn does NOT publicly show email or phone - set these as null
+- Extract name, title, skills, and experience from available public data
+- Return ONLY the JSON object, no markdown or explanation
 """
 
             # Call Gemini for profile extraction
@@ -85,7 +88,7 @@ Important: Return ONLY the JSON object, no other text.
                     timeout=15.0  # 15 second timeout
                 )
                 response_text = response.text.strip()
-                logger.info(f"✅ Gemini responded: {len(response_text)} chars")
+                logger.info(f"Gemini responded: {len(response_text)} chars")
             except asyncio.TimeoutError:
                 logger.error("❌ Gemini API timeout after 15s, using intelligent fallback")
                 # Use fallback but with extracted name from URL
@@ -103,9 +106,11 @@ Important: Return ONLY the JSON object, no other text.
             
             extracted_data = json.loads(response_text)
             
-            # Convert to schema
+            # Convert to schema (LinkedIn won't have email/phone)
             enrichment = AIEnrichmentResponse(
                 name=extracted_data.get('name'),
+                email=extracted_data.get('email'),  # Will be null from LinkedIn
+                phone=extracted_data.get('phone'),  # Will be null from LinkedIn
                 title=extracted_data.get('title'),
                 experience_summary=extracted_data.get('experience_summary', ''),
                 total_experience_years=extracted_data.get('total_experience_years'),
@@ -121,7 +126,7 @@ Important: Return ONLY the JSON object, no other text.
                 raw_json=extracted_data
             )
 
-            logger.info(f"✅ Profile extraction successful")
+            logger.info(f"Profile extraction successful")
             return enrichment
 
         except Exception as e:
@@ -154,66 +159,73 @@ Important: Return ONLY the JSON object, no other text.
             
             # Clean and truncate for Gemini
             cleaned_text = file_extractor.clean_text(file_text, max_length=15000)
-            logger.info(f"✅ Extracted {len(file_text)} chars, cleaned to {len(cleaned_text)} chars")
+            logger.info(f"Extracted {len(file_text)} chars, cleaned to {len(cleaned_text)} chars")
             
-            # Gemini enrichment prompt - as per specification
+            # Gemini enrichment prompt - improved for better extraction
             prompt = f"""
-You are an expert HR AI analyzing a resume for a contractor/engineering consulting firm.
+You are an expert HR AI analyzing a resume/CV. Extract ALL information EXACTLY as it appears in the document.
 
-Extract structured details from this resume:
-
+RESUME/CV TEXT:
 {cleaned_text}
 
-Return strictly valid JSON:
+CRITICAL INSTRUCTIONS:
+1. Extract email EXACTLY as shown in the CV (look for @ symbol)
+2. Extract phone EXACTLY as shown (look for numbers with +, (), -, or spaces)
+3. Extract name from header/top of document
+4. Extract current/most recent job title
+5. Calculate total years of experience from work history dates
+6. List ALL technical skills, certifications, and tools mentioned
+7. Identify sectors/industries from project experience
+8. DO NOT make up data - if not found, use null
+
+Return this EXACT JSON structure:
 {{
-  "name": "Full Name",
-  "title": "Current Job Title",
-  "email": "email@example.com",
-  "phone": "+1 234 567 8900",
-  "experience_summary": "Brief professional summary",
-  "total_experience_years": 10,
+  "name": "EXACT full name from CV header",
+  "email": "EXACT email address found in CV (or null if not found)",
+  "phone": "EXACT phone number found in CV (or null if not found)",
+  "title": "Most recent job title",
+  "experience_summary": "Brief summary from CV objective/summary section",
+  "total_experience_years": CALCULATED_NUMBER,
   
-  "top_skills": ["Project Management", "AutoCAD", "Construction Management"],
-  "technical_skills": ["AutoCAD", "Revit", "Civil 3D"],
-  "soft_skills": ["Leadership", "Communication", "Problem Solving"],
+  "top_skills": ["List ALL skills mentioned", "In order of prominence"],
+  "technical_skills": ["All technical tools/software mentioned"],
+  "soft_skills": ["Leadership skills mentioned"],
   
-  "sectors": ["Transportation", "Infrastructure", "Environmental"],
-  "services": ["Design Services", "Engineering Analysis", "Project Management"],
-  "project_types": ["Highway & Roads", "Bridges & Structures", "Water Treatment"],
+  "sectors": ["Industries from project experience"],
+  "services": ["Types of services provided"],
+  "project_types": ["Types of projects worked on"],
   
   "skills_matrix": [
-    {{"skill": "Project Management", "proficiency": 9, "experience_years": 8}},
-    {{"skill": "AutoCAD", "proficiency": 8, "experience_years": 10}}
+    {{"skill": "Exact skill name", "proficiency": 1-10, "experience_years": NUMBER}}
   ],
   
   "project_experience": [
     {{
-      "name": "Highway 101 Expansion",
-      "duration": "18 months",
-      "value": 15000000,
-      "role": "Lead Engineer",
-      "technologies": ["Civil 3D", "AutoCAD"],
-      "description": "Brief description"
+      "name": "Project name from CV",
+      "duration": "Duration mentioned",
+      "value": DOLLAR_AMOUNT_IF_MENTIONED,
+      "role": "Role on project",
+      "technologies": ["Tools used"],
+      "description": "Project description from CV"
     }}
   ],
   
   "education": [
-    {{"degree": "BS Civil Engineering", "university": "MIT", "graduation_year": "2015"}}
+    {{"degree": "Exact degree name", "university": "Exact university name", "graduation_year": "YYYY"}}
   ],
   
-  "certifications": ["PE License - California", "PMP Certified", "OSHA 30-Hour"],
-  
-  "document_checklist": [
-    {{"doc_type": "Government ID", "required": true, "uploaded": false}},
-    {{"doc_type": "Professional License", "required": true, "uploaded": false}}
-  ],
+  "certifications": ["EXACT certification names from CV"],
   
   "match_percentage": 85,
-  "match_reasons": ["Strong technical skills", "Relevant sector experience"],
-  "confidence_score": 0.92
+  "match_reasons": ["Based on skills match", "Based on experience"],
+  "confidence_score": 0.95
 }}
 
-Return ONLY the JSON object, no markdown or explanation.
+CRITICAL: 
+- Email and phone MUST be extracted EXACTLY as they appear in the CV
+- DO NOT use example.com or fake data
+- Return ONLY valid JSON, no markdown code blocks
+- If email/phone not found, use null
 """
 
             # Call Gemini with timeout
@@ -225,7 +237,7 @@ Return ONLY the JSON object, no markdown or explanation.
                     timeout=20.0  # 20 second timeout for CV parsing
                 )
                 response_text = response.text.strip()
-                logger.info(f"✅ Gemini responded: {len(response_text)} chars")
+                logger.info(f"Gemini responded: {len(response_text)} chars")
             except asyncio.TimeoutError:
                 logger.error("❌ Gemini CV parsing timeout after 20s, using fallback")
                 return CandidateService._get_fallback_cv_data(name, file_name)
@@ -239,9 +251,18 @@ Return ONLY the JSON object, no markdown or explanation.
             
             parsed_data = json.loads(response_text)
             
+            # Log extracted contact info for debugging
+            logger.info(f"CV Extraction Results:")
+            logger.info(f"  Name: {parsed_data.get('name')}")
+            logger.info(f"  Email: {parsed_data.get('email')}")
+            logger.info(f"  Phone: {parsed_data.get('phone')}")
+            logger.info(f"  Title: {parsed_data.get('title')}")
+            
             # Convert to enrichment response
             enrichment = AIEnrichmentResponse(
                 name=parsed_data.get('name'),
+                email=parsed_data.get('email'),  # Extract from CV
+                phone=parsed_data.get('phone'),  # Extract from CV
                 title=parsed_data.get('title'),
                 experience_summary=parsed_data.get('experience_summary', ''),
                 total_experience_years=parsed_data.get('total_experience_years'),
@@ -251,18 +272,18 @@ Return ONLY the JSON object, no markdown or explanation.
                 sectors=parsed_data.get('sectors', []),
                 services=parsed_data.get('services', []),
                 project_types=parsed_data.get('project_types', []),
-                skills_matrix=[SkillMatrixItem(**item) for item in parsed_data.get('skills_matrix', [])],
-                project_experience=[ProjectExperienceItem(**item) for item in parsed_data.get('project_experience', [])],
-                education=[EducationItem(**item) for item in parsed_data.get('education', [])],
+                skills_matrix=[SkillMatrixItem(**item) for item in parsed_data.get('skills_matrix', [])] if parsed_data.get('skills_matrix') else [],
+                project_experience=[ProjectExperienceItem(**item) for item in parsed_data.get('project_experience', [])] if parsed_data.get('project_experience') else [],
+                education=[EducationItem(**item) for item in parsed_data.get('education', [])] if parsed_data.get('education') else [],
                 certifications=parsed_data.get('certifications', []),
-                document_checklist=[DocumentChecklistItem(**item) for item in parsed_data.get('document_checklist', [])],
+                document_checklist=[DocumentChecklistItem(**item) for item in parsed_data.get('document_checklist', [])] if parsed_data.get('document_checklist') else [],
                 match_percentage=parsed_data.get('match_percentage'),
                 match_reasons=parsed_data.get('match_reasons', []),
                 confidence_score=parsed_data.get('confidence_score'),
                 raw_json=parsed_data
             )
 
-            logger.info(f"✅ CV parsed successfully: {enrichment.name}")
+            logger.info(f"CV parsed successfully: {enrichment.name} | Email: {enrichment.email} | Phone: {enrichment.phone}")
             return enrichment
 
         except Exception as e:
@@ -348,6 +369,8 @@ Return ONLY the JSON object, no markdown or explanation.
         
         return AIEnrichmentResponse(
             name=fallback_data['name'],
+            email=None,  # Will be extracted from CV if present
+            phone=None,  # Will be extracted from CV if present
             title=fallback_data['title'],
             experience_summary=fallback_data['experience_summary'],
             total_experience_years=fallback_data['total_experience_years'],
@@ -405,6 +428,8 @@ Return ONLY the JSON object, no markdown or explanation.
         
         return AIEnrichmentResponse(
             name=fallback_data['name'],
+            email=None,  # LinkedIn doesn't provide email
+            phone=None,  # LinkedIn doesn't provide phone
             title=fallback_data['title'],
             experience_summary=fallback_data['experience_summary'],
             total_experience_years=fallback_data['total_experience_years'],

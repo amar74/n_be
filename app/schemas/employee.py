@@ -62,6 +62,13 @@ class EmployeeUpdate(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
+# Stage Change Schema
+class EmployeeStageUpdate(BaseModel):
+    new_stage: str = Field(..., description="New stage: pending, review, accepted, rejected")
+    notes: Optional[str] = Field(None, max_length=1000, description="Notes about the stage change")
+    
+    model_config = ConfigDict(from_attributes=True)
+
 # Response Schema
 class EmployeeResponse(EmployeeBase):
     id: UUID

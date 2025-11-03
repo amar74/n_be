@@ -3,11 +3,16 @@ from .address import *
 from .contact import *
 from .formbricks_projects import *
 from .invite import *
+from .survey import *  # Import before organization (circular dependency)
 from .organization import *
 from .user import *
 from .user_permission import *
 from .account_note import *
 from .account_document import *
+from .opportunity_tabs import *  # Import before opportunity (circular dependency)
 from .opportunity import *
+from .opportunity_document import *
 from .employee import *
 from .candidate import *
+from .staff_planning import *
+from .account_team import *

@@ -25,7 +25,7 @@ class ResetPasswordRequest(BaseModel):
 class ResetPasswordResponse(BaseModel):
     message: str
 
-# Helper function to generate OTP
+# Generate OTP
 def generate_otp() -> str:
     """Generate a random 6-digit OTP"""
     return str(random.randint(100000, 999999))

@@ -21,6 +21,7 @@ class AccountService:
                 .where(Account.org_id == org_id)
                 .options(joinedload(Account.primary_contact))
                 .options(joinedload(Account.client_address))
+                .options(joinedload(Account.creator))
                 .order_by(Account.client_name.asc())
             )
             
@@ -71,6 +72,7 @@ class AccountService:
                 )
                 .options(joinedload(Account.primary_contact))
                 .options(joinedload(Account.client_address))
+                .options(joinedload(Account.creator))
             )
             
             result = await db.execute(stmt)
@@ -114,6 +116,7 @@ class AccountService:
                 .options(joinedload(Account.primary_contact))
                 .options(joinedload(Account.contacts))
                 .options(joinedload(Account.client_address))
+                .options(joinedload(Account.creator))
                 .order_by(Account.client_name.asc())
             )
             

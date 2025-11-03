@@ -5,6 +5,7 @@ from uuid import UUID
 from app.schemas.employee import (
     EmployeeCreate,
     EmployeeUpdate,
+    EmployeeStageUpdate,
     EmployeeResponse,
     AIRoleSuggestionRequest,
     AIRoleSuggestionResponse,
@@ -162,16 +163,21 @@ async def delete_employee(
 @router.patch("/employees/{employee_id}/stage", response_model=EmployeeResponse)
 async def change_employee_stage(
     employee_id: UUID,
-    new_stage: str,
+    stage_data: EmployeeStageUpdate,
     current_user: User = Depends(get_current_user)
 ):
     """
     Change employee onboarding stage
     
     - **new_stage**: One of: pending, review, accepted, rejected, active, deactivated
+    - **notes**: Optional notes about the stage change (required for reverse moves)
     """
     try:
-        employee = await employee_service.change_employee_stage(employee_id, new_stage)
+        employee = await employee_service.change_employee_stage(
+            employee_id, 
+            stage_data.new_stage,
+            notes=stage_data.notes
+        )
         if not employee:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

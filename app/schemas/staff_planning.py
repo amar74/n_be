@@ -5,13 +5,14 @@ Pydantic models for request/response validation
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
+from uuid import UUID
 
 
 # ========== Staff Plan Schemas ==========
 
 class StaffPlanCreate(BaseModel):
     """Schema for creating a new staff plan"""
-    project_id: int = Field(..., description="Project/Opportunity ID")
+    project_id: Optional[UUID] = Field(None, description="Project/Opportunity ID (optional)")
     project_name: str = Field(..., description="Project name")
     project_description: Optional[str] = Field(None, description="Project description")
     project_start_date: date = Field(..., description="Project start date")
@@ -40,7 +41,7 @@ class StaffPlanUpdate(BaseModel):
 class StaffPlanResponse(BaseModel):
     """Schema for staff plan response"""
     id: int
-    project_id: int
+    project_id: Optional[str] = None  # UUID serialized as string, nullable
     project_name: str
     project_description: Optional[str] = None
     project_start_date: str
@@ -53,10 +54,36 @@ class StaffPlanResponse(BaseModel):
     total_cost: float
     total_profit: float
     total_price: float
-    yearly_breakdown: Optional[Dict[str, Any]] = None
+    yearly_breakdown: Optional[List[Dict[str, Any]]] = None  # List of yearly cost breakdowns
+    status: str
+    team_size: int = 0  # Number of staff allocations
+    created_at: str
+    updated_at: str
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StaffPlanWithAllocations(BaseModel):
+    """Staff plan with all its allocations"""
+    id: int
+    project_id: Optional[str] = None  # UUID serialized as string, nullable
+    project_name: str
+    project_description: Optional[str] = None
+    project_start_date: str
+    duration_months: int
+    overhead_rate: float
+    profit_margin: float
+    annual_escalation_rate: float
+    total_labor_cost: float
+    total_overhead: float
+    total_cost: float
+    total_profit: float
+    total_price: float
+    yearly_breakdown: Optional[List[Dict[str, Any]]] = None  # List of yearly cost breakdowns
     status: str
     created_at: str
     updated_at: str
+    allocations: List["StaffAllocationResponse"] = []
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -65,15 +92,13 @@ class StaffPlanResponse(BaseModel):
 
 class StaffAllocationCreate(BaseModel):
     """Schema for adding staff to a plan"""
-    staff_plan_id: int = Field(..., description="Staff plan ID")
-    resource_id: int = Field(..., description="Employee/Resource ID")
+    resource_id: UUID = Field(..., description="Employee/Resource ID")
     resource_name: str = Field(..., description="Employee name")
     role: str = Field(..., description="Job role/title")
     level: Optional[str] = Field(None, description="Experience level")
     start_month: int = Field(1, ge=1, description="Start month (1-based)")
     end_month: int = Field(12, ge=1, description="End month (1-based)")
     hours_per_week: float = Field(40.0, ge=0, le=168, description="Hours per week")
-    allocation_percentage: float = Field(100.0, ge=0, le=100, description="Allocation percentage")
     hourly_rate: float = Field(..., ge=0, description="Hourly bill rate")
     
     model_config = ConfigDict(from_attributes=True)
@@ -95,7 +120,7 @@ class StaffAllocationResponse(BaseModel):
     """Schema for staff allocation response"""
     id: int
     staff_plan_id: int
-    resource_id: int
+    resource_id: str  # UUID serialized as string
     resource_name: str
     role: str
     level: Optional[str] = None
@@ -117,7 +142,7 @@ class StaffAllocationResponse(BaseModel):
 
 class ResourceUtilizationResponse(BaseModel):
     """Schema for resource utilization metrics"""
-    resource_id: int
+    resource_id: str  # UUID serialized as string
     resource_name: str
     month: int
     year: int

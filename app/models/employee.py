@@ -14,6 +14,7 @@ from app.db.session import get_session, get_transaction
 if TYPE_CHECKING:
     from app.models.organization import Organization
     from app.models.user import User
+    from app.models.account_team import AccountTeam
 
 class EmployeeStatus(str, enum.Enum):
     PENDING = "pending"
@@ -127,6 +128,7 @@ class Employee(Base):
     )
     user: Mapped[Optional["User"]] = relationship("User", foreign_keys=[user_id])
     resumes: Mapped[List["Resume"]] = relationship("Resume", back_populates="employee", cascade="all, delete-orphan")
+    account_assignments: Mapped[List["AccountTeam"]] = relationship("AccountTeam", back_populates="employee", cascade="all, delete-orphan")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
