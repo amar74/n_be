@@ -46,6 +46,9 @@ class StaffPlan(Base):
     # Status
     status: Mapped[str] = mapped_column(String(50), default="draft")  # draft, active, completed, archived
     
+    # Multi-tenancy (organization isolation)
+    org_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True, index=True)
+    
     # Audit fields
     created_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.now())

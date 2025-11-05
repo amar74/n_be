@@ -93,7 +93,7 @@ async def create_staff_plan(
     db: AsyncSession = get_request_transaction()
     
     try:
-        # Create new staff plan
+        # Create new staff plan with organization isolation
         new_plan = StaffPlan(
             project_id=plan_data.project_id,
             project_name=plan_data.project_name,
@@ -104,6 +104,7 @@ async def create_staff_plan(
             profit_margin=plan_data.profit_margin,
             annual_escalation_rate=plan_data.annual_escalation_rate,
             status="draft",
+            org_id=current_user.org_id,  # Multi-tenancy: isolate by organization
             created_by=current_user.id
         )
         
@@ -138,12 +139,14 @@ async def get_staff_plans(
         from sqlalchemy import func
         from app.models.staff_planning import StaffAllocation
         
-        # Query plans with allocation counts
+        # Query plans with allocation counts - FILTERED BY ORGANIZATION
         query = select(
             StaffPlan,
             func.count(StaffAllocation.id).label('team_size')
         ).outerjoin(
             StaffAllocation, StaffPlan.id == StaffAllocation.staff_plan_id
+        ).where(
+            StaffPlan.org_id == current_user.org_id  # Multi-tenancy: only show plans from user's organization
         ).group_by(StaffPlan.id)
         
         if status_filter:
@@ -178,7 +181,14 @@ async def get_staff_plan(
     """Get a specific staff plan by ID"""
     db: AsyncSession = get_request_transaction()
     
-    result = await db.execute(select(StaffPlan).where(StaffPlan.id == plan_id))
+    result = await db.execute(
+        select(StaffPlan).where(
+            and_(
+                StaffPlan.id == plan_id,
+                StaffPlan.org_id == current_user.org_id  # Multi-tenancy: verify ownership
+            )
+        )
+    )
     plan = result.scalar_one_or_none()
     
     if not plan:
@@ -199,7 +209,14 @@ async def update_staff_plan(
     """Update an existing staff plan"""
     db: AsyncSession = get_request_transaction()
     
-    result = await db.execute(select(StaffPlan).where(StaffPlan.id == plan_id))
+    result = await db.execute(
+        select(StaffPlan).where(
+            and_(
+                StaffPlan.id == plan_id,
+                StaffPlan.org_id == current_user.org_id  # Multi-tenancy: verify ownership
+            )
+        )
+    )
     plan = result.scalar_one_or_none()
     
     if not plan:
@@ -238,7 +255,14 @@ async def delete_staff_plan(
     """Delete a staff plan"""
     db: AsyncSession = get_request_transaction()
     
-    result = await db.execute(select(StaffPlan).where(StaffPlan.id == plan_id))
+    result = await db.execute(
+        select(StaffPlan).where(
+            and_(
+                StaffPlan.id == plan_id,
+                StaffPlan.org_id == current_user.org_id  # Multi-tenancy: verify ownership
+            )
+        )
+    )
     plan = result.scalar_one_or_none()
     
     if not plan:

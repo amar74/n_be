@@ -34,6 +34,8 @@ from app.schemas.invite import (
 from app.schemas.user import UserDeleteResponse
 from uuid import UUID
 from app.dependencies.permissions import require_role
+from app.services.email import send_organization_creation_email
+from app.environment import environment
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
@@ -48,9 +50,32 @@ async def create_org(
     current_user: AuthUserResponse = Depends(get_current_user),
 ) -> OrgCreatedResponse:
     
-        org = await create_organization(current_user, request)
+    org = await create_organization(current_user, request)
+    
+    # Send email to vendor about organization creation
+    dashboard_url = getattr(
+        environment,
+        'FRONTEND_URL',
+        'http://localhost:5173'
+    )
+    
+    # Extract name from email if name field is not available
+    vendor_name = getattr(current_user, 'name', None) or current_user.email.split('@')[0]
+    
+    email_sent = send_organization_creation_email(
+        vendor_email=current_user.email,
+        vendor_name=vendor_name,
+        organization_name=org.name,
+        organization_website=org.website,
+        dashboard_url=dashboard_url
+    )
+    
+    if email_sent:
+        logger.info(f"✅ Organization creation email sent successfully to {current_user.email} for org '{org.name}'")
+    else:
+        logger.warning(f"⚠️ Failed to send organization creation email to {current_user.email}")
 
-        return OrgCreatedResponse(
+    return OrgCreatedResponse(
         message="Organization created success",
         org=OrgCreateResponse.model_validate(org),
     )

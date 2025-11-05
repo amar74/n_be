@@ -9,6 +9,9 @@ from app.schemas.admin import (
 from app.schemas.auth import AuthUserResponse
 from app.services.admin import count_users, admin_create_user, list_users
 from app.schemas.user import Roles
+from app.services.email import send_vendor_creation_email
+from app.environment import environment
+from app.utils.logger import logger
 
 router = APIRouter(prefix="/admin", tags=[Roles.ADMIN])
 
@@ -43,6 +46,31 @@ async def admin_create_new_user(
         contact_number=payload.contact_number,
         name=payload.name
     )
+    
+    # Send email to vendor if role is VENDOR
+    if user.role == Roles.VENDOR:
+        login_url = getattr(
+            environment,
+            'VENDOR_LOGIN_URL',
+            'http://localhost:5173/auth/login'
+        )
+        
+        # Get organization name if provided in payload
+        organization_name = getattr(payload, 'organization_name', None)
+        
+        email_sent = send_vendor_creation_email(
+            vendor_email=user.email,
+            vendor_name=user.name or user.email.split('@')[0],
+            password=payload.password,  # Send plain password from request
+            login_url=login_url,
+            organization_name=organization_name
+        )
+        
+        if email_sent:
+            logger.info(f"✅ Vendor creation email sent successfully to {user.email}")
+        else:
+            logger.warning(f"⚠️ Failed to send vendor creation email to {user.email}")
+    
     return AdminCreateUserResponse(
         message=f"User created successfully with role '{user.role}'",
         user=AuthUserResponse.model_validate(user),

@@ -96,6 +96,7 @@ async def login(request: LoginRequest):
             "id": str(user.id),
             "email": user.email,
             "role": user.role,
+            "org_id": str(user.org_id) if user.org_id else None,
         }
     )
 
