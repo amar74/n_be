@@ -22,6 +22,9 @@ class UserResponse(BaseModel):
     name: Optional[str] = None
     role: str
     org_id: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    last_login: Optional[str] = None
     model_config = {
         "from_attributes": True
     }

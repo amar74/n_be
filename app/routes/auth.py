@@ -227,7 +227,10 @@ async def update_profile(
             timezone=updated_user.timezone,
             language=updated_user.language,
             role=updated_user.role,
-            org_id=str(updated_user.org_id) if updated_user.org_id else None
+            org_id=str(updated_user.org_id) if updated_user.org_id else None,
+            created_at=updated_user.created_at.isoformat() if updated_user.created_at else None,
+            updated_at=updated_user.updated_at.isoformat() if updated_user.updated_at else None,
+            last_login=updated_user.last_login.isoformat() if updated_user.last_login else None
         )
     except HTTPException:
         raise
