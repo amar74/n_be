@@ -283,22 +283,36 @@ async def activate_employee(
         
         # Check if user account already exists
         existing_user = await AuthService.get_user_by_email(employee.email)
+        
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User account already exists for {employee.email}"
+            # If user exists and belongs to the same organization, link them
+            if existing_user.org_id == current_user.org_id:
+                logger.info(f"User account already exists for {employee.email}, linking to employee {employee_id}")
+                user = existing_user
+                
+                # Update user's password if provided
+                if activation_data.temporary_password:
+                    try:
+                        await AuthService.update_user_password(str(user.id), activation_data.temporary_password)
+                        logger.info(f"Updated password for existing user {user.id}")
+                    except Exception as pw_error:
+                        logger.warning(f"Failed to update password: {pw_error}")
+            else:
+                # User exists but in different organization - conflict
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"User account already exists for {employee.email} in a different organization"
+                )
+        else:
+            # Create new user account
+            user = await AuthService.create_user(
+                email=employee.email,
+                password=activation_data.temporary_password,
+                role=activation_data.user_role,
+                name=employee.name,
+                org_id=current_user.org_id
             )
-        
-        # Create user account
-        user = await AuthService.create_user(
-            email=employee.email,
-            password=activation_data.temporary_password,
-            role=activation_data.user_role,
-            name=employee.name,
-            org_id=current_user.org_id
-        )
-        
-        logger.info(f"Created user account {user.id} for employee {employee_id}")
+            logger.info(f"Created user account {user.id} for employee {employee_id}")
         
         # Update employee status to active, link user_id, and set system role
         # Use direct Employee.update() to avoid schema type conversion issues
