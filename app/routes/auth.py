@@ -35,6 +35,9 @@ class UserResponse(BaseModel):
     language: Optional[str] = None
     role: str
     org_id: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    last_login: Optional[str] = None
 
 class SignupRequest(BaseModel):
     email: EmailStr
@@ -80,6 +83,12 @@ async def login(request: LoginRequest):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
+    
+    # Update last_login timestamp
+    from app.db.session import get_request_transaction
+    db = get_request_transaction()
+    user.last_login = datetime.utcnow()
+    await db.flush()
     
     # Create JWT token
     access_token_expires = timedelta(minutes=30)
@@ -145,7 +154,10 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         timezone=current_user.timezone,
         language=current_user.language,
         role=current_user.role,
-        org_id=str(current_user.org_id) if current_user.org_id else None
+        org_id=str(current_user.org_id) if current_user.org_id else None,
+        created_at=current_user.created_at.isoformat() if current_user.created_at else None,
+        updated_at=current_user.updated_at.isoformat() if current_user.updated_at else None,
+        last_login=current_user.last_login.isoformat() if current_user.last_login else None
     )
     return CurrentUserResponse(user=user_data)
 

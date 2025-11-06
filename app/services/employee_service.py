@@ -118,11 +118,15 @@ class EmployeeService:
             raise
 
     @staticmethod
-    async def get_employee_by_id(employee_id: UUID) -> Optional[EmployeeResponse]:
-        """Get employee by ID"""
+    async def get_employee_by_id(employee_id: UUID, company_id: Optional[UUID] = None) -> Optional[EmployeeResponse]:
+        """Get employee by ID with optional company_id validation"""
         try:
             employee = await Employee.get_by_id(employee_id)
             if employee:
+                # Validate company_id if provided (security check)
+                if company_id and employee.company_id != company_id:
+                    logger.warning(f"Employee {employee_id} does not belong to company {company_id}")
+                    return None
                 return EmployeeResponse.model_validate(employee.to_dict())
             return None
         except Exception as e:
@@ -222,7 +226,8 @@ class EmployeeService:
                         bill_rate=float(row.get('bill_rate', row.get('Bill Rate', 0))) if row.get('bill_rate') or row.get('Bill Rate') else None,
                     )
 
-                    # Create employee
+                    # Create employee WITHOUT AI (to avoid blocking)
+                    # AI enrichment will happen in background after all imports complete
                     employee_create = EmployeeCreate(
                         name=employee_row.name,
                         email=employee_row.email,
@@ -232,7 +237,7 @@ class EmployeeService:
                         department=employee_row.department,
                         location=employee_row.location,
                         bill_rate=employee_row.bill_rate,
-                        use_ai_suggestion=ai_enrich
+                        use_ai_suggestion=False  # Disable AI during bulk import to avoid timeout
                     )
 
                     employee = await EmployeeService.create_employee(
@@ -242,7 +247,7 @@ class EmployeeService:
                     )
                     created_employees.append(employee)
                     success_count += 1
-                    logger.info(f"Imported employee: {employee.email}")
+                    logger.info(f"✅ Imported employee: {employee.email}")
 
                 except Exception as e:
                     failed_count += 1
@@ -250,11 +255,41 @@ class EmployeeService:
                     errors.append(error_msg)
                     logger.error(error_msg)
 
-            # Queue all created employees for background AI analysis
+            # Queue AI enrichment for all created employees in background
             if created_employees and ai_enrich:
-                employee_ids = [UUID(emp.id) for emp in created_employees]
-                asyncio.create_task(ai_analysis_service.bulk_analysis_queue(employee_ids))
-                logger.info(f"🚀 Bulk AI analysis queued for {len(employee_ids)} employees")
+                logger.info(f"🚀 Queueing AI enrichment for {len(created_employees)} employees in background...")
+                
+                # Run AI enrichment in background (non-blocking)
+                async def enrich_employees_background():
+                    for emp in created_employees:
+                        try:
+                            emp_id = UUID(emp.id)
+                            logger.info(f"🤖 AI enriching employee: {emp.email}")
+                            
+                            # Get AI suggestions
+                            ai_suggestion = await gemini_service.suggest_role_and_skills(
+                                name=emp.name,
+                                job_title=emp.job_title or '',
+                                department=emp.department or ''
+                            )
+                            
+                            # Update employee with AI suggestions
+                            update_data = EmployeeUpdate(
+                                role=ai_suggestion.suggested_role if not emp.role else emp.role,
+                                department=ai_suggestion.suggested_department if not emp.department else emp.department,
+                                skills=ai_suggestion.suggested_skills if not emp.skills else emp.skills,
+                                bill_rate=ai_suggestion.bill_rate_suggestion if not emp.bill_rate else emp.bill_rate,
+                            )
+                            
+                            await EmployeeService.update_employee(emp_id, update_data)
+                            logger.info(f"✅ AI enrichment completed for {emp.email}")
+                            
+                        except Exception as e:
+                            logger.error(f"❌ AI enrichment failed for {emp.email}: {e}")
+                
+                # Fire and forget - don't wait for completion
+                asyncio.create_task(enrich_employees_background())
+                logger.info(f"🎯 AI enrichment started in background for {len(created_employees)} employees")
 
             return {
                 "success": success_count,

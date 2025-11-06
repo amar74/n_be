@@ -29,6 +29,127 @@ from app.db.session import get_request_transaction
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
+
+# ==================== ACCOUNT ACTIVITIES ====================
+
+@router.get("/{account_id}/activities")
+async def get_account_activities(
+    account_id: str,
+    limit: int = Query(10, ge=1, le=50),
+    current_user: AuthUserResponse = Depends(get_current_user)
+):
+    """
+    Get recent activities for a specific account
+    Returns: notes, documents, opportunities, team changes, contact changes
+    """
+    try:
+        from app.models.account_note import AccountNote
+        from app.models.account_document import AccountDocument
+        from app.models.opportunity import Opportunity
+        from app.models.account_team import AccountTeam
+        from app.models.contact import Contact
+        
+        db = get_request_transaction()
+        activities = []
+        
+        # Fetch notes
+        notes_result = await db.execute(
+            select(AccountNote)
+            .where(AccountNote.account_id == UUID(account_id))
+            .order_by(AccountNote.created_at.desc())
+            .limit(limit)
+        )
+        notes = notes_result.scalars().all()
+        for note in notes:
+            activities.append({
+                'id': str(note.id),
+                'type': 'note',
+                'title': f"Note added: {note.title}",
+                'timestamp': note.created_at.isoformat(),
+                'color': '#2563EB'  # Blue
+            })
+        
+        # Fetch documents
+        docs_result = await db.execute(
+            select(AccountDocument)
+            .where(AccountDocument.account_id == UUID(account_id))
+            .order_by(AccountDocument.created_at.desc())
+            .limit(limit)
+        )
+        docs = docs_result.scalars().all()
+        for doc in docs:
+            activities.append({
+                'id': str(doc.id),
+                'type': 'document',
+                'title': f"Document uploaded: {doc.name}",
+                'timestamp': doc.created_at.isoformat(),
+                'color': '#9333EA'  # Purple
+            })
+        
+        # Fetch opportunities
+        opps_result = await db.execute(
+            select(Opportunity)
+            .where(Opportunity.account_id == UUID(account_id))
+            .order_by(Opportunity.created_at.desc())
+            .limit(limit)
+        )
+        opps = opps_result.scalars().all()
+        for opp in opps:
+            activities.append({
+                'id': str(opp.id),
+                'type': 'opportunity',
+                'title': f"Opportunity created: {opp.project_name}",
+                'timestamp': opp.created_at.isoformat(),
+                'color': '#16A34A'  # Green
+            })
+        
+        # Fetch team assignments
+        team_result = await db.execute(
+            select(AccountTeam)
+            .where(AccountTeam.account_id == UUID(account_id))
+            .order_by(AccountTeam.assigned_at.desc())
+            .limit(limit)
+        )
+        team = team_result.scalars().all()
+        for member in team:
+            activities.append({
+                'id': str(member.id),
+                'type': 'team',
+                'title': f"Team member assigned" + (f": {member.role_in_account}" if member.role_in_account else ""),
+                'timestamp': member.assigned_at.isoformat(),
+                'color': '#EAB308'  # Yellow
+            })
+        
+        # Fetch contacts
+        contacts_result = await db.execute(
+            select(Contact)
+            .where(Contact.account_id == UUID(account_id))
+            .order_by(Contact.created_at.desc())
+            .limit(limit)
+        )
+        contacts = contacts_result.scalars().all()
+        for contact in contacts:
+            activities.append({
+                'id': str(contact.contact_id),
+                'type': 'contact',
+                'title': f"Contact added: {contact.name}",
+                'timestamp': contact.created_at.isoformat(),
+                'color': '#06B6D4'  # Cyan
+            })
+        
+        # Sort all activities by timestamp (most recent first)
+        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        # Return only the most recent N activities
+        return {'activities': activities[:limit]}
+        
+    except Exception as e:
+        logger.error(f"Error fetching account activities: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch account activities: {str(e)}"
+        )
+
 # Get accounts for the current user's organization
 @router.get("/", response_model=AccountListResponse)
 async def list_accounts(

@@ -17,11 +17,16 @@ from app.schemas.employee import (
     InterviewSchedule,
     InterviewFeedback
 )
+from app.schemas.employee_activation import EmployeeActivationRequest, EmployeeActivationResponse
 from app.services.employee_service import employee_service
 from app.services.resume_service import resume_service
 from app.services.gemini_service import gemini_service
+from app.services.auth_service import AuthService
+from app.services.email import send_employee_activation_email
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
+from app.db.session import get_request_transaction
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
 
@@ -248,6 +253,103 @@ async def bulk_import_employees(
         )
 
 
+# ==================== EMPLOYEE ACTIVATION ====================
+
+@router.post("/employees/{employee_id}/activate", response_model=EmployeeActivationResponse)
+async def activate_employee(
+    employee_id: UUID,
+    activation_data: EmployeeActivationRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_request_transaction)
+):
+    """
+    Activate an employee by creating a user account with login credentials
+    
+    This endpoint:
+    1. Creates a user account linked to the employee
+    2. Sets temporary password (requires change on first login)
+    3. Assigns role and permissions
+    4. Sends welcome email with credentials
+    5. Updates employee status to 'active'
+    """
+    try:
+        # Get employee
+        employee = await employee_service.get_employee_by_id(employee_id, current_user.org_id)
+        if not employee:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found"
+            )
+        
+        # Check if user account already exists
+        existing_user = await AuthService.get_user_by_email(employee.email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"User account already exists for {employee.email}"
+            )
+        
+        # Create user account
+        user = await AuthService.create_user(
+            email=employee.email,
+            password=activation_data.temporary_password,
+            role=activation_data.user_role,
+            name=employee.name,
+            org_id=current_user.org_id
+        )
+        
+        logger.info(f"Created user account {user.id} for employee {employee_id}")
+        
+        # Update employee status to active, link user_id, and set system role
+        from app.schemas.employee import EmployeeUpdate
+        update_data = EmployeeUpdate(
+            status="active",
+            user_id=str(user.id),
+            role=activation_data.user_role,  # Save system role (employee, admin, manager, etc.)
+            review_notes=f"User account created. Role: {activation_data.user_role}, Permissions: {', '.join(activation_data.permissions)}, Password: {activation_data.temporary_password}"
+        )
+        await employee_service.update_employee(
+            employee_id=employee_id,
+            employee_data=update_data
+        )
+        
+        # Send welcome email if requested
+        email_sent = False
+        if activation_data.send_welcome_email:
+            try:
+                email_sent = send_employee_activation_email(
+                    employee_email=employee.email,
+                    employee_name=employee.name,
+                    temporary_password=activation_data.temporary_password,
+                    login_url="http://localhost:5173/login",
+                    role=activation_data.user_role
+                )
+                if email_sent:
+                    logger.info(f"Welcome email sent to {employee.email}")
+                else:
+                    logger.warning(f"Failed to send welcome email to {employee.email}")
+            except Exception as email_error:
+                logger.error(f"Error sending welcome email: {email_error}")
+        
+        return EmployeeActivationResponse(
+            user_id=user.id,
+            employee_id=employee_id,
+            email=employee.email,
+            role=activation_data.user_role,
+            message=f"Employee activated successfully. User account created for {employee.email}",
+            email_sent=email_sent
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error activating employee: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to activate employee: {str(e)}"
+        )
+
+
 # ==================== AI FEATURES ====================
 
 @router.post("/ai/role-suggest", response_model=AIRoleSuggestionResponse)
@@ -427,15 +529,50 @@ async def get_onboarding_dashboard(
 
 @router.get("/roles")
 async def get_available_roles(current_user: User = Depends(get_current_user)):
-    """Get list of available roles"""
-    roles = [
-        {"id": "admin", "name": "Admin", "description": "Full system access"},
-        {"id": "manager", "name": "Manager", "description": "Team management access"},
-        {"id": "developer", "name": "Developer", "description": "Development access"},
-        {"id": "designer", "name": "Designer", "description": "Design tool access"},
-        {"id": "viewer", "name": "Viewer", "description": "Read-only access"},
+    """
+    Get list of available roles
+    Returns system roles + any custom roles created by admins
+    """
+    # System roles (default, cannot be deleted)
+    system_roles = [
+        {
+            "id": "employee",
+            "name": "Employee",
+            "description": "Standard employee with basic access to assigned work",
+            "permissions": ["view_projects", "view_accounts", "view_resources"],
+            "isSystem": True,
+            "color": "bg-blue-100 text-blue-700 border-blue-200"
+        },
+        {
+            "id": "team_lead",
+            "name": "Team Lead",
+            "description": "Manages team members and projects",
+            "permissions": ["view_projects", "edit_projects", "view_accounts", "edit_accounts", "view_resources", "manage_team", "view_reports"],
+            "isSystem": True,
+            "color": "bg-purple-100 text-purple-700 border-purple-200"
+        },
+        {
+            "id": "manager",
+            "name": "Manager",
+            "description": "Department management with extended access",
+            "permissions": ["view_projects", "edit_projects", "view_accounts", "edit_accounts", "view_opportunities", "edit_opportunities", "view_resources", "edit_resources", "manage_team", "view_reports", "export_data"],
+            "isSystem": True,
+            "color": "bg-amber-100 text-amber-700 border-amber-200"
+        },
+        {
+            "id": "admin",
+            "name": "Admin",
+            "description": "Full system access including role management",
+            "permissions": ["view_projects", "edit_projects", "delete_projects", "view_accounts", "edit_accounts", "delete_accounts", "view_opportunities", "edit_opportunities", "view_resources", "edit_resources", "manage_team", "view_reports", "export_data", "manage_roles", "system_settings"],
+            "isSystem": True,
+            "color": "bg-red-100 text-red-700 border-red-200"
+        }
     ]
-    return {"roles": roles}
+    
+    # TODO: Fetch custom roles from database (when role table is implemented)
+    # For now, returning only system roles
+    
+    return {"roles": system_roles}
 
 
 @router.patch("/users/{user_id}/permissions")

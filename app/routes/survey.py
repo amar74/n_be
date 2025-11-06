@@ -185,18 +185,18 @@ async def get_survey_employees(
         
         logger.info(f"Found {len(employee_responses)} employees total")
         
-        # Filter to only active and accepted employees
-        active_statuses = ['active', 'accepted']
-        active_employees = [
+        # Filter to only ACTIVATED employees (status='active' AND user_id is not null)
+        # Activated employees are those with user accounts created by admin
+        activated_employees = [
             emp for emp in employee_responses 
-            if emp.status.lower() in active_statuses
+            if emp.status.lower() == 'active' and emp.user_id is not None
         ]
         
-        logger.info(f"Found {len(active_employees)} active/accepted employees from {len(employee_responses)} total")
+        logger.info(f"Found {len(activated_employees)} activated employees (with user accounts) from {len(employee_responses)} total")
         
         # Format the response
         result = []
-        for employee in active_employees:
+        for employee in activated_employees:
             try:
                 employee_data = {
                     "id": str(employee.id),
@@ -336,6 +336,43 @@ async def update_survey_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update survey status: {str(e)}"
+        )
+
+
+@router.delete("/{survey_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_survey(
+    survey_id: UUID,
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a survey and all its associated data (distributions, responses, etc.)"""
+    try:
+        success = await survey_service.delete_survey(
+            survey_id=survey_id,
+            org_id=current_user.org_id
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Survey {survey_id} not found"
+            )
+        
+        return None
+    except ValueError as e:
+        if "does not belong" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=str(e)
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error deleting survey: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete survey: {str(e)}"
         )
 
 

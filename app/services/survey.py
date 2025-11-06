@@ -107,6 +107,36 @@ class SurveyService:
         logger.info(f"Survey {survey_id} status updated to {status}")
         return survey
     
+    async def delete_survey(self, survey_id: UUID, org_id: UUID) -> bool:
+        """Delete a survey and all its associated data"""
+        db = get_request_transaction()
+        
+        survey = await self.get_survey(survey_id)
+        if not survey:
+            return False
+        
+        # Verify ownership
+        if survey.org_id != org_id:
+            raise ValueError("Survey does not belong to this organization")
+        
+        # Delete associated distributions first (cascade should handle this, but explicit is better)
+        from sqlalchemy import delete as sql_delete
+        await db.execute(
+            sql_delete(SurveyDistribution).where(SurveyDistribution.survey_id == survey_id)
+        )
+        
+        # Delete associated responses
+        await db.execute(
+            sql_delete(SurveyResponse).where(SurveyResponse.survey_id == survey_id)
+        )
+        
+        # Delete the survey
+        await db.delete(survey)
+        await db.flush()
+        
+        logger.info(f"Survey {survey_id} and all associated data deleted successfully")
+        return True
+    
     async def distribute_survey(
         self,
         request: SurveyDistributionCreate,

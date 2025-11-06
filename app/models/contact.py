@@ -1,8 +1,9 @@
 from app.db.base import Base
-from sqlalchemy import String, ForeignKey
+from sqlalchemy import String, ForeignKey, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Dict, Any, Optional, List
 import uuid
+from datetime import datetime
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.session import get_request_transaction
 from sqlalchemy import select
@@ -37,6 +38,10 @@ class Contact(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255))
     phone: Mapped[Optional[str]] = mapped_column(String(50))
     title: Mapped[Optional[str]] = mapped_column(String(100))
+    
+    # Audit timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.now())
 
     account: Mapped[Optional["Account"]] = relationship(
         "Account", 
@@ -95,4 +100,6 @@ class Contact(Base):
             "title": self.title,
             "account_id": self.account_id,
             "org_id": self.org_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

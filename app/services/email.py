@@ -804,3 +804,112 @@ def _send_email_via_smtp(to_email: str, subject: str, text_body: str, html_body:
     except Exception as e:
         logger.exception(f"❌ Error sending email via SMTP to {to_email}: {str(e)}")
         return False
+
+
+def send_employee_activation_email(
+    employee_email: str,
+    employee_name: str,
+    temporary_password: str,
+    login_url: str,
+    role: str
+) -> bool:
+    
+    try:
+        subject = f"Welcome to AEC Business Suite - Your Account is Active!"
+        
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #151950 0%, #1e2570 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; }}
+                .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+                .credentials {{ background: white; border: 2px solid #151950; border-radius: 8px; padding: 20px; margin: 20px 0; }}
+                .button {{ display: inline-block; background: #151950; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; margin: 20px 0; }}
+                .footer {{ text-align: center; color: #666; font-size: 12px; margin-top: 30px; }}
+                .warning {{ background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1 style="margin: 0;">🎉 Welcome to the Team!</h1>
+                    <p style="margin: 10px 0 0 0; opacity: 0.9;">Your employee account has been activated</p>
+                </div>
+                
+                <div class="content">
+                    <p>Hi <strong>{employee_name}</strong>,</p>
+                    
+                    <p>Congratulations! Your employee onboarding is complete, and your user account has been created.</p>
+                    
+                    <div class="credentials">
+                        <h3 style="margin-top: 0; color: #151950;">🔐 Your Login Credentials</h3>
+                        <p><strong>Email (Username):</strong> {employee_email}</p>
+                        <p><strong>Temporary Password:</strong> <code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-size: 14px;">{temporary_password}</code></p>
+                        <p><strong>Your Role:</strong> {role.replace('_', ' ').title()}</p>
+                    </div>
+                    
+                    <div class="warning">
+                        <strong>🔒 Security Notice:</strong> You will be required to change your password upon first login for security purposes.
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="{login_url}" class="button">Login to Your Account</a>
+                    </div>
+                    
+                    <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                    
+                    <h3>📋 Next Steps:</h3>
+                    <ol>
+                        <li>Click the login button above or visit: <a href="{login_url}">{login_url}</a></li>
+                        <li>Enter your email and temporary password</li>
+                        <li>You'll be prompted to create a new password</li>
+                        <li>Complete your profile and start working!</li>
+                    </ol>
+                    
+                    <p>If you have any questions or need assistance, please contact your HR department.</p>
+                    
+                    <p style="margin-top: 30px;">
+                        Best regards,<br>
+                        <strong>HR Team</strong><br>
+                        AEC Business Suite
+                    </p>
+                </div>
+                
+                <div class="footer">
+                    <p>This is an automated message. Please do not reply to this email.</p>
+                    <p>© 2025 AEC Business Suite. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_body = f"""
+Welcome to AEC Business Suite!
+
+Hi {employee_name},
+
+Your employee account has been activated.
+
+Login Credentials:
+- Email: {employee_email}
+- Temporary Password: {temporary_password}
+- Your Role: {role.replace('_', ' ').title()}
+
+IMPORTANT: You must change your password on first login.
+
+Login at: {login_url}
+
+Best regards,
+HR Team
+AEC Business Suite
+        """
+        
+        return _send_email_via_smtp(employee_email, subject, text_body, html_body)
+        
+    except Exception as e:
+        logger.error(f"Failed to send employee activation email: {str(e)}")
+        return False

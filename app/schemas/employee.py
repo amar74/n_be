@@ -55,6 +55,7 @@ class EmployeeUpdate(BaseModel):
     location: Optional[str] = Field(None, max_length=100)
     bill_rate: Optional[float] = Field(None, gt=0)
     status: Optional[EmployeeStatus] = None
+    user_id: Optional[str] = None
     experience: Optional[str] = Field(None, max_length=100)
     skills: Optional[List[str]] = None
     review_notes: Optional[str] = None
@@ -85,6 +86,8 @@ class EmployeeResponse(EmployeeBase):
     review_notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    projects_count: Optional[int] = Field(default=0, description="Number of projects assigned")
+    accounts_count: Optional[int] = Field(default=0, description="Number of accounts associated")
     
     model_config = ConfigDict(from_attributes=True)
 

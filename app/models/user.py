@@ -1,4 +1,4 @@
-from sqlalchemy import String, select, Boolean, Column, ForeignKey
+from sqlalchemy import String, select, Boolean, Column, ForeignKey, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 import random
 import string
+from datetime import datetime
 from app.schemas.user import Roles
 from app.db.base import Base
 from app.db.session import get_session, get_transaction
@@ -51,6 +52,11 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(50), default=Roles.ADMIN, nullable=False)
     formbricks_user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    
+    # Audit timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.now())
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="users", foreign_keys=[org_id])
 
@@ -73,6 +79,9 @@ class User(Base):
             "org_id": self.org_id,
             "role": self.role,
             "password_hash": self.password_hash,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
         }
 
     @classmethod

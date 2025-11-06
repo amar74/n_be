@@ -124,12 +124,34 @@ class AuthService:
             return result.scalar_one_or_none()
     
     @staticmethod
-    async def create_user(email: str, password: str, role: str = "admin") -> User:
+    async def create_user(
+        email: str, 
+        password: str, 
+        role: str = "admin",
+        name: str = None,
+        org_id: uuid.UUID = None
+    ) -> User:
+        from app.models.user import generate_short_user_id
+        from sqlalchemy import select
+        
         async with get_session() as db:
+            # Generate unique short_id
+            short_id = generate_short_user_id()
+            
+            # Check if short_id already exists and regenerate if needed
+            while True:
+                existing = await db.execute(select(User).where(User.short_id == short_id))
+                if not existing.scalar_one_or_none():
+                    break
+                short_id = generate_short_user_id()
+            
             user = User(
                 email=email,
                 password_hash=AuthService.get_password_hash(password),
-                role=role
+                role=role,
+                name=name,
+                org_id=org_id,
+                short_id=short_id
             )
             db.add(user)
             await db.commit()

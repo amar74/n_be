@@ -21,7 +21,7 @@ from app.schemas.ai_health_scoring import (
 )
 from app.utils.logger import logger
 from app.services.ai_suggestions import AISuggestionService
-from app.db.session import get_session
+from app.db.session import get_session, get_request_transaction
 
 class AccountHealthScoringService:
 
