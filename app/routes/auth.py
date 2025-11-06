@@ -84,8 +84,14 @@ async def login(request: LoginRequest):
             detail="Incorrect email or password",
         )
     
-    # Update last_login timestamp using User model's update method
-    await User.update(user.id, last_login=datetime.utcnow())
+    # Update last_login timestamp with direct SQL to avoid session conflicts
+    from app.db.session import get_session
+    from sqlalchemy import update
+    async with get_session() as db:
+        await db.execute(
+            update(User).where(User.id == user.id).values(last_login=datetime.utcnow())
+        )
+        await db.commit()
     
     # Create JWT token
     access_token_expires = timedelta(minutes=30)
