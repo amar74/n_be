@@ -305,11 +305,16 @@ async def activate_employee(
                         logger.warning(f"Failed to update password: {pw_error}")
             else:
                 # User exists in different organization
-                # Note: Same person can be an EMPLOYEE in multiple orgs, 
-                # but can only have USER login credentials for ONE org
+                # SECURITY: Don't reveal that email exists in another org (privacy issue)
+                # Instead, give a generic error that suggests using organization-specific email
+                
+                # Generate a suggested override email
+                name_part = employee.name.lower().replace(' ', '.')
+                suggested_email = f"{name_part}@yourcompany.com"
+                
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Email {user_email} is already registered with another organization. Please use 'override_email' field with a different email address for this employee's login credentials."
+                    detail=f"This email cannot be used for activation. Please provide an 'override_email' with your organization's email domain (e.g., {suggested_email} or {name_part}.work@example.com)"
                 )
         else:
             # Create new user account with the chosen email
