@@ -36,9 +36,33 @@ class EmployeeService:
     ) -> EmployeeResponse:
         """
         Create a new employee with optional AI enrichment
+        
+        Validates:
+        - No duplicate emails within the same organization
+        - Same email CAN exist in different organizations (multi-org support)
         """
         try:
             logger.info(f"Creating employee: {employee_data.name} ({employee_data.email})")
+            
+            # Check for duplicate email within the SAME organization
+            from sqlalchemy import select
+            from app.db.session import get_session
+            
+            async with get_session() as db:
+                existing_employee = await db.execute(
+                    select(Employee).where(
+                        Employee.email == employee_data.email,
+                        Employee.company_id == company_id
+                    )
+                )
+                existing = existing_employee.scalar_one_or_none()
+                
+                if existing:
+                    from fastapi import HTTPException
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Employee with email {employee_data.email} already exists in your organization (Status: {existing.status})"
+                    )
             
             # If AI suggestion is requested, get AI recommendations
             if employee_data.use_ai_suggestion and employee_data.job_title:
