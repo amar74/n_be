@@ -64,7 +64,9 @@ async def get_public_survey(survey_id: UUID):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching public survey: {str(e)}", exc_info=True)
+        # Escape curly braces in error message to avoid format spec errors
+        error_msg = str(e).replace('{', '{{').replace('}', '}}')
+        logger.error(f"Error fetching public survey: {error_msg}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to load survey"
@@ -134,7 +136,9 @@ async def submit_public_survey(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error submitting public survey: {str(e)}", exc_info=True)
+        # Escape curly braces in error message to avoid format spec errors
+        error_msg = str(e).replace('{', '{{').replace('}', '}}')
+        logger.error(f"Error submitting public survey: {error_msg}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit response"
