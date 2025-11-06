@@ -31,6 +31,9 @@ class User(Base):
     )
 
     short_id: Mapped[str] = mapped_column(String(10), unique=True, nullable=False, index=True)
+    
+    # Username for login (employee_code for employees, email for vendors/admins)
+    username: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True, index=True)
 
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     
@@ -65,6 +68,7 @@ class User(Base):
         return {
             "id": self.id,
             "short_id": self.short_id,
+            "username": self.username,
             "email": self.email,
             "name": self.name,
             "phone": self.phone,

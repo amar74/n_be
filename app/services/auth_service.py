@@ -95,9 +95,23 @@ class AuthService:
             return None
     
     @staticmethod
-    async def authenticate_user(email: str, password: str) -> Optional[User]:
+    async def authenticate_user(email_or_username: str, password: str) -> Optional[User]:
+        """
+        Authenticate user by username OR email
+        - Employees login with username (employee_number like EMP-12345)
+        - Vendors/Admins login with email
+        """
+        from sqlalchemy import or_
         async with get_session() as db:
-            result = await db.execute(select(User).where(User.email == email))
+            # Try to find user by username OR email
+            result = await db.execute(
+                select(User).where(
+                    or_(
+                        User.email == email_or_username,
+                        User.username == email_or_username
+                    )
+                )
+            )
             user = result.scalar_one_or_none()
             
             if not user:
@@ -129,7 +143,8 @@ class AuthService:
         password: str, 
         role: str = "admin",
         name: str = None,
-        org_id: uuid.UUID = None
+        org_id: uuid.UUID = None,
+        username: str = None  # Employee code for employees, None for vendors/admins
     ) -> User:
         from app.models.user import generate_short_user_id
         from sqlalchemy import select
@@ -147,6 +162,7 @@ class AuthService:
             
             user = User(
                 email=email,
+                username=username,  # Will be employee_number for employees, None for vendors
                 password_hash=AuthService.get_password_hash(password),
                 role=role,
                 name=name,

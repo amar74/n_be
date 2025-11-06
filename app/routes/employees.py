@@ -281,51 +281,46 @@ async def activate_employee(
                 detail="Employee not found"
             )
         
-        # Determine which email to use for user account
-        # Use override_email if provided, otherwise use employee's email
-        user_email = activation_data.override_email if activation_data.override_email else employee.email
+        # Use employee_number as username for login (no email conflicts!)
+        # Email is stored but only for communication, not authentication
+        username = employee.employee_number
+        user_email = employee.email  # Keep original email for communication
         
-        logger.info(f"Activation email: {user_email} (employee email: {employee.email}, override: {activation_data.override_email is not None})")
+        logger.info(f"Activating employee: username={username}, email={user_email}, name={employee.name}")
         
-        # Check if user account already exists with the chosen email
-        existing_user = await AuthService.get_user_by_email(user_email)
+        # Check if user account already exists with this username (should never happen)
+        from sqlalchemy import select
+        async with get_session() as db_check:
+            existing_user_result = await db_check.execute(
+                select(User).where(User.username == username)
+            )
+            existing_user = existing_user_result.scalar_one_or_none()
         
         if existing_user:
-            # If user exists and belongs to the same organization, link them
-            if existing_user.org_id == current_user.org_id:
-                logger.info(f"User account already exists for {user_email}, linking to employee {employee_id}")
-                user = existing_user
-                
-                # Update user's password if provided
-                if activation_data.temporary_password:
-                    try:
-                        await AuthService.update_user_password(str(user.id), activation_data.temporary_password)
-                        logger.info(f"Updated password for existing user {user.id}")
-                    except Exception as pw_error:
-                        logger.warning(f"Failed to update password: {pw_error}")
-            else:
-                # User exists in different organization
-                # SECURITY: Don't reveal that email exists in another org (privacy issue)
-                # Instead, give a generic error that suggests using organization-specific email
-                
-                # Generate a suggested override email
-                name_part = employee.name.lower().replace(' ', '.')
-                suggested_email = f"{name_part}@yourcompany.com"
-                
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"This email cannot be used for activation. Please provide an 'override_email' with your organization's email domain (e.g., {suggested_email} or {name_part}.work@example.com)"
-                )
+            # Username already exists (should be rare - employee_number is unique)
+            # Re-link to this employee and update password
+            logger.info(f"User account already exists for username {username}, re-linking to employee {employee_id}")
+            user = existing_user
+            
+            # Update user's password
+            if activation_data.temporary_password:
+                try:
+                    await AuthService.update_user_password(str(user.id), activation_data.temporary_password)
+                    logger.info(f"Updated password for existing user {user.id}")
+                except Exception as pw_error:
+                    logger.warning(f"Failed to update password: {pw_error}")
         else:
-            # Create new user account with the chosen email
+            # Create new user account with employee_number as username
+            # NO EMAIL CONFLICTS - username is unique employee_number!
             user = await AuthService.create_user(
                 email=user_email,
                 password=activation_data.temporary_password,
                 role=activation_data.user_role,
                 name=employee.name,
-                org_id=current_user.org_id
+                org_id=current_user.org_id,
+                username=username  # employee_number (EMP-12345)
             )
-            logger.info(f"Created user account {user.id} for employee {employee_id} with email {user_email}")
+            logger.info(f"✅ Created user account: username={username}, email={user_email}, user_id={user.id}")
         
         # Update employee status to active, link user_id, and set system role
         # Use direct Employee.update() to avoid schema type conversion issues
@@ -364,15 +359,13 @@ async def activate_employee(
             except Exception as email_error:
                 logger.error(f"Error sending welcome email: {email_error}")
         
-        # Build activation message
-        activation_message = f"Employee activated successfully. User account created for {user_email}"
-        if activation_data.override_email:
-            activation_message += f" (employee record email: {employee.email})"
+        # Build activation message with username (employee code)
+        activation_message = f"Employee activated successfully! Login credentials: Username = {username}, Password = {activation_data.temporary_password}"
         
         return EmployeeActivationResponse(
             user_id=user.id,
             employee_id=employee_id,
-            email=user_email,  # Return the login email, not employee record email
+            email=user_email,  # Email for communication
             role=activation_data.user_role,
             message=activation_message,
             email_sent=email_sent
