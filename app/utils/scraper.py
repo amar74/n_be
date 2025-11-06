@@ -7,7 +7,11 @@ from typing import List, Dict, Union, Any
 
 async def scrape_text_with_bs4(url: str) -> Dict[str, Union[str, Dict[str, str]]]:
     try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        # Increase timeout to 30 seconds for slow websites
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=headers) as client:
             response = await client.get(url)
             response.raise_for_status()
 
@@ -20,8 +24,15 @@ async def scrape_text_with_bs4(url: str) -> Dict[str, Union[str, Dict[str, str]]
 
             return {"url": url, "text": visible_text}
 
+    except httpx.TimeoutException as e:
+        return {"url": url, "error": f"Website timeout after 30 seconds: {type(e).__name__}"}
+    except httpx.HTTPStatusError as e:
+        return {"url": url, "error": f"HTTP error {e.response.status_code}: {e.response.reason_phrase}"}
+    except httpx.RequestError as e:
+        return {"url": url, "error": f"Network error: {type(e).__name__} - {str(e) or 'Connection failed'}"}
     except Exception as e:
-        return {"url": url, "error": f"Failed to scrape: {str(e)}"}
+        error_msg = str(e) if str(e) else f"{type(e).__name__}: Unknown error"
+        return {"url": url, "error": f"Failed to scrape: {error_msg}"}
 
 extract_contact_info_function = {
     "name": "extract_contact_info",
