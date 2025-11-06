@@ -7,6 +7,7 @@ class EmployeeActivationRequest(BaseModel):
     user_role: str = "employee"
     permissions: List[str] = []
     send_welcome_email: bool = True
+    override_email: Optional[EmailStr] = None  # Use different email if employee's email has conflict
 
 class EmployeeActivationResponse(BaseModel):
     user_id: UUID
