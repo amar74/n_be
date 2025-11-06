@@ -301,17 +301,23 @@ async def activate_employee(
         logger.info(f"Created user account {user.id} for employee {employee_id}")
         
         # Update employee status to active, link user_id, and set system role
-        from app.schemas.employee import EmployeeUpdate
-        update_data = EmployeeUpdate(
+        # Use direct Employee.update() to avoid schema type conversion issues
+        from app.models.employee import Employee
+        employee_updated = await Employee.update(
+            employee_id,
             status="active",
-            user_id=str(user.id),
+            user_id=user.id,  # Pass UUID directly, not string
             role=activation_data.user_role,  # Save system role (employee, admin, manager, etc.)
             review_notes=f"User account created. Role: {activation_data.user_role}, Permissions: {', '.join(activation_data.permissions)}, Password: {activation_data.temporary_password}"
         )
-        await employee_service.update_employee(
-            employee_id=employee_id,
-            employee_data=update_data
-        )
+        
+        if not employee_updated:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update employee after user creation"
+            )
+        
+        logger.info(f"✅ Employee {employee_id} updated: status=active, user_id={user.id}")
         
         # Send welcome email if requested
         email_sent = False
