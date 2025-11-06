@@ -263,7 +263,8 @@ class EmployeeService:
                 async def enrich_employees_background():
                     for emp in created_employees:
                         try:
-                            emp_id = UUID(emp.id)
+                            # emp.id is already a UUID or string from EmployeeResponse
+                            emp_id = UUID(str(emp.id)) if not isinstance(emp.id, UUID) else emp.id
                             logger.info(f"🤖 AI enriching employee: {emp.email}")
                             
                             # Get AI suggestions
