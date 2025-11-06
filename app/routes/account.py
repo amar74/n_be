@@ -130,7 +130,7 @@ async def get_account_activities(
         contacts = contacts_result.scalars().all()
         for contact in contacts:
             activities.append({
-                'id': str(contact.contact_id),
+                'id': str(contact.id),  # Fixed: Contact.id not contact_id
                 'type': 'contact',
                 'title': f"Contact added: {contact.name}",
                 'timestamp': contact.created_at.isoformat(),
