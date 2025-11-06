@@ -146,6 +146,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     user_data = UserResponse(
         id=str(current_user.id),
         email=current_user.email,
+        username=current_user.username,  # Employee code for employees
         name=current_user.name,
         phone=current_user.phone,
         bio=current_user.bio,
@@ -216,6 +217,7 @@ async def update_profile(
         return UserResponse(
             id=str(updated_user.id),
             email=updated_user.email,
+            username=updated_user.username,  # Employee code for employees
             name=updated_user.name,
             phone=updated_user.phone,
             bio=updated_user.bio,

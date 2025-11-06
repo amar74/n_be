@@ -38,9 +38,38 @@ class EmployeeRole(str, enum.Enum):
     MARKETING_MANAGER = "Marketing Manager"
     HR_MANAGER = "HR Manager"
 
-def generate_employee_number() -> str:
-    """Generate employee number like EMP-001"""
-    return f"EMP-{str(random.randint(1, 9999)).zfill(3)}"
+def generate_employee_number(org_name: str = None, employee_name: str = None) -> str:
+    """
+    Generate employee number in format: {ORG_ABBR}{NAME_INITIALS}{SERIAL}
+    
+    Examples:
+    - Softication + Amar Rana + 001 = SFTAM001
+    - Softication + Robert Brown + 002 = SFTRB002
+    - Tech Corp + John Smith + 015 = TECJS015
+    
+    Fallback to EMP-{random} if org_name or employee_name not provided
+    """
+    if not org_name or not employee_name:
+        return f"EMP-{str(random.randint(1, 9999)).zfill(3)}"
+    
+    # Get organization abbreviation (first 3 letters, uppercase, remove spaces)
+    org_abbr = ''.join(c for c in org_name if c.isalpha())[:3].upper()
+    if len(org_abbr) < 3:
+        org_abbr = org_abbr.ljust(3, 'X')  # Pad with X if org name too short
+    
+    # Get employee name initials (first letter of first and last name)
+    name_parts = employee_name.strip().split()
+    if len(name_parts) >= 2:
+        initials = (name_parts[0][0] + name_parts[-1][0]).upper()
+    elif len(name_parts) == 1:
+        initials = name_parts[0][:2].upper()
+    else:
+        initials = 'XX'
+    
+    # Generate serial number (001-999)
+    serial = str(random.randint(1, 999)).zfill(3)
+    
+    return f"{org_abbr}{initials}{serial}"
 
 class Employee(Base):
     __tablename__ = "employees"
@@ -178,11 +207,37 @@ class Employee(Base):
         **kwargs
     ) -> "Employee":
         async with get_transaction() as db:
+            # Get organization name for employee number generation
+            org_name = None
+            if company_id:
+                from app.models.organization import Organization
+                org_result = await db.execute(
+                    select(Organization).where(Organization.id == company_id)
+                )
+                org = org_result.scalar_one_or_none()
+                if org:
+                    org_name = org.name
+            
+            # Generate employee number with org name and employee name
+            # Format: {ORG_ABBR}{NAME_INITIALS}{SERIAL} (e.g., SFTAM001)
+            employee_number = generate_employee_number(org_name, name)
+            
+            # Ensure uniqueness (check if already exists, regenerate if needed)
+            max_attempts = 10
+            for _ in range(max_attempts):
+                existing = await db.execute(
+                    select(cls).where(cls.employee_number == employee_number)
+                )
+                if not existing.scalar_one_or_none():
+                    break
+                # Regenerate if collision
+                employee_number = generate_employee_number(org_name, name)
+            
             employee = cls(
                 name=name,
                 email=email,
                 company_id=company_id,
-                employee_number=generate_employee_number(),
+                employee_number=employee_number,
                 **kwargs
             )
             db.add(employee)

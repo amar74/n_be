@@ -19,6 +19,7 @@ class UserUpdateRequest(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
+    username: Optional[str] = None  # Employee code for employees, None for vendors
     name: Optional[str] = None
     role: str
     org_id: Optional[str] = None
