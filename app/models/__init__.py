@@ -12,7 +12,10 @@ from .account_document import *
 from .opportunity_tabs import *  # Import before opportunity (circular dependency)
 from .opportunity import *
 from .opportunity_document import *
+from .opportunity_source import *
+from .delivery_model_template import *
 from .employee import *
 from .candidate import *
 from .staff_planning import *
 from .account_team import *
+from .proposal import *

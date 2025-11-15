@@ -7,6 +7,7 @@ Create Date: 2025-11-06
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
@@ -17,13 +18,23 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add created_at and updated_at columns to contacts table
-    op.add_column('contacts', sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False))
-    op.add_column('contacts', sa.Column('updated_at', sa.DateTime(), nullable=True))
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    columns = {col['name'] for col in inspector.get_columns('contacts')}
+
+    if 'created_at' not in columns:
+        op.add_column('contacts', sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False))
+    if 'updated_at' not in columns:
+        op.add_column('contacts', sa.Column('updated_at', sa.DateTime(), nullable=True))
 
 
 def downgrade() -> None:
-    # Remove timestamp columns
-    op.drop_column('contacts', 'updated_at')
-    op.drop_column('contacts', 'created_at')
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    columns = {col['name'] for col in inspector.get_columns('contacts')}
+
+    if 'updated_at' in columns:
+        op.drop_column('contacts', 'updated_at')
+    if 'created_at' in columns:
+        op.drop_column('contacts', 'created_at')
 

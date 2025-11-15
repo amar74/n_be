@@ -109,6 +109,11 @@ class StaffAllocation(Base):
     monthly_cost: Mapped[float] = mapped_column(Float, default=0.0)
     total_cost: Mapped[float] = mapped_column(Float, default=0.0)
     
+    # Escalation details
+    initial_escalation_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    escalation_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    escalation_effective_month: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
     # Status
     status: Mapped[str] = mapped_column(String(50), default="planned")  # planned, active, completed
     
@@ -134,6 +139,9 @@ class StaffAllocation(Base):
             "hourly_rate": self.hourly_rate,
             "monthly_cost": self.monthly_cost,
             "total_cost": self.total_cost,
+            "initial_escalation_rate": self.initial_escalation_rate,
+            "escalation_rate": self.escalation_rate,
+            "escalation_effective_month": self.escalation_effective_month,
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

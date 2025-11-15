@@ -28,6 +28,11 @@ from app.routes.employees import router as employees_router
 from app.routes.onboarding import router as onboarding_router
 from app.routes.employee_surveys import router as employee_surveys_router
 from app.routes.staff_planning import router as staff_planning_router
+from app.routes.finance_dashboard import router as finance_dashboard_router
+from app.routes.finance_planning import router as finance_planning_router
+from app.routes.delivery_model_templates import router as delivery_model_templates_router
+from app.routes.proposal import router as proposal_router
+from app.routes.opportunity_ingestion import router as opportunity_ingestion_router
 
 api_router = APIRouter()
 
@@ -60,3 +65,8 @@ api_router.include_router(employees_router)
 api_router.include_router(onboarding_router)
 api_router.include_router(employee_surveys_router)
 api_router.include_router(staff_planning_router)
+api_router.include_router(finance_dashboard_router)
+api_router.include_router(finance_planning_router)
+api_router.include_router(delivery_model_templates_router)
+api_router.include_router(proposal_router)
+api_router.include_router(opportunity_ingestion_router)

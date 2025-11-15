@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-from sqlalchemy import select
+from sqlalchemy import select, text, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -103,16 +103,73 @@ class AuthService:
         """
         from sqlalchemy import or_
         async with get_session() as db:
-            # Try to find user by username OR email
-            result = await db.execute(
-                select(User).where(
-                    or_(
-                        User.email == email_or_username,
-                        User.username == email_or_username
+            username_column_exists = False
+
+            try:
+                column_check = await db.execute(
+                    text(
+                        """
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_name = 'users'
+                          AND column_name = 'username'
+                        LIMIT 1
+                        """
                     )
                 )
-            )
-            user = result.scalar_one_or_none()
+                username_column_exists = column_check.scalar_one_or_none() is not None
+            except Exception as exc:
+                from app.utils.logger import logger
+                logger.warning("Failed to verify users.username column presence: %s", exc)
+                username_column_exists = False
+
+            selectable_columns = [
+                User.id,
+                User.short_id,
+                User.email,
+                User.name,
+                User.phone,
+                User.bio,
+                User.address,
+                User.city,
+                User.state,
+                User.zip_code,
+                User.country,
+                User.timezone,
+                User.language,
+                User.org_id,
+                User.role,
+                User.formbricks_user_id,
+                User.password_hash,
+                User.created_at,
+                User.updated_at,
+                User.last_login,
+            ]
+
+            if username_column_exists:
+                selectable_columns.append(User.username)
+
+            query = select(*selectable_columns)
+
+            if username_column_exists:
+                query = query.where(
+                    or_(
+                        User.email == email_or_username,
+                        User.username == email_or_username,
+                    )
+                )
+            else:
+                query = query.where(User.email == email_or_username)
+
+            result = await db.execute(query)
+            row = result.mappings().first()
+
+            if not row:
+                return None
+
+            user = User()
+            for key, value in row.items():
+                setattr(user, key, value)
             
             if not user:
                 return None

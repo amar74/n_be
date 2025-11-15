@@ -115,11 +115,6 @@ async def reset_password(request: ResetPasswordRequest):
                     detail="This OTP has expired. Please request a new OTP."
                 )
         
-        # IMPORTANT: Mark OTP as used IMMEDIATELY
-        # This prevents reuse even if password update fails
-        await PasswordResetToken.mark_as_used(request.email, request.otp)
-        logger.info(f"Password reset OTP marked as used for user {reset_token_record.email}")
-        
         # Get the user
         user = await User.get_by_id(reset_token_record.user_id)
         
@@ -136,6 +131,19 @@ async def reset_password(request: ResetPasswordRequest):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to update password"
+            )
+
+        # Mark the OTP as used now that the password has been updated
+        otp_marked = await PasswordResetToken.mark_as_used(request.email, request.otp)
+
+        if not otp_marked:
+            logger.error(
+                "Password reset succeeded but OTP could not be marked as used for %s",
+                request.email,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Password updated, but failed to finalize OTP. Please request a new reset code.",
             )
         
         logger.info(f"Password successfully reset for user {user.email}")

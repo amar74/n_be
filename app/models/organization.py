@@ -18,6 +18,8 @@ from app.utils.logger import logger
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.note import Note
+    from app.models.delivery_model_template import DeliveryModelTemplate
+    from app.models.opportunity_source import OpportunitySource
 
 from app.models.address import Address
 from app.models.contact import Contact
@@ -67,6 +69,16 @@ class Organization(Base):
     surveys: Mapped[List["Survey"]] = relationship("Survey", back_populates="organization")
     address: Mapped[Optional["Address"]] = relationship("Address", foreign_keys="[Organization.address_id]")
     contact: Mapped[Optional["Contact"]] = relationship("Contact", foreign_keys="[Organization.contact_id]")
+    delivery_models: Mapped[List["DeliveryModelTemplate"]] = relationship(
+        "DeliveryModelTemplate",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+    opportunity_sources: Mapped[List["OpportunitySource"]] = relationship(
+        "OpportunitySource",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
 
     def to_dict(self) -> Dict[str, Any]:
 

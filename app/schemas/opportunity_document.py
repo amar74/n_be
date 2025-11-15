@@ -4,26 +4,42 @@ from datetime import datetime
 import uuid
 
 class OpportunityDocumentBase(BaseModel):
-    document_name: str = Field(..., min_length=1, max_length=255)
-    document_url: Optional[str] = None
-    document_type: Optional[str] = Field(None, max_length=50)
-    file_size: Optional[int] = Field(None, gt=0)
+    file_name: str = Field(..., min_length=1, max_length=255)
+    original_name: str = Field(..., min_length=1, max_length=255)
+    file_type: str = Field(..., min_length=1, max_length=100)
+    file_size: int = Field(..., gt=0)
+    category: str = Field(..., min_length=1, max_length=100)
+    purpose: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=1000)
+    tags: Optional[str] = Field(default=None, max_length=500)
+    status: Optional[str] = Field(default="uploaded", max_length=50)
+    is_available_for_proposal: Optional[bool] = Field(default=True)
+    file_path: Optional[str] = Field(default=None, max_length=500)
+    file_url: Optional[str] = Field(default=None, max_length=2083)
 
 class OpportunityDocumentCreate(OpportunityDocumentBase):
     pass
 
 class OpportunityDocumentUpdate(BaseModel):
-    document_name: Optional[str] = Field(None, min_length=1, max_length=255)
-    document_url: Optional[str] = None
-    document_type: Optional[str] = Field(None, max_length=50)
+    file_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    original_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    file_type: Optional[str] = Field(None, min_length=1, max_length=100)
     file_size: Optional[int] = Field(None, gt=0)
+    category: Optional[str] = Field(None, min_length=1, max_length=100)
+    purpose: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=1000)
+    tags: Optional[str] = Field(default=None, max_length=500)
+    status: Optional[str] = Field(default=None, max_length=50)
+    is_available_for_proposal: Optional[bool] = None
+    file_url: Optional[str] = None
+    file_path: Optional[str] = None
 
 class OpportunityDocumentResponse(OpportunityDocumentBase):
     id: uuid.UUID
     opportunity_id: uuid.UUID
-    uploaded_by: Optional[uuid.UUID] = None
-    created_at: datetime
-    updated_at: datetime
+    upload_date: Optional[datetime] = None
+    uploaded_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

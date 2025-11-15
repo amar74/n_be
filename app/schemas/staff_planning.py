@@ -100,6 +100,17 @@ class StaffAllocationCreate(BaseModel):
     end_month: int = Field(12, ge=1, description="End month (1-based)")
     hours_per_week: float = Field(40.0, ge=0, le=168, description="Hours per week")
     hourly_rate: float = Field(..., ge=0, description="Hourly bill rate")
+    initial_escalation_rate: Optional[float] = Field(
+        None, ge=0, le=100, description="Escalation rate to apply before any adjustments"
+    )
+    escalation_rate: Optional[float] = Field(
+        None, ge=0, le=100, description="New escalation rate after the effective month"
+    )
+    escalation_effective_month: Optional[int] = Field(
+        None,
+        ge=1,
+        description="Month (1-based) when the updated escalation rate takes effect",
+    )
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -111,6 +122,9 @@ class StaffAllocationUpdate(BaseModel):
     hours_per_week: Optional[float] = Field(None, ge=0, le=168)
     allocation_percentage: Optional[float] = Field(None, ge=0, le=100)
     hourly_rate: Optional[float] = Field(None, ge=0)
+    initial_escalation_rate: Optional[float] = Field(None, ge=0, le=100)
+    escalation_rate: Optional[float] = Field(None, ge=0, le=100)
+    escalation_effective_month: Optional[int] = Field(None, ge=1)
     status: Optional[str] = Field(None, pattern="^(planned|active|completed)$")
     
     model_config = ConfigDict(from_attributes=True)
@@ -131,6 +145,9 @@ class StaffAllocationResponse(BaseModel):
     hourly_rate: float
     monthly_cost: float
     total_cost: float
+    initial_escalation_rate: Optional[float] = None
+    escalation_rate: Optional[float] = None
+    escalation_effective_month: Optional[int] = None
     status: str
     created_at: str
     updated_at: str

@@ -19,8 +19,9 @@ from app.schemas.staff_planning import (
     StaffPlanUpdate,
     StaffPlanResponse,
     StaffAllocationCreate,
+    StaffAllocationUpdate,
     StaffAllocationResponse,
-    StaffPlanWithAllocations
+    StaffPlanWithAllocations,
 )
 from app.dependencies.user_auth import get_current_user
 from app.services.gemini_service import GeminiService
@@ -34,53 +35,100 @@ def calculate_staff_plan_costs(
     duration_months: int,
     overhead_rate: float,
     profit_margin: float,
-    annual_escalation_rate: float
+    annual_escalation_rate: float,
 ):
-    """Calculate all costs for a staff plan including yearly breakdown"""
-    
-    # Calculate base labor cost
-    total_labor_cost = sum(allocation.total_cost for allocation in staff_allocations)
-    
-    # Calculate yearly breakdown with escalation
-    years = max(1, (duration_months + 11) // 12)  # Ceiling division
+    """Calculate all costs for a staff plan including yearly breakdown.
+
+    Each allocation can define its own escalation behaviour. The plan-level annual escalation
+    continues to act as the default when allocation-specific values are not supplied.
+    """
+
+    if duration_months <= 0:
+        return {
+            "total_labor_cost": 0.0,
+            "total_overhead": 0.0,
+            "total_cost": 0.0,
+            "total_profit": 0.0,
+            "total_price": 0.0,
+            "yearly_breakdown": [],
+        }
+
+    monthly_labor = [0.0 for _ in range(duration_months)]
+
+    for allocation in staff_allocations:
+        if allocation.monthly_cost is None or allocation.monthly_cost <= 0:
+            continue
+
+        start_month = max(1, allocation.start_month or 1)
+        end_month = min(duration_months, allocation.end_month or duration_months)
+        if end_month < start_month:
+            continue
+
+        base_rate = (
+            allocation.initial_escalation_rate
+            if allocation.initial_escalation_rate is not None
+            else annual_escalation_rate
+        )
+        updated_rate = (
+            allocation.escalation_rate
+            if allocation.escalation_rate is not None
+            else base_rate
+        )
+        effective_month = allocation.escalation_effective_month or start_month
+        if effective_month < start_month:
+            effective_month = start_month
+
+        for month in range(start_month, end_month + 1):
+            years_completed = (month - 1) // 12
+            rate_for_month = base_rate if month < effective_month else updated_rate
+            multiplier = (1 + (rate_for_month / 100.0)) ** years_completed
+            monthly_amount = allocation.monthly_cost * multiplier
+            monthly_labor[month - 1] += monthly_amount
+
     yearly_breakdown = []
-    monthly_labor_cost = total_labor_cost / duration_months if duration_months > 0 else 0
-    
+    years = max(1, (duration_months + 11) // 12)
+
+    total_labor_cost = sum(monthly_labor)
+    total_overhead = 0.0
+    total_cost = 0.0
+    total_profit = 0.0
+    total_price = 0.0
+
     for year in range(1, years + 1):
-        months_in_year = min(12, duration_months - ((year - 1) * 12))
-        if months_in_year <= 0:
+        start_index = (year - 1) * 12
+        end_index = min(year * 12, duration_months)
+        if start_index >= end_index:
             break
-            
-        escalation_multiplier = (1 + (annual_escalation_rate / 100)) ** (year - 1)
-        
-        year_labor_cost = monthly_labor_cost * months_in_year * escalation_multiplier
-        year_overhead = year_labor_cost * (overhead_rate / 100)
-        year_total_cost = year_labor_cost + year_overhead
-        year_profit = year_total_cost * (profit_margin / 100)
-        year_total_price = year_total_cost + year_profit
-        
-        yearly_breakdown.append({
-            "year": year,
-            "laborCost": round(year_labor_cost, 2),
-            "overhead": round(year_overhead, 2),
-            "totalCost": round(year_total_cost, 2),
-            "profit": round(year_profit, 2),
-            "totalPrice": round(year_total_price, 2)
-        })
-    
-    # Calculate totals
-    total_overhead = sum(y["overhead"] for y in yearly_breakdown)
-    total_cost = sum(y["totalCost"] for y in yearly_breakdown)
-    total_profit = sum(y["profit"] for y in yearly_breakdown)
-    total_price = sum(y["totalPrice"] for y in yearly_breakdown)
-    
+
+        labor_cost = sum(monthly_labor[start_index:end_index])
+        overhead = labor_cost * (overhead_rate / 100.0)
+        cost = labor_cost + overhead
+        profit = cost * (profit_margin / 100.0)
+        price = cost + profit
+
+        total_overhead += overhead
+        total_cost += cost
+        total_profit += profit
+        total_price += price
+
+        yearly_breakdown.append(
+            {
+                "year": year,
+                "laborCost": round(labor_cost, 2),
+                "overhead": round(overhead, 2),
+                "totalCost": round(cost, 2),
+                "profit": round(profit, 2),
+                "totalPrice": round(price, 2),
+            }
+        )
+
     return {
         "total_labor_cost": round(total_labor_cost, 2),
         "total_overhead": round(total_overhead, 2),
         "total_cost": round(total_cost, 2),
         "total_profit": round(total_profit, 2),
         "total_price": round(total_price, 2),
-        "yearly_breakdown": yearly_breakdown
+        "yearly_breakdown": yearly_breakdown,
     }
 
 
@@ -311,10 +359,18 @@ async def add_staff_allocation(
         # Calculate costs
         weeks_per_month = 4.33
         months_allocated = allocation_data.end_month - allocation_data.start_month + 1
-        hours_total = allocation_data.hours_per_week * weeks_per_month * months_allocated
-        monthly_cost = (allocation_data.hours_per_week * weeks_per_month * allocation_data.hourly_rate)
+        monthly_cost = allocation_data.hours_per_week * weeks_per_month * allocation_data.hourly_rate
         total_cost = monthly_cost * months_allocated
-        
+        initial_escalation_rate = (
+            allocation_data.initial_escalation_rate
+            if allocation_data.initial_escalation_rate is not None
+            else plan.annual_escalation_rate
+        )
+        escalation_rate = allocation_data.escalation_rate
+        escalation_effective_month = allocation_data.escalation_effective_month
+        if escalation_effective_month is None:
+            escalation_effective_month = allocation_data.start_month
+
         # Create allocation
         new_allocation = StaffAllocation(
             staff_plan_id=plan_id,
@@ -328,6 +384,9 @@ async def add_staff_allocation(
             hourly_rate=allocation_data.hourly_rate,
             monthly_cost=round(monthly_cost, 2),
             total_cost=round(total_cost, 2),
+            initial_escalation_rate=initial_escalation_rate,
+            escalation_rate=escalation_rate,
+            escalation_effective_month=escalation_effective_month,
             status="planned"
         )
         
@@ -395,6 +454,115 @@ async def get_staff_allocations(
     allocations = result.scalars().all()
     
     return [allocation.to_dict() for allocation in allocations]
+
+
+@router.patch(
+    "/{plan_id}/allocations/{allocation_id}",
+    response_model=StaffAllocationResponse,
+)
+async def update_staff_allocation(
+    plan_id: int,
+    allocation_id: int,
+    allocation_update: StaffAllocationUpdate,
+    current_user: User = Depends(get_current_user),
+):
+    """Update an existing staff allocation and refresh plan financials."""
+    db: AsyncSession = get_request_transaction()
+
+    plan_result = await db.execute(
+        select(StaffPlan).where(
+            and_(
+                StaffPlan.id == plan_id,
+                StaffPlan.org_id == current_user.org_id,
+            )
+        )
+    )
+    plan = plan_result.scalar_one_or_none()
+    if not plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Staff plan {plan_id} not found",
+        )
+
+    allocation_result = await db.execute(
+        select(StaffAllocation).where(
+            and_(
+                StaffAllocation.id == allocation_id,
+                StaffAllocation.staff_plan_id == plan_id,
+            )
+        )
+    )
+    allocation = allocation_result.scalar_one_or_none()
+    if not allocation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Allocation {allocation_id} not found",
+        )
+
+    update_data = allocation_update.model_dump(exclude_unset=True)
+    if not update_data:
+        return allocation.to_dict()
+
+    try:
+        for key, value in update_data.items():
+            setattr(allocation, key, value)
+
+        # Ensure escalation defaults are present
+        if allocation.initial_escalation_rate is None:
+            allocation.initial_escalation_rate = plan.annual_escalation_rate
+        if allocation.escalation_effective_month is None:
+            allocation.escalation_effective_month = allocation.start_month
+        elif allocation.escalation_effective_month < allocation.start_month:
+            allocation.escalation_effective_month = allocation.start_month
+
+        # Recalculate cost figures when timing or rates change
+        if any(
+            field in update_data
+            for field in ("start_month", "end_month", "hours_per_week", "hourly_rate")
+        ):
+            weeks_per_month = 4.33
+            months_allocated = max(1, allocation.end_month - allocation.start_month + 1)
+            monthly_cost = allocation.hours_per_week * weeks_per_month * allocation.hourly_rate
+            allocation.monthly_cost = round(monthly_cost, 2)
+            allocation.total_cost = round(monthly_cost * months_allocated, 2)
+
+        await db.flush()
+
+        result = await db.execute(
+            select(StaffAllocation).where(StaffAllocation.staff_plan_id == plan_id)
+        )
+        all_allocations = result.scalars().all()
+
+        costs = calculate_staff_plan_costs(
+            all_allocations,
+            plan.duration_months,
+            plan.overhead_rate,
+            plan.profit_margin,
+            plan.annual_escalation_rate,
+        )
+
+        plan.total_labor_cost = costs["total_labor_cost"]
+        plan.total_overhead = costs["total_overhead"]
+        plan.total_cost = costs["total_cost"]
+        plan.total_profit = costs["total_profit"]
+        plan.total_price = costs["total_price"]
+        plan.yearly_breakdown = costs["yearly_breakdown"]
+
+        await db.flush()
+        await db.commit()
+        await db.refresh(allocation)
+
+        logger.info(
+            "✅ Staff allocation updated: %s for plan %s", allocation_id, plan_id
+        )
+        return allocation.to_dict()
+    except Exception as exc:
+        await db.rollback()
+        logger.error("❌ Failed to update staff allocation: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update staff allocation: {exc}",
+        )
 
 
 @router.delete("/{plan_id}/allocations/{allocation_id}", status_code=status.HTTP_204_NO_CONTENT)

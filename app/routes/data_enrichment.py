@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends
 from app.schemas.data_enrichment import AccountEnhancementRequest, AccountEnhancementResponse
 from app.services.data_enrichment import data_enrichment_service
@@ -224,12 +226,23 @@ async def refresh_opportunity_data(
         
         # Add documents
         for doc_url in extracted_data.get("documents", [])[:10]:  # Limit to 10 docs
+            file_name = doc_url.split("/")[-1] or "external-document"
             doc = OpportunityDocument(
                 opportunity_id=opportunity_uuid,
-                document_name=doc_url.split("/")[-1],
-                document_url=doc_url,
-                document_type="external",
-                uploaded_by=current_user.id
+                file_name=file_name,
+                original_name=file_name,
+                file_type="external",
+                file_size=0,
+                category="External Source",
+                purpose="Reference",
+                description=f"Imported from enrichment data for {extracted_data.get('opportunity_name', 'unknown opportunity')}",
+                tags=None,
+                status="external",
+                is_available_for_proposal=False,
+                file_url=doc_url,
+                file_path=None,
+                upload_date=datetime.utcnow(),
+                uploaded_at=datetime.utcnow(),
             )
             db.add(doc)
         

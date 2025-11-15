@@ -51,11 +51,13 @@ async def scrape_urls(payload: ScrapeRequest) -> ScrapeResponse:
                     }
                 )
 
+                opportunities = result.get("opportunities") or []
                 results.append(
                     ScrapeResult.model_validate(
                         {
                             "url": result["url"],
                             "info": scraped_info,
+                            "opportunities": opportunities,
                         }
                     )
                 )
@@ -76,7 +78,7 @@ async def scrape_urls(payload: ScrapeRequest) -> ScrapeResponse:
         )
 
     except Exception as err:
-        logger.error(f"Error during scraping process: {str(e)}")
+        logger.error(f"Error during scraping process: {str(err)}")
         raise MegapolisHTTPException(
             status_code=500, message="Failed to process scraping request"
         )

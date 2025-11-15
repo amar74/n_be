@@ -25,7 +25,7 @@ from app.services.auth_service import AuthService
 from app.services.email import send_employee_activation_email
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
-from app.db.session import get_request_transaction
+from app.db.session import get_request_transaction, get_session, get_transaction
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
@@ -288,18 +288,24 @@ async def activate_employee(
         
         logger.info(f"Activating employee: username={username}, email={user_email}, name={employee.name}")
         
-        # Check if user account already exists with this username (should never happen)
-        from sqlalchemy import select
+        # Check if user account already exists with this username in the SAME organization
+        # Note: Email can be shared across organizations since we use username for login
+        from sqlalchemy import select, and_
         async with get_session() as db_check:
             existing_user_result = await db_check.execute(
-                select(User).where(User.username == username)
+                select(User).where(
+                    and_(
+                        User.username == username,
+                        User.org_id == current_user.org_id
+                    )
+                )
             )
             existing_user = existing_user_result.scalar_one_or_none()
         
         if existing_user:
-            # Username already exists (should be rare - employee_number is unique)
-            # Re-link to this employee and update password
-            logger.info(f"User account already exists for username {username}, re-linking to employee {employee_id}")
+            # User exists in the SAME organization with the same username
+            # Re-link and update password
+            logger.info(f"User account already exists for username={username}, re-linking to employee {employee_id}")
             user = existing_user
             
             # Update user's password
@@ -311,14 +317,14 @@ async def activate_employee(
                     logger.warning(f"Failed to update password: {pw_error}")
         else:
             # Create new user account with employee_number as username
-            # NO EMAIL CONFLICTS - username is unique employee_number!
+            # Email can be shared across organizations - username is unique per org
             user = await AuthService.create_user(
                 email=user_email,
                 password=activation_data.temporary_password,
                 role=activation_data.user_role,
                 name=employee.name,
                 org_id=current_user.org_id,
-                username=username  # employee_number (EMP-12345)
+                username=username  # employee_number (SFTAM001, SFTRB002, etc.)
             )
             logger.info(f"✅ Created user account: username={username}, email={user_email}, user_id={user.id}")
         
@@ -359,12 +365,13 @@ async def activate_employee(
             except Exception as email_error:
                 logger.error(f"Error sending welcome email: {email_error}")
         
-        # Build activation message with username (employee code)
-        activation_message = f"Employee activated successfully! Login credentials: Username = {username}, Password = {activation_data.temporary_password}"
+        # Build activation message with username (employee code) and user ID
+        activation_message = f"Employee activated successfully! User ID: {user.id} | Login credentials: Username = {username}, Password = {activation_data.temporary_password}"
         
         return EmployeeActivationResponse(
             user_id=user.id,
             employee_id=employee_id,
+            username=username,  # Employee ID for login (SFTAM001)
             email=user_email,  # Email for communication
             role=activation_data.user_role,
             message=activation_message,

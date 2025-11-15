@@ -22,18 +22,25 @@ class OpportunityDocument(Base):
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("opportunities.id"), nullable=False, index=True
     )
-    
-    # Document metadata - matching database schema
-    document_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    document_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    document_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    file_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    uploaded_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    
-    # Timestamps - matching database schema
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now(), nullable=False)
-    
+
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    file_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    category: Mapped[str] = mapped_column(String(100), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    status: Mapped[Optional[str]] = mapped_column(String(50), server_default="uploaded", nullable=True)
+    is_available_for_proposal: Mapped[Optional[bool]] = mapped_column(Boolean, server_default="true", nullable=True)
+
+    upload_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    uploaded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=True)
+
     # Relationships
-    opportunity: Mapped["Opportunity"] = relationship("Opportunity", back_populates="documents")
-    uploader: Mapped[Optional["User"]] = relationship("User", foreign_keys=[uploaded_by])
+    opportunity: Mapped["Opportunity"] = relationship("Opportunity", viewonly=True)

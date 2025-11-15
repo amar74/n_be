@@ -12,6 +12,7 @@ class EmployeeActivationRequest(BaseModel):
 class EmployeeActivationResponse(BaseModel):
     user_id: UUID
     employee_id: UUID
+    username: str  # Employee ID for login (e.g., SFTAM001)
     email: EmailStr
     role: str
     message: str

@@ -1,9 +1,11 @@
+import json
+from datetime import datetime
+from urllib.parse import urljoin
 import httpx
 from bs4 import BeautifulSoup
 import google.generativeai as genai
-from google.generativeai import types
 from app.environment import environment
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Union, Any, Optional
 
 async def scrape_text_with_bs4(url: str) -> Dict[str, Union[str, Dict[str, str]]]:
     try:
@@ -22,7 +24,7 @@ async def scrape_text_with_bs4(url: str) -> Dict[str, Union[str, Dict[str, str]]
             text = soup.get_text(separator="\n")
             visible_text = "\n".join(line.strip() for line in text.splitlines() if line.strip())
 
-            return {"url": url, "text": visible_text}
+            return {"url": url, "text": visible_text, "html": response.text}
 
     except httpx.TimeoutException as e:
         return {"url": url, "error": f"Website timeout after 30 seconds: {type(e).__name__}"}
@@ -69,7 +71,183 @@ extract_contact_info_function = {
 }
 
 genai.configure(api_key=environment.GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel("gemini-pro")
+
+PROJECT_DETAILS_PROMPT = """You are an infrastructure opportunity analyst. Review the provided project page content and return ONLY valid JSON matching this schema:
+{{
+  "overview": string | null,
+  "project_value_text": string | null,
+  "project_value_numeric": number | null,
+  "expected_rfp_date": string | null,
+  "start_date": string | null,
+  "completion_date": string | null,
+  "scope_summary": string | null,
+  "scope_items": [string, ...],
+  "location": {{
+    "line1": string | null,
+    "line2": string | null,
+    "city": string | null,
+    "state": string | null,
+    "country_code": string | null,
+    "pincode": string | null
+  }},
+  "contacts": [
+    {{
+      "name": string | null,
+      "role": string | null,
+      "organization": string | null,
+      "email": [string, ...],
+      "phone": [string, ...]
+    }}
+  ],
+  "documents": [
+    {{
+      "title": string | null,
+      "url": string | null,
+      "type": string | null
+    }}
+  ]
+}}
+
+Rules:
+- Use null for unknown fields.
+- Ensure email/phone arrays contain only clean strings.
+- Never include markdown or commentary, return JSON only.
+
+Content:
+\"\"\"{content}\"\"\""""
+
+
+def _truncate_text(text: str, limit: int = 12000) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit]
+
+
+def _safe_json_loads(raw: str) -> Dict[str, Any]:
+    if not raw:
+        return {}
+    candidate = raw.strip()
+    if candidate.startswith("```"):
+        candidate = candidate.strip("`")
+        if "\n" in candidate:
+            candidate = candidate.split("\n", 1)[1]
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        return {}
+
+
+def _normalize_string_list(value: Any) -> List[str]:
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        cleaned = value.strip()
+        return [cleaned] if cleaned else []
+    return []
+
+
+def extract_documents_from_html(html: str, base_url: str) -> List[Dict[str, Any]]:
+    if not html:
+        return []
+    soup = BeautifulSoup(html, "html.parser")
+    documents: List[Dict[str, Any]] = []
+    seen_urls: set[str] = set()
+    for link in soup.find_all("a"):
+        href = link.get("href")
+        if not href:
+            continue
+        text = link.get_text(" ", strip=True)
+        normalized = href.lower()
+        if not text and not any(ext in normalized for ext in [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"]):
+            continue
+        is_document = any(
+            ext in normalized for ext in [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"]
+        ) or "download" in normalized or "document" in (text or "").lower()
+        if not is_document:
+            continue
+        absolute_url = urljoin(base_url, href)
+        if absolute_url in seen_urls:
+            continue
+        seen_urls.add(absolute_url)
+        documents.append(
+            {
+                "title": text or None,
+                "url": absolute_url,
+                "type": normalized.split(".")[-1] if "." in normalized else None,
+            }
+        )
+    return documents
+
+
+async def enrich_opportunity_details(
+    detail_url: str,
+    prefetched_page: Optional[Dict[str, Union[str, Dict[str, str]]]] = None,
+) -> Dict[str, Any]:
+    detail_page = prefetched_page or await scrape_text_with_bs4(detail_url)
+    if "text" not in detail_page:
+        return {"detail_error": detail_page.get("error")}
+
+    text = detail_page["text"]
+    html = detail_page.get("html") or ""
+    documents = extract_documents_from_html(html, detail_url)
+
+    prompt = PROJECT_DETAILS_PROMPT.format(content=_truncate_text(text))
+    structured: Dict[str, Any] = {}
+    try:
+        response = model.generate_content(prompt)
+        raw = response.text if response else ""
+        structured = _safe_json_loads(raw)
+    except Exception:
+        structured = {}
+
+    if not structured.get("contacts"):
+        fallback_contact = extract_info(text)
+        if isinstance(fallback_contact, dict):
+            structured["contacts"] = [
+                {
+                    "name": fallback_contact.get("name"),
+                    "role": None,
+                    "organization": None,
+                    "email": _normalize_string_list(fallback_contact.get("email")),
+                    "phone": _normalize_string_list(fallback_contact.get("phone")),
+                }
+            ]
+
+    location = structured.get("location") or structured.get("location_details")
+    if isinstance(location, dict):
+        structured["location_details"] = {
+            "line1": location.get("line1") or location.get("address"),
+            "line2": location.get("line2"),
+            "city": location.get("city"),
+            "state": location.get("state"),
+            "country_code": location.get("country_code") or location.get("country"),
+            "pincode": location.get("pincode") or location.get("zip"),
+        }
+
+    scope_items = structured.get("scope_items") or structured.get("scopeItems") or []
+    structured["scope_items"] = _normalize_string_list(scope_items)
+    structured["documents"] = structured.get("documents") or documents
+    structured["overview"] = structured.get("overview") or structured.get("summary")
+    structured["project_value_text"] = structured.get("project_value_text") or structured.get("project_value")
+
+    numeric_value = structured.get("project_value_numeric")
+    if isinstance(numeric_value, str):
+        try:
+            structured["project_value_numeric"] = float(
+                numeric_value.replace(",", "").replace("$", "").strip()
+            )
+        except ValueError:
+            structured["project_value_numeric"] = None
+
+    structured["metadata"] = {
+        "detail_source": detail_url,
+        "refreshed_at": datetime.utcnow().isoformat(),
+    }
+
+    return structured
 
 def extract_info(text: str) -> Dict[str, Any]:
     try:
@@ -102,6 +280,124 @@ def extract_info(text: str) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Gemini call failed: {str(e)}"}
 
+def extract_opportunities(text: str, html: str, base_url: str, max_items: int = 20) -> List[Dict[str, Any]]:
+    from bs4 import BeautifulSoup
+
+    parsed_opportunities: List[Dict[str, Any]] = []
+
+    if html:
+        soup = BeautifulSoup(html, "html.parser")
+
+        project_items = soup.select(".page-projects-list__item")
+        seen_titles: set[str] = set()
+
+        for item in project_items:
+            title_element = item.select_one(".page-projects-list__item-title a")
+            if not title_element:
+                continue
+
+            title = title_element.get_text(strip=True)
+            if not title or title in seen_titles:
+                continue
+            seen_titles.add(title)
+
+            detail_href = title_element.get("href") or ""
+            detail_url = urljoin(base_url, detail_href.strip())
+
+            summary_element = item.select_one(".page-projects-list__item-summary")
+            summary = summary_element.get_text(" ", strip=True) if summary_element else None
+
+            status_element = item.select_one(".page-projects-list__item-status-status")
+            status = status_element.get_text(strip=True) if status_element else None
+
+            if summary and status and summary.endswith(status):
+                summary = summary[: -len(status)].rstrip(" -:;,.")
+
+            parsed_opportunities.append(
+                {
+                    "title": title,
+                    "status": status,
+                    "description": summary,
+                    "detail_url": detail_url,
+                    "client": None,
+                    "location": None,
+                    "budget_text": None,
+                    "deadline": None,
+                    "tags": [],
+                }
+            )
+
+            if len(parsed_opportunities) >= max_items:
+                break
+
+    if parsed_opportunities:
+        return parsed_opportunities
+
+    prompt = f"""You are an analyst extracting infrastructure or procurement opportunities from structured or semi-structured website content.
+Return ONLY JSON that conforms strictly to the following schema:
+{{
+  "opportunities": [
+    {{
+      "title": string | null,
+      "status": string | null,
+      "description": string | null,
+      "client": string | null,
+      "location": string | null,
+      "budget_text": string | null,
+      "deadline": string | null,
+      "detail_url": string | null,
+      "tags": [string, ...]
+    }}
+  ]
+}}
+
+Guidelines:
+- Include up to {max_items} distinct project or tender records described in the content.
+- Use null when a field is missing.
+- If a relative link to a detailed page exists, convert it into an absolute URL using the base \"{base_url}\".
+- Focus on sections that clearly resemble projects, tenders, or program listings.
+- Ignore navigation, unrelated content, or repeated headers.
+
+Content to analyse:
+\"\"\"{text[:15000]}\"\"\""""
+
+    try:
+        response = model.generate_content(prompt)
+        raw = response.text if response else ""
+        data = json.loads(raw)
+        opportunities = data.get("opportunities", [])
+        normalized: List[Dict[str, Any]] = []
+        for item in opportunities:
+            if not isinstance(item, dict):
+                continue
+            detail_url = item.get("detail_url") or item.get("url")
+            if detail_url:
+                detail_url = urljoin(base_url, detail_url.strip())
+            tags = item.get("tags") or []
+            if isinstance(tags, str):
+                tags = [tags]
+            if not isinstance(tags, list):
+                tags = []
+            normalized.append(
+                {
+                    "title": (item.get("title") or item.get("name") or "").strip() or None,
+                    "status": (item.get("status") or item.get("phase") or "").strip() or None,
+                    "description": (item.get("description") or item.get("summary") or "").strip() or None,
+                    "client": (item.get("client") or item.get("owner") or "").strip() or None,
+                    "location": (item.get("location") or item.get("region") or "").strip() or None,
+                    "budget_text": (item.get("budget_text") or item.get("budget") or item.get("value") or "").strip() or None,
+                    "deadline": (item.get("deadline") or item.get("due_date") or item.get("timeline") or "").strip() or None,
+                    "detail_url": detail_url,
+                    "tags": [str(tag).strip() for tag in tags if str(tag).strip()],
+                }
+            )
+        return normalized[:max_items]
+    except (json.JSONDecodeError, AttributeError):
+        return []
+    except Exception:
+        return []
+
+
 async def process_urls(urls: List[str]) -> List[Dict[str, Any]]:
     results = []
 
@@ -110,7 +406,27 @@ async def process_urls(urls: List[str]) -> List[Dict[str, Any]]:
 
         if "text" in page:
             info = extract_info(page["text"])
-            results.append({"url": url, "info": info})
+            base_opportunities = extract_opportunities(
+                page["text"],
+                page.get("html") or "",
+                url,
+            )
+            enriched_opportunities: List[Dict[str, Any]] = []
+            for opportunity in base_opportunities:
+                detail_url = opportunity.get("detail_url")
+                detail_payload: Dict[str, Any] = {}
+                if detail_url:
+                    detail_payload = await enrich_opportunity_details(detail_url)
+                elif len(base_opportunities) == 1:
+                    detail_payload = await enrich_opportunity_details(url, prefetched_page=page)
+
+                merged = {**opportunity}
+                merged.update(
+                    {k: v for k, v in detail_payload.items() if v is not None}
+                )
+                enriched_opportunities.append(merged)
+
+            results.append({"url": url, "info": info, "opportunities": enriched_opportunities})
         else:
             results.append({"url": url, "error": page.get("error", "Unknown error")})
 

@@ -111,6 +111,37 @@ async def create_opportunity_driver(
     service = OpportunityTabsService(db)
     return await service.create_driver(opportunity_id, driver_data)
 
+@router.put("/{opportunity_id}/drivers/{driver_id}", response_model=DriverResponse)
+async def update_opportunity_driver(
+    opportunity_id: UUID,
+    driver_id: UUID,
+    update_data: DriverUpdate,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["update"]}))
+):
+    service = OpportunityTabsService(db)
+    try:
+        return await service.update_driver(driver_id, update_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+@router.delete("/{opportunity_id}/drivers/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_opportunity_driver(
+    opportunity_id: UUID,
+    driver_id: UUID,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["delete"]}))
+):
+    service = OpportunityTabsService(db)
+    success = await service.delete_driver(driver_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver not found"
+        )
+
 # Competition Tab Routes
 @router.get("/{opportunity_id}/competitors", response_model=List[CompetitorResponse])
 async def get_opportunity_competitors(
@@ -132,6 +163,37 @@ async def create_opportunity_competitor(
 ):
     service = OpportunityTabsService(db)
     return await service.create_competitor(opportunity_id, competitor_data)
+
+@router.put("/{opportunity_id}/competitors/{competitor_id}", response_model=CompetitorResponse)
+async def update_opportunity_competitor(
+    opportunity_id: UUID,
+    competitor_id: UUID,
+    update_data: CompetitorUpdate,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["update"]}))
+):
+    service = OpportunityTabsService(db)
+    try:
+        return await service.update_competitor(competitor_id, update_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+@router.delete("/{opportunity_id}/competitors/{competitor_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_opportunity_competitor(
+    opportunity_id: UUID,
+    competitor_id: UUID,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["delete"]}))
+):
+    service = OpportunityTabsService(db)
+    success = await service.delete_competitor(competitor_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Competitor not found"
+        )
 
 # Strategy Routes
 @router.get("/{opportunity_id}/strategies", response_model=List[StrategyResponse])
@@ -155,6 +217,37 @@ async def create_opportunity_strategy(
     service = OpportunityTabsService(db)
     return await service.create_strategy(opportunity_id, strategy_data)
 
+@router.put("/{opportunity_id}/strategies/{strategy_id}", response_model=StrategyResponse)
+async def update_opportunity_strategy(
+    opportunity_id: UUID,
+    strategy_id: UUID,
+    update_data: StrategyUpdate,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["update"]}))
+):
+    service = OpportunityTabsService(db)
+    try:
+        return await service.update_strategy(strategy_id, update_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+@router.delete("/{opportunity_id}/strategies/{strategy_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_opportunity_strategy(
+    opportunity_id: UUID,
+    strategy_id: UUID,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["delete"]}))
+):
+    service = OpportunityTabsService(db)
+    success = await service.delete_strategy(strategy_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Strategy not found"
+        )
+
 # Delivery Model Tab Routes
 @router.get("/{opportunity_id}/delivery-model", response_model=DeliveryModelResponse)
 async def get_opportunity_delivery_model(
@@ -167,9 +260,12 @@ async def get_opportunity_delivery_model(
     delivery_model = await service.get_delivery_model(opportunity_id)
     
     if not delivery_model:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Delivery model not found"
+        return DeliveryModelResponse(
+            approach="",
+            key_phases=[],
+            identified_gaps=[],
+            models=[],
+            active_model_id=None,
         )
     
     return delivery_model
@@ -207,6 +303,37 @@ async def create_opportunity_team_member(
     service = OpportunityTabsService(db)
     return await service.create_team_member(opportunity_id, member_data)
 
+@router.put("/{opportunity_id}/team/{member_id}", response_model=TeamMemberResponse)
+async def update_opportunity_team_member(
+    opportunity_id: UUID,
+    member_id: UUID,
+    update_data: TeamMemberUpdate,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["update"]}))
+):
+    service = OpportunityTabsService(db)
+    try:
+        return await service.update_team_member(member_id, update_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+@router.delete("/{opportunity_id}/team/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_opportunity_team_member(
+    opportunity_id: UUID,
+    member_id: UUID,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["delete"]}))
+):
+    service = OpportunityTabsService(db)
+    success = await service.delete_team_member(member_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team member not found"
+        )
+
 @router.get("/{opportunity_id}/references", response_model=List[ReferenceResponse])
 async def get_opportunity_references(
     opportunity_id: UUID,
@@ -227,6 +354,37 @@ async def create_opportunity_reference(
 ):
     service = OpportunityTabsService(db)
     return await service.create_reference(opportunity_id, reference_data)
+
+@router.put("/{opportunity_id}/references/{reference_id}", response_model=ReferenceResponse)
+async def update_opportunity_reference(
+    opportunity_id: UUID,
+    reference_id: UUID,
+    update_data: ReferenceUpdate,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["update"]}))
+):
+    service = OpportunityTabsService(db)
+    try:
+        return await service.update_reference(reference_id, update_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+@router.delete("/{opportunity_id}/references/{reference_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_opportunity_reference(
+    opportunity_id: UUID,
+    reference_id: UUID,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["delete"]}))
+):
+    service = OpportunityTabsService(db)
+    success = await service.delete_reference(reference_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reference not found"
+        )
 
 # Financial Summary Tab Routes
 @router.get("/{opportunity_id}/financial", response_model=FinancialSummaryResponse)
@@ -280,6 +438,37 @@ async def create_opportunity_risk(
     service = OpportunityTabsService(db)
     return await service.create_risk(opportunity_id, risk_data)
 
+@router.put("/{opportunity_id}/risks/{risk_id}", response_model=RiskResponse)
+async def update_opportunity_risk(
+    opportunity_id: UUID,
+    risk_id: UUID,
+    update_data: RiskUpdate,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["update"]}))
+):
+    service = OpportunityTabsService(db)
+    try:
+        return await service.update_risk(risk_id, update_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+@router.delete("/{opportunity_id}/risks/{risk_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_opportunity_risk(
+    opportunity_id: UUID,
+    risk_id: UUID,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["delete"]}))
+):
+    service = OpportunityTabsService(db)
+    success = await service.delete_risk(risk_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Risk not found"
+        )
+
 @router.get("/{opportunity_id}/legal-checklist", response_model=List[LegalChecklistItemResponse])
 async def get_opportunity_legal_checklist(
     opportunity_id: UUID,
@@ -301,6 +490,37 @@ async def create_opportunity_legal_checklist_item(
     service = OpportunityTabsService(db)
     return await service.create_legal_checklist_item(opportunity_id, item_data)
 
+@router.put("/{opportunity_id}/legal-checklist/{item_id}", response_model=LegalChecklistItemResponse)
+async def update_opportunity_legal_checklist_item(
+    opportunity_id: UUID,
+    item_id: UUID,
+    update_data: LegalChecklistItemUpdate,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["update"]}))
+):
+    service = OpportunityTabsService(db)
+    try:
+        return await service.update_legal_checklist_item(item_id, update_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+@router.delete("/{opportunity_id}/legal-checklist/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_opportunity_legal_checklist_item(
+    opportunity_id: UUID,
+    item_id: UUID,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["delete"]}))
+):
+    service = OpportunityTabsService(db)
+    success = await service.delete_legal_checklist_item(item_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Legal checklist item not found"
+        )
+
 # Combined Tab Data Route
 @router.get("/{opportunity_id}/all-tabs", response_model=OpportunityTabDataResponse)
 async def get_all_opportunity_tab_data(
@@ -310,30 +530,4 @@ async def get_all_opportunity_tab_data(
     user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["read"]}))
 ):
     service = OpportunityTabsService(db)
-    
-    # Fetch all tab data concurrently
-    overview = await service.get_overview(opportunity_id)
-    stakeholders = await service.get_stakeholders(opportunity_id)
-    drivers = await service.get_drivers(opportunity_id)
-    competitors = await service.get_competitors(opportunity_id)
-    strategies = await service.get_strategies(opportunity_id)
-    delivery_model = await service.get_delivery_model(opportunity_id)
-    team_members = await service.get_team_members(opportunity_id)
-    references = await service.get_references(opportunity_id)
-    financial = await service.get_financial_summary(opportunity_id)
-    risks = await service.get_risks(opportunity_id)
-    legal_checklist = await service.get_legal_checklist(opportunity_id)
-    
-    return OpportunityTabDataResponse(
-        overview=overview,
-        stakeholders=stakeholders,
-        drivers=drivers,
-        competitors=competitors,
-        strategies=strategies,
-        delivery_model=delivery_model,
-        team_members=team_members,
-        references=references,
-        financial=financial,
-        risks=risks,
-        legal_checklist=legal_checklist
-    )
+    return await service.get_all_tab_data(opportunity_id)

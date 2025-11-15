@@ -1,4 +1,7 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, status, Path, Query, UploadFile, File, Form
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from typing import List
@@ -31,19 +34,28 @@ async def upload_opportunity_document(
         file_content = await file.read()
         
         # Create document data
+        safe_name = file.filename or "document"
         document_data = OpportunityDocumentCreate(
-            file_name=file.filename or "unknown",
-            original_name=file.filename or "unknown",
+            file_name=safe_name,
+            original_name=safe_name,
             file_type=file.content_type or "application/octet-stream",
             file_size=len(file_content),
             category=category,
             purpose=purpose,
-            description=f"Uploaded file: {file.filename}",
-            tags=None
+            description=f"Uploaded file: {safe_name}",
+            tags=None,
+            status="uploaded",
+            is_available_for_proposal=True,
         )
         
         service = OpportunityDocumentService(db)
-        return await service.create_document(opportunity_id, document_data, current_user)
+        return await service.create_document(
+            opportunity_id,
+            document_data,
+            current_user,
+            file_content=file_content,
+            content_type=file.content_type or "application/octet-stream",
+        )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
@@ -136,3 +148,41 @@ async def delete_opportunity_document(
     except Exception as e:
         logger.error(f"Error deleting document {document_id} for opportunity {opportunity_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete document")
+
+
+@router.get("/{opportunity_id}/documents/{document_id}/download")
+async def download_opportunity_document(
+    opportunity_id: UUID,
+    document_id: UUID,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["read"]}))
+):
+    try:
+        service = OpportunityDocumentService(db)
+        document = await service.get_document(opportunity_id, document_id, current_user)
+
+        if document.file_url:
+            return RedirectResponse(url=document.file_url)
+
+        if not document.file_path or not os.path.exists(document.file_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Stored file not found on server"
+            )
+
+        filename = document.original_name or document.file_name or "document"
+        media_type = document.file_type or "application/octet-stream"
+
+        return FileResponse(
+            path=document.file_path,
+            media_type=media_type,
+            filename=filename
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading document {document_id} for opportunity {opportunity_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to download document")

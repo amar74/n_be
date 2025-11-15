@@ -1,15 +1,13 @@
-from sqlalchemy import String, select, Boolean, Column, ForeignKey, DECIMAL, Enum as SQLEnum, Text, ARRAY, TIMESTAMP, Integer
+from sqlalchemy import String, select, Boolean, Column, ForeignKey, DECIMAL, Enum as SQLEnum, Text, ARRAY, TIMESTAMP, Integer, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
-import random
-import string
 import enum
 from datetime import datetime
 from app.db.base import Base
-from app.db.session import get_session, get_transaction
+from app.db.session import get_transaction
 
 if TYPE_CHECKING:
     from app.models.organization import Organization
@@ -38,41 +36,96 @@ class EmployeeRole(str, enum.Enum):
     MARKETING_MANAGER = "Marketing Manager"
     HR_MANAGER = "HR Manager"
 
-def generate_employee_number(org_name: str = None, employee_name: str = None) -> str:
-    """
-    Generate employee number in format: {ORG_ABBR}{NAME_INITIALS}{SERIAL}
-    
-    Examples:
-    - Softication + Amar Rana + 001 = SFTAM001
-    - Softication + Robert Brown + 002 = SFTRB002
-    - Tech Corp + John Smith + 015 = TECJS015
-    
-    Fallback to EMP-{random} if org_name or employee_name not provided
-    """
-    if not org_name or not employee_name:
-        return f"EMP-{str(random.randint(1, 9999)).zfill(3)}"
-    
-    # Get organization abbreviation (first 3 letters, uppercase, remove spaces)
-    org_abbr = ''.join(c for c in org_name if c.isalpha())[:3].upper()
-    if len(org_abbr) < 3:
-        org_abbr = org_abbr.ljust(3, 'X')  # Pad with X if org name too short
-    
-    # Get employee name initials (first letter of first and last name)
-    name_parts = employee_name.strip().split()
-    if len(name_parts) >= 2:
-        initials = (name_parts[0][0] + name_parts[-1][0]).upper()
-    elif len(name_parts) == 1:
-        initials = name_parts[0][:2].upper()
-    else:
-        initials = 'XX'
-    
-    # Generate serial number (001-999)
-    serial = str(random.randint(1, 999)).zfill(3)
-    
-    return f"{org_abbr}{initials}{serial}"
-
 class Employee(Base):
     __tablename__ = "employees"
+
+    VOWELS = {"A", "E", "I", "O", "U"}
+
+    @staticmethod
+    def _build_org_abbreviation(org_name: Optional[str]) -> str:
+        if not org_name:
+            return "ORG"
+
+        letters = [c.upper() for c in org_name if c.isalpha()]
+        if not letters:
+            return "ORG"
+
+        abbreviation: List[str] = []
+
+        # Always include the first letter
+        first_letter = letters[0]
+        abbreviation.append(first_letter)
+
+        # Prefer consonants for remaining slots
+        for char in letters[1:]:
+            if len(abbreviation) == 3:
+                break
+            if char not in Employee.VOWELS:
+                abbreviation.append(char)
+
+        # If still short, allow vowels
+        if len(abbreviation) < 3:
+            for char in letters[1:]:
+                if len(abbreviation) == 3:
+                    break
+                if char in Employee.VOWELS and char not in abbreviation:
+                    abbreviation.append(char)
+
+        while len(abbreviation) < 3:
+            abbreviation.append("X")
+
+        return "".join(abbreviation[:3])
+
+    @staticmethod
+    def _build_employee_initials(employee_name: Optional[str]) -> str:
+        if not employee_name:
+            return "XX"
+
+        name_parts = [part for part in employee_name.strip().split() if part]
+        if len(name_parts) >= 2:
+            initials = (name_parts[0][0] + name_parts[-1][0]).upper()
+        elif len(name_parts) == 1:
+            initials = name_parts[0][:2].upper()
+        else:
+            initials = "XX"
+
+        initials = "".join(filter(str.isalpha, initials))
+        if len(initials) == 0:
+            return "XX"
+        if len(initials) == 1:
+            return f"{initials}X"
+        return initials[:2]
+
+    @classmethod
+    def _build_employee_prefix(cls, org_name: Optional[str], employee_name: Optional[str]) -> str:
+        org_abbr = cls._build_org_abbreviation(org_name)
+        initials = cls._build_employee_initials(employee_name)
+        return f"{org_abbr}{initials}"
+
+    @classmethod
+    async def _next_employee_number(
+        cls,
+        db: AsyncSession,
+        org_name: Optional[str],
+        employee_name: Optional[str],
+        offset: int = 0,
+    ) -> str:
+        prefix = cls._build_employee_prefix(org_name, employee_name)
+
+        result = await db.execute(
+            select(func.max(cls.employee_number)).where(cls.employee_number.like(f"{prefix}%"))
+        )
+        last_number = result.scalar_one_or_none()
+        last_serial = 0
+
+        if last_number and last_number.startswith(prefix):
+            serial_part = last_number[len(prefix):]
+            if serial_part.isdigit():
+                last_serial = int(serial_part)
+
+        next_serial = last_serial + 1 + offset
+        serial_str = str(next_serial).zfill(3)
+        return f"{prefix}{serial_str}"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -220,18 +273,19 @@ class Employee(Base):
             
             # Generate employee number with org name and employee name
             # Format: {ORG_ABBR}{NAME_INITIALS}{SERIAL} (e.g., SFTAM001)
-            employee_number = generate_employee_number(org_name, name)
-            
-            # Ensure uniqueness (check if already exists, regenerate if needed)
             max_attempts = 10
-            for _ in range(max_attempts):
+            employee_number = None
+            for offset in range(max_attempts):
+                candidate = await cls._next_employee_number(db, org_name, name, offset=offset)
                 existing = await db.execute(
-                    select(cls).where(cls.employee_number == employee_number)
+                    select(cls).where(cls.employee_number == candidate)
                 )
                 if not existing.scalar_one_or_none():
+                    employee_number = candidate
                     break
-                # Regenerate if collision
-                employee_number = generate_employee_number(org_name, name)
+
+            if not employee_number:
+                raise RuntimeError("Unable to generate unique employee number")
             
             employee = cls(
                 name=name,

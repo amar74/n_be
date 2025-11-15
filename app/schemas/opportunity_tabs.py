@@ -15,6 +15,7 @@ class OpportunityOverviewUpdate(BaseModel):
     project_description: Optional[str] = None
     project_scope: Optional[List[str]] = None
     key_metrics: Optional[Dict[str, Any]] = None
+    documents_summary: Optional[Dict[str, Any]] = None
 
 # Stakeholders | opportunity 
 class StakeholderCreate(BaseModel):
@@ -22,7 +23,13 @@ class StakeholderCreate(BaseModel):
     designation: str = Field(..., min_length=1, max_length=255)
     email: Optional[str] = Field(None, max_length=255)
     contact_number: Optional[str] = Field(None, max_length=50)
-    influence_level: str = Field(..., pattern="^(High|Medium|Low)$")
+    influence_level: str = Field(
+        ...,
+        pattern=(
+            r"^(High|Medium|Low|Executive Sponsor|Economic Buyer|Technical Evaluator|"
+            r"Project Champion|Finance Approver|Operational Lead)$"
+        ),
+    )
 
     @validator('email')
     def validate_email(cls, v):
@@ -35,7 +42,13 @@ class StakeholderUpdate(BaseModel):
     designation: Optional[str] = Field(None, min_length=1, max_length=255)
     email: Optional[str] = Field(None, max_length=255)
     contact_number: Optional[str] = Field(None, max_length=50)
-    influence_level: Optional[str] = Field(None, pattern="^(High|Medium|Low)$")
+    influence_level: Optional[str] = Field(
+        None,
+        pattern=(
+            r"^(High|Medium|Low|Executive Sponsor|Economic Buyer|Technical Evaluator|"
+            r"Project Champion|Finance Approver|Operational Lead)$"
+        ),
+    )
 
     @validator('email')
     def validate_email(cls, v):
@@ -120,11 +133,14 @@ class DeliveryModelResponse(BaseModel):
     approach: str
     key_phases: List[Dict[str, Any]]
     identified_gaps: List[str]
+    models: List[Dict[str, Any]] = Field(default_factory=list)
+    active_model_id: Optional[str] = None
 
 class DeliveryModelUpdate(BaseModel):
     approach: Optional[str] = None
     key_phases: Optional[List[Dict[str, Any]]] = None
     identified_gaps: Optional[List[str]] = None
+    models: Optional[List[Dict[str, Any]]] = None
 
 # Team & References | opportunity 
 class TeamMemberCreate(BaseModel):
