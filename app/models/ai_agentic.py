@@ -1,6 +1,6 @@
 from typing import Optional, List
-from sqlalchemy import Integer, String, Text, Boolean, ForeignKey, ARRAY, DateTime
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Integer, String, Text, Boolean, ForeignKey, DateTime
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 import uuid
