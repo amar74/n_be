@@ -934,7 +934,14 @@ Your goal is to:
   - Project Scope or Description
   - Budget, Value, or Funding Amount
   - Start Date, End Date (if available)
-  - Key Documents or Reports (links to PDFs or attachments)
+  - **Key Documents or Reports**: Extract ALL document links including:
+    - PDFs, Word docs, Excel files, PowerPoint presentations
+    - Links in "Documents", "Resources", "Downloads", "Attachments" sections
+    - RFP documents, tender documents, specifications, drawings
+    - Reports, studies, environmental assessments
+    - Maps, plans, schematics
+    - Any file with extensions: .pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .dwg, .dgn
+    - Include both absolute URLs and relative URLs (convert to absolute)
   - Related Stakeholders, Contractors, or Departments
 
 Example:
@@ -990,12 +997,20 @@ Based on project or content wording:
 ---
 
 #### 🧾 6. PROJECT DESCRIPTION
-Write a detailed, professional, and concise description covering:
-- Objective or goal of the project
-- Scope of work
-- Technologies or methodologies (if mentioned)
-- Key deliverables or milestones
-- Target beneficiaries or industries
+Write a **comprehensive, detailed, and professional** description covering:
+- **Project Overview**: Clear summary of what the project is about
+- **Objective or Goal**: Primary purpose and expected outcomes
+- **Scope of Work**: Detailed breakdown of work items, phases, or components
+- **Technologies or Methodologies**: Any mentioned tech stack, tools, or approaches
+- **Key Deliverables**: Specific outputs, milestones, or results expected
+- **Timeline**: Project duration, phases, or key dates if mentioned
+- **Stakeholders**: Key organizations, departments, or parties involved
+- **Target Beneficiaries**: Who will benefit from this project
+- **Industry Context**: How this fits into the broader industry landscape
+- **Requirements**: Any specific requirements, qualifications, or criteria mentioned
+- **Budget Context**: How funding or budget relates to the project (if mentioned)
+
+**IMPORTANT**: Make the description **rich and informative** - aim for 200-500 words if enough information is available. Include all relevant details that would help someone understand the full context of the opportunity.
 
 ---
 
@@ -1025,8 +1040,9 @@ Return a **valid JSON object** only:
     "opportunity_name": "Project/Opportunity Name",
     "project_status": "In Progress / Planned / Completed",
     "project_value": "$100K-$500K",
-    "project_description": "Detailed professional description of the project or opportunity.",
-    "documents": ["list of document URLs if available"],
+    "project_description": "Comprehensive, detailed professional description (200-500 words if enough info available) covering overview, objectives, scope, deliverables, timeline, stakeholders, and requirements.",
+    "documents": ["list of ALL document URLs found - PDFs, specs, RFPs, drawings, reports, etc. Include both absolute and relative URLs converted to absolute"],
+    "document_descriptions": {"url": "description of what this document contains"},
     "start_date": "YYYY-MM-DD or 'Not available'",
     "end_date": "YYYY-MM-DD or 'Not available'",
     "location": "Complete company or project address",

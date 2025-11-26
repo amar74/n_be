@@ -96,38 +96,48 @@ class DataEnrichmentService:
             if len(phone_match) >= 3:
                 contact_phone = f"({phone_match[-3]}) {phone_match[-2]}-{phone_match[-1]}"
         
-        # Extract address with very strict patterns - only real addresses
+        # Extract address with comprehensive patterns - capture real addresses
         address_patterns = [
-            # Full address with street number, name, and city/state/zip
-            r'(\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Way|Circle|Ct|Place|Pl)[^,]*,\s*[A-Za-z\s]+,\s*[A-Za-z]{2}\s+\d{5}(?:-\d{4})?)',
+            # Full US address: Street number + Street name, City, State ZIP
+            r'(\d+\s+[A-Za-z0-9\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Way|Circle|Ct|Place|Pl|Court|Highway|Hwy)[^,]*,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?)',
             # Address with suite/unit
-            r'(\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Way|Circle|Ct|Place|Pl)[^,]*,\s*Suite\s+\d+[^,]*,\s*[A-Za-z\s]+,\s*[A-Za-z]{2}\s+\d{5}(?:-\d{4})?)',
+            r'(\d+\s+[A-Za-z0-9\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd)[^,]*,\s*(?:Suite|Ste|Unit|Apt|#)\s*\d+[^,]*,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})',
+            # Address in contact/footer sections
+            r'(?:address|location|office|headquarters|contact)[:\s]*([A-Z0-9][^<>\n]{15,150}(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Way|Circle|Ct|Place|Pl)[^<>\n]*,\s*[^<>\n]{5,50},\s*[A-Z]{2}\s+\d{5})',
+            # Indian address format
+            r'([A-Z]-?\d+[^,]*,\s*(?:Block\s+[A-Z0-9][^,]*,\s*)?[A-Z0-9-]+[^,]*,\s*(?:Sector\s*\d+[^,]*,\s*)?[A-Z][^,]*,\s*[A-Z]{2,}[^,]*,\s*(?:India[^,]*)?\d{6})',
+            # Generic address with zip code (less strict)
+            r'(\d+[^,]{5,80},\s*[A-Za-z\s]{3,50},\s*[A-Z]{2,}\s+\d{5,6})',
         ]
         
         addresses = []
         for pattern in address_patterns:
-            matches = re.findall(pattern, website_content, re.IGNORECASE)
-            # Very strict filtering for real addresses only
-            filtered_matches = [
-                match for match in matches 
-                if len(match) > 20 and 
-                # Must contain a real street name (not marketing words)
-                not any(word in match.lower() for word in [
-                    'customer', 'support', 'automate', 'responses', 'enhance', 'user', 'engagement', 
-                    'platforms', 'natural', 'language', 'processing', 'multi-pl', 'ultimate', 'way',
-                    'experience', 'innovation', 'technology', 'solutions', 'services', 'products',
-                    'digital', 'online', 'web', 'mobile', 'cloud', 'data', 'analytics', 'intelligence',
-                    'artificial', 'machine', 'learning', 'automation', 'transformation', 'revolutionary',
-                    'get', 'your', 'estimate', 'card', 'apple', 'google', 'microsoft', 'amazon', 'facebook',
-                    'meta', 'twitter', 'linkedin', 'instagram', 'youtube', 'tiktok', 'snapchat', 'pinterest',
-                    'reddit', 'discord', 'slack', 'zoom', 'teams', 'skype', 'whatsapp', 'telegram', 'signal'
-                ]) and
-                # Must contain actual street indicators
-                any(word in match.lower() for word in ['street', 'st', 'avenue', 'ave', 'road', 'rd', 'drive', 'dr', 'lane', 'ln', 'boulevard', 'blvd', 'way', 'circle', 'ct', 'place', 'pl']) and
-                # Must have a reasonable street name (not single words like "way")
-                len([word for word in match.split() if word.isalpha() and len(word) > 2]) >= 2
-            ]
-            addresses.extend(filtered_matches)
+            matches = re.findall(pattern, website_content, re.IGNORECASE | re.MULTILINE)
+            for match in matches:
+                # Clean up the address
+                address = match.strip()
+                # Remove HTML tags
+                address = re.sub(r'<[^>]+>', '', address)
+                # Remove extra whitespace
+                address = ' '.join(address.split())
+                # Remove common prefixes
+                address = re.sub(r'^(address|location|office|headquarters|contact)[:\s]*', '', address, flags=re.IGNORECASE)
+                
+                # Filter out invalid addresses
+                if (len(address) > 20 and 
+                    any(char.isdigit() for char in address) and 
+                    any(char.isalpha() for char in address) and
+                    # Must not start with invalid prefixes
+                    not address.lower().startswith(('email', 'phone', 'tel', 'fax', 'www', 'http', 'https')) and
+                    # Must not contain marketing/tech jargon as main content
+                    not any(word in address.lower() for word in [
+                        'customer support', 'automate responses', 'enhance user', 'platforms natural',
+                        'ultimate way experience', 'innovation technology solutions'
+                    ]) and
+                    # Must contain street indicator OR city/state/zip pattern
+                    (any(word in address.lower() for word in ['street', 'st', 'avenue', 'ave', 'road', 'rd', 'drive', 'dr', 'lane', 'ln', 'boulevard', 'blvd', 'way', 'circle', 'ct', 'place', 'pl', 'court', 'highway', 'hwy']) or
+                     re.search(r',\s*[A-Z]{2}\s+\d{5}', address))):
+                    addresses.append(address)
         
         # Extract zip code separately
         zip_pattern = r'\b\d{5}(?:-\d{4})?\b'
@@ -362,6 +372,32 @@ class DataEnrichmentService:
         # Extract location
         location = self._extract_location_from_content(website_content, basic_info)
         
+        # Calculate confidence for project description based on quality
+        project_desc_confidence = 0.7
+        if len(project_description) > 200:  # Longer descriptions are usually better
+            project_desc_confidence = 0.85
+        elif len(project_description) > 100:
+            project_desc_confidence = 0.75
+        elif len(project_description) < 50:  # Very short descriptions are less reliable
+            project_desc_confidence = 0.5
+        
+        # Calculate confidence for location based on completeness
+        location_confidence = 0.3
+        if location != "Unknown":
+            # Check if it's a full address (has street, city, state, zip)
+            has_street = any(word in location.lower() for word in ['street', 'st', 'avenue', 'ave', 'road', 'rd', 'drive', 'dr', 'lane', 'ln', 'boulevard', 'blvd', 'way', 'circle', 'ct', 'place', 'pl'])
+            has_zip = bool(re.search(r'\d{5}(?:-\d{4})?', location))
+            has_city_state = bool(re.search(r',\s*[A-Z]{2}\s+\d{5}', location))
+            
+            if has_street and has_zip and has_city_state:
+                location_confidence = 0.9  # Complete address
+            elif has_zip and has_city_state:
+                location_confidence = 0.8  # City, state, zip
+            elif has_zip or has_city_state:
+                location_confidence = 0.6  # Partial address
+            else:
+                location_confidence = 0.5  # Basic location info
+        
         return {
             "project_value": SuggestionValue(
                 value=project_value,
@@ -383,15 +419,15 @@ class DataEnrichmentService:
             ),
             "project_description": SuggestionValue(
                 value=project_description,
-                confidence=0.7,
+                confidence=project_desc_confidence,
                 source="opportunity_analysis",
-                reasoning="Project description generated from website content and company services"
+                reasoning="Project description extracted from website content using AI-enhanced analysis" if self.ai_enabled else "Project description generated from website content and company services"
             ),
             "location": SuggestionValue(
                 value=location,
-                confidence=0.8 if location != "Unknown" else 0.3,
+                confidence=location_confidence,
                 source="opportunity_analysis",
-                reasoning="Location extracted from website content and company address"
+                reasoning="Complete address extracted from website content" if location_confidence > 0.7 else "Location information extracted from website content"
             )
         }
     
@@ -439,51 +475,175 @@ class DataEnrichmentService:
             return "Prospecting"  # Default for new opportunities
     
     def _extract_location_from_content(self, website_content: str, basic_info: dict) -> str:
-        """Extract location from website content"""
+        """Extract full address from website content with comprehensive parsing"""
         import re
         
-        # First try to get from basic_info
+        # First try to get from basic_info (already extracted address)
         if basic_info.get('address') and basic_info.get('address') != 'Unknown':
-            return basic_info.get('address')
+            address = basic_info.get('address')
+            # If it's a full address, return it
+            if len(address) > 30 and any(char.isdigit() for char in address):
+                return address
         
-        # Look for location patterns in content
-        location_patterns = [
-            r'(?:located|based|headquarters|office)[\s]+(?:in|at)[\s]+([A-Z][^.!?\n]*(?:City|Town|County|State|Province|Country)[^.!?\n]*)',
-            r'(?:in|at)[\s]+([A-Z][^.!?\n]*(?:City|Town|County|State|Province|Country)[^.!?\n]*)',
-            r'([A-Z][^.!?\n]*(?:City|Town|County|State|Province|Country)[^.!?\n]*)'
+        # Enhanced address extraction patterns
+        address_patterns = [
+            # Full US address: Street number + Street name, City, State ZIP
+            r'(\d+\s+[A-Za-z0-9\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Way|Circle|Ct|Place|Pl|Court|Highway|Hwy)[^,]*,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?)',
+            # Address with suite/unit
+            r'(\d+\s+[A-Za-z0-9\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd)[^,]*,\s*(?:Suite|Ste|Unit|Apt|#)\s*\d+[^,]*,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})',
+            # Address in contact section
+            r'(?:address|location|office|headquarters|contact)[:\s]*([A-Z0-9][^<>\n]{20,150}(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd)[^<>\n]*,\s*[^<>\n]{5,50},\s*[A-Z]{2}\s+\d{5})',
+            # City, State ZIP format (when street is on previous line)
+            r'([A-Za-z\s]{3,50},\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?)',
+            # Indian address format
+            r'([A-Z]-?\d+[^,]*,\s*(?:Block\s+[A-Z0-9][^,]*,\s*)?[A-Z0-9-]+[^,]*,\s*(?:Sector\s*\d+[^,]*,\s*)?[A-Z][^,]*,\s*[A-Z]{2,}[^,]*,\s*(?:India[^,]*)?\d{6})',
+            # Generic address with zip code
+            r'(\d+[^,]{5,80},\s*[A-Za-z\s]{3,50},\s*[A-Z]{2,}\s+\d{5,6})',
         ]
         
-        for pattern in location_patterns:
-            matches = re.findall(pattern, website_content, re.IGNORECASE)
-            if matches:
-                return matches[0].strip()
+        found_addresses = []
+        for pattern in address_patterns:
+            matches = re.findall(pattern, website_content, re.IGNORECASE | re.MULTILINE)
+            for match in matches:
+                address = match.strip()
+                # Clean up HTML tags
+                address = re.sub(r'<[^>]+>', '', address)
+                # Remove extra whitespace
+                address = ' '.join(address.split())
+                # Remove common prefixes
+                address = re.sub(r'^(address|location|office|headquarters|contact)[:\s]*', '', address, flags=re.IGNORECASE)
+                
+                # Validate address quality
+                if (len(address) > 20 and 
+                    any(char.isdigit() for char in address) and 
+                    any(char.isalpha() for char in address) and
+                    not address.lower().startswith(('email', 'phone', 'tel', 'fax', 'www', 'http')) and
+                    # Must contain street indicator or city/state/zip pattern
+                    (any(word in address.lower() for word in ['street', 'st', 'avenue', 'ave', 'road', 'rd', 'drive', 'dr', 'lane', 'ln', 'boulevard', 'blvd', 'way', 'circle', 'ct', 'place', 'pl']) or
+                     re.search(r',\s*[A-Z]{2}\s+\d{5}', address))):
+                    found_addresses.append(address)
+        
+        # Return the best address (prefer longer, more complete addresses)
+        if found_addresses:
+            # Sort by length (longer = more complete) and return the best one
+            found_addresses.sort(key=len, reverse=True)
+            return found_addresses[0]
+        
+        # Fallback: Try to extract city, state from content
+        city_state_pattern = r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),\s*([A-Z]{2})\s+(\d{5})'
+        city_state_match = re.search(city_state_pattern, website_content)
+        if city_state_match:
+            city, state, zip_code = city_state_match.groups()
+            return f"{city}, {state} {zip_code}"
+        
+        # Final fallback: Check basic_info for city/state
+        if basic_info.get('zip_code'):
+            zip_code = basic_info.get('zip_code')
+            # Try to find city/state near the zip code
+            zip_context_pattern = rf'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),\s*([A-Z]{{2}})\s+{zip_code}'
+            zip_match = re.search(zip_context_pattern, website_content)
+            if zip_match:
+                city, state = zip_match.groups()
+                return f"{city}, {state} {zip_code}"
         
         return "Unknown"
     
     def _generate_enhanced_project_description(self, website_content: str, basic_info: dict) -> str:
-        """Generate enhanced project description from website content"""
+        """Generate enhanced project description from website content using AI when available"""
+        import re
+        
+        # Try to use AI if available
+        if self.ai_enabled:
+            try:
+                import google.generativeai as genai
+                from app.environment import environment
+                
+                genai.configure(api_key=environment.GEMINI_API_KEY)
+                model = genai.GenerativeModel('gemini-pro')
+                
+                # Truncate content to avoid token limits
+                content_snippet = website_content[:8000] if len(website_content) > 8000 else website_content
+                
+                prompt = f"""Analyze the following website content and extract a comprehensive project description. 
+Focus on identifying:
+1. Project/opportunity details (what the project is about)
+2. Objectives and goals
+3. Scope of work or deliverables
+4. Key features or components
+5. Timeline or phases if mentioned
+6. Stakeholders or beneficiaries
+7. Technologies or methodologies involved
+
+Return a detailed, professional project description (150-400 words) that would be useful for a business opportunity. 
+If no specific project is mentioned, describe the type of opportunities this company typically engages in.
+
+Website Content:
+{content_snippet}
+
+Return ONLY the project description text, no additional commentary or formatting."""
+
+                response = model.generate_content(prompt)
+                description = response.text.strip()
+                
+                # Clean up the response
+                if description.startswith('```'):
+                    description = description.strip('`').strip()
+                    if '\n' in description:
+                        description = description.split('\n', 1)[1] if description.split('\n')[0].lower() in ['json', 'text', 'markdown'] else description
+                
+                # Validate description quality
+                if len(description) > 100 and not description.lower().startswith(('error', 'sorry', 'i cannot')):
+                    return description
+            except Exception as e:
+                logger.warning(f"AI project description generation failed, using fallback: {e}")
+        
+        # Fallback: Enhanced pattern-based extraction
         company_name = basic_info.get('company_name', 'the company')
         
-        # Extract key services and capabilities
-        services = []
-        if 'web development' in website_content.lower():
-            services.append('web development')
-        if 'saas' in website_content.lower() or 'software as a service' in website_content.lower():
-            services.append('SaaS solutions')
-        if 'ai' in website_content.lower() or 'artificial intelligence' in website_content.lower():
-            services.append('AI solutions')
-        if 'mobile' in website_content.lower() or 'app development' in website_content.lower():
-            services.append('mobile app development')
-        if 'e-commerce' in website_content.lower() or 'ecommerce' in website_content.lower():
-            services.append('e-commerce solutions')
-        if 'cloud' in website_content.lower():
-            services.append('cloud solutions')
+        # Look for project-specific content
+        project_keywords = [
+            'project', 'opportunity', 'program', 'initiative', 'construction', 
+            'development', 'infrastructure', 'improvement', 'upgrade', 'renovation'
+        ]
         
-        if services:
-            services_text = ', '.join(services)
+        # Extract sentences containing project-related keywords
+        sentences = re.split(r'[.!?]+', website_content)
+        project_sentences = []
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) > 20 and any(keyword in sentence.lower() for keyword in project_keywords):
+                # Avoid very short or generic sentences
+                if len(sentence) > 50 and not sentence.lower().startswith(('click', 'visit', 'learn more', 'read more')):
+                    project_sentences.append(sentence)
+        
+        # Build description from extracted sentences
+        if project_sentences:
+            # Take up to 5 most relevant sentences
+            selected_sentences = project_sentences[:5]
+            description = '. '.join(selected_sentences)
+            if not description.endswith('.'):
+                description += '.'
+            
+            # Ensure minimum length
+            if len(description) < 100:
+                description += f" This opportunity involves working with {company_name} on significant projects and initiatives."
+            
+            return description
+        
+        # Final fallback: Generic description based on company type
+        services = []
+        content_lower = website_content.lower()
+        
+        if any(word in content_lower for word in ['construction', 'building', 'infrastructure', 'contractor']):
+            return f"Construction and infrastructure project opportunity with {company_name}. This opportunity involves delivering comprehensive construction services, infrastructure development, and project management solutions."
+        elif any(word in content_lower for word in ['transportation', 'transit', 'railway', 'highway', 'bridge']):
+            return f"Transportation infrastructure project opportunity with {company_name}. This opportunity focuses on transportation system improvements, infrastructure development, and enhancing public transit services."
+        elif any(word in content_lower for word in ['web development', 'software', 'saas', 'app', 'digital']):
+            services_text = ', '.join(['web development', 'SaaS solutions', 'digital transformation']) if not services else ', '.join(services)
             return f"Technology project opportunity with {company_name} involving {services_text}. This opportunity focuses on delivering innovative digital solutions and cutting-edge technology services."
         else:
-            return f"Technology project opportunity with {company_name}. This opportunity involves delivering comprehensive digital solutions and technology services to enhance business operations and digital presence."
+            return f"Business opportunity with {company_name}. This opportunity involves delivering comprehensive services and solutions to enhance business operations and achieve strategic objectives."
     
     def _extract_project_value(self, detected_values: list, content_lower: str) -> str:
         """Extract and format project value from detected values"""

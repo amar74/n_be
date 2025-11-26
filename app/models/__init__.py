@@ -17,5 +17,8 @@ from .delivery_model_template import *
 from .employee import *
 from .candidate import *
 from .staff_planning import *
+from .finance_planning import *
+from .expense_category import *
 from .account_team import *
 from .proposal import *
+from .ai_agentic import *

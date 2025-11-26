@@ -76,13 +76,19 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
+    from app.utils.logger import logger
+    logger.info(f"Login attempt for email: {request.email}")
+    
     user = await AuthService.authenticate_user(request.email, request.password)
     
     if not user:
+        logger.warning(f"Login failed for email: {request.email} - Invalid credentials")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
+    
+    logger.info(f"Login successful for email: {request.email}, user_id: {user.id}")
     
     # Update last_login timestamp with direct SQL to avoid session conflicts
     from app.db.session import get_session
@@ -94,7 +100,7 @@ async def login(request: LoginRequest):
         await db.commit()
     
     # Create JWT token
-    access_token_expires = timedelta(minutes=30)
+    access_token_expires = timedelta(minutes=1440)  # 24 hours (changed from 30 minutes to prevent frequent logouts)
     expire_at = datetime.utcnow() + access_token_expires
     access_token = AuthService.create_access_token(
         data={"sub": str(user.id)},

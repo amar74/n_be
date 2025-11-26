@@ -8,6 +8,17 @@ from datetime import date, datetime
 from uuid import UUID
 
 
+# ========== Escalation Period Schema ==========
+
+class EscalationPeriod(BaseModel):
+    """Schema for a single escalation period"""
+    start_month: int = Field(..., ge=1, description="Start month (1-based) when this escalation period begins")
+    end_month: int = Field(..., ge=1, description="End month (1-based) when this escalation period ends")
+    rate: float = Field(..., ge=0, le=100, description="Annual escalation rate percentage for this period")
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ========== Staff Plan Schemas ==========
 
 class StaffPlanCreate(BaseModel):
@@ -19,7 +30,7 @@ class StaffPlanCreate(BaseModel):
     duration_months: int = Field(12, ge=1, le=120, description="Project duration in months")
     overhead_rate: float = Field(25.0, ge=0, le=100, description="Overhead rate percentage")
     profit_margin: float = Field(15.0, ge=0, le=100, description="Profit margin percentage")
-    annual_escalation_rate: float = Field(3.0, ge=0, le=50, description="Annual escalation rate percentage")
+    annual_escalation_rate: Optional[float] = Field(None, ge=0, le=50, description="Annual escalation rate percentage (deprecated - use employee-level rates)")
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -48,7 +59,7 @@ class StaffPlanResponse(BaseModel):
     duration_months: int
     overhead_rate: float
     profit_margin: float
-    annual_escalation_rate: float
+    annual_escalation_rate: Optional[float]
     total_labor_cost: float
     total_overhead: float
     total_cost: float
@@ -73,7 +84,7 @@ class StaffPlanWithAllocations(BaseModel):
     duration_months: int
     overhead_rate: float
     profit_margin: float
-    annual_escalation_rate: float
+    annual_escalation_rate: Optional[float]
     total_labor_cost: float
     total_overhead: float
     total_cost: float
@@ -100,16 +111,17 @@ class StaffAllocationCreate(BaseModel):
     end_month: int = Field(12, ge=1, description="End month (1-based)")
     hours_per_week: float = Field(40.0, ge=0, le=168, description="Hours per week")
     hourly_rate: float = Field(..., ge=0, description="Hourly bill rate")
-    initial_escalation_rate: Optional[float] = Field(
-        None, ge=0, le=100, description="Escalation rate to apply before any adjustments"
-    )
     escalation_rate: Optional[float] = Field(
-        None, ge=0, le=100, description="New escalation rate after the effective month"
+        None, ge=0, le=100, description="[Deprecated] Single annual escalation rate percentage. Use escalation_periods instead."
     )
-    escalation_effective_month: Optional[int] = Field(
+    escalation_start_month: Optional[int] = Field(
         None,
         ge=1,
-        description="Month (1-based) when the updated escalation rate takes effect",
+        description="[Deprecated] Month when escalation starts. Use escalation_periods instead.",
+    )
+    escalation_periods: Optional[List[EscalationPeriod]] = Field(
+        None,
+        description="List of escalation periods. Each period has start_month, end_month, and rate. Example: [{'start_month': 6, 'end_month': 12, 'rate': 3}, {'start_month': 13, 'end_month': 24, 'rate': 8}]"
     )
     
     model_config = ConfigDict(from_attributes=True)
@@ -122,9 +134,9 @@ class StaffAllocationUpdate(BaseModel):
     hours_per_week: Optional[float] = Field(None, ge=0, le=168)
     allocation_percentage: Optional[float] = Field(None, ge=0, le=100)
     hourly_rate: Optional[float] = Field(None, ge=0)
-    initial_escalation_rate: Optional[float] = Field(None, ge=0, le=100)
     escalation_rate: Optional[float] = Field(None, ge=0, le=100)
-    escalation_effective_month: Optional[int] = Field(None, ge=1)
+    escalation_start_month: Optional[int] = Field(None, ge=1)
+    escalation_periods: Optional[List[EscalationPeriod]] = None
     status: Optional[str] = Field(None, pattern="^(planned|active|completed)$")
     
     model_config = ConfigDict(from_attributes=True)
@@ -145,9 +157,9 @@ class StaffAllocationResponse(BaseModel):
     hourly_rate: float
     monthly_cost: float
     total_cost: float
-    initial_escalation_rate: Optional[float] = None
     escalation_rate: Optional[float] = None
-    escalation_effective_month: Optional[int] = None
+    escalation_start_month: Optional[int] = None
+    escalation_periods: Optional[List[EscalationPeriod]] = None
     status: str
     created_at: str
     updated_at: str

@@ -3,12 +3,13 @@ Staff Planning Models
 Handles project staffing allocation and cost estimation
 """
 from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, TIMESTAMP, Text, JSON, Boolean
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
 from datetime import datetime, date
 from typing import Optional, Dict, Any
 import uuid
+import json
 from app.db.base import Base
 
 
@@ -31,7 +32,7 @@ class StaffPlan(Base):
     duration_months: Mapped[int] = mapped_column(Integer, default=12)
     overhead_rate: Mapped[float] = mapped_column(Float, default=25.0)  # Percentage
     profit_margin: Mapped[float] = mapped_column(Float, default=15.0)  # Percentage
-    annual_escalation_rate: Mapped[float] = mapped_column(Float, default=3.0)  # Percentage
+    annual_escalation_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)  # Percentage (deprecated - use employee-level rates)
     
     # Cost Summary
     total_labor_cost: Mapped[float] = mapped_column(Float, default=0.0)
@@ -110,9 +111,9 @@ class StaffAllocation(Base):
     total_cost: Mapped[float] = mapped_column(Float, default=0.0)
     
     # Escalation details
-    initial_escalation_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    escalation_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    escalation_effective_month: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    escalation_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Deprecated - use escalation_periods
+    escalation_start_month: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Deprecated - use escalation_periods
+    escalation_periods: Mapped[Optional[str]] = mapped_column(JSONB, nullable=True)  # JSON array of escalation periods
     
     # Status
     status: Mapped[str] = mapped_column(String(50), default="planned")  # planned, active, completed
@@ -139,9 +140,9 @@ class StaffAllocation(Base):
             "hourly_rate": self.hourly_rate,
             "monthly_cost": self.monthly_cost,
             "total_cost": self.total_cost,
-            "initial_escalation_rate": self.initial_escalation_rate,
             "escalation_rate": self.escalation_rate,
-            "escalation_effective_month": self.escalation_effective_month,
+            "escalation_start_month": self.escalation_start_month,
+            "escalation_periods": json.loads(self.escalation_periods) if self.escalation_periods else None,
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

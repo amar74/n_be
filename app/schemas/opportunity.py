@@ -11,7 +11,7 @@ class OpportunityCreate(BaseModel):
     project_name: str = Field(..., min_length=1, max_length=500, description="Name of the project/opportunity")
     client_name: str = Field(..., min_length=1, max_length=255, description="Name of the client")
     account_id: Optional[UUID] = Field(None, description="Related account ID")
-    description: Optional[str] = Field(None, max_length=2000, description="Detailed description of the opportunity")
+    description: Optional[str] = Field(None, max_length=10000, description="Detailed description of the opportunity")
     stage: OpportunityStage = Field(default=OpportunityStage.lead, description="Current stage in the sales pipeline")
     risk_level: Optional[RiskLevel] = Field(None, description="Risk assessment level")
     project_value: Optional[float] = Field(None, ge=0, description="Estimated project value")
@@ -39,7 +39,7 @@ class OpportunityUpdate(BaseModel):
     project_name: Optional[str] = Field(None, min_length=1, max_length=500)
     client_name: Optional[str] = Field(None, min_length=1, max_length=255)
     account_id: Optional[UUID] = Field(None, description="Related account ID")
-    description: Optional[str] = Field(None, max_length=2000)
+    description: Optional[str] = Field(None, max_length=10000)
     stage: Optional[OpportunityStage] = None
     risk_level: Optional[RiskLevel] = None
     project_value: Optional[float] = Field(None, ge=0)

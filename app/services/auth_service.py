@@ -16,7 +16,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # JWT configuration
 SECRET_KEY = environment.JWT_SECRET_KEY
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours (changed from 30 minutes to prevent frequent logouts)
 
 class AuthService:
     @staticmethod
@@ -175,9 +175,14 @@ class AuthService:
                 return None
             
             if not user.password_hash:
+                from app.utils.logger import logger
+                logger.warning(f"User {email_or_username} has no password hash")
                 return None
                 
-            if not AuthService.verify_password(password, user.password_hash):
+            password_valid = AuthService.verify_password(password, user.password_hash)
+            if not password_valid:
+                from app.utils.logger import logger
+                logger.warning(f"Password verification failed for user {email_or_username}")
                 return None
             
             return user

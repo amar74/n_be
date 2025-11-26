@@ -6,7 +6,7 @@ import uuid
 from decimal import Decimal
 from datetime import datetime
 
-from app.models.opportunity import Opportunity
+from app.models.opportunity import Opportunity, OpportunityStage, RiskLevel
 from app.models.opportunity_tabs import (
     OpportunityOverview, OpportunityStakeholder, OpportunityDriver,
     OpportunityCompetitor, OpportunityStrategy, OpportunityDeliveryModel,
@@ -14,10 +14,79 @@ from app.models.opportunity_tabs import (
     OpportunityRisk, OpportunityLegalChecklist
 )
 from app.schemas.opportunity_tabs import *
+from app.utils.logger import get_logger
+
+logger = get_logger("opportunity_tabs_service")
 
 class OpportunityTabsService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    def _calculate_win_probability(self, opportunity: Opportunity) -> Optional[float]:
+        """
+        Calculate win probability based on opportunity factors using AI analysis logic.
+        Returns a value between 0-100.
+        """
+        try:
+            base_score = 50.0  # Base probability
+            
+            # Stage-based scoring (later stages = higher probability)
+            stage_scores = {
+                OpportunityStage.lead: 20.0,
+                OpportunityStage.qualification: 35.0,
+                OpportunityStage.proposal_development: 50.0,
+                OpportunityStage.rfp_response: 60.0,
+                OpportunityStage.shortlisted: 70.0,
+                OpportunityStage.presentation: 75.0,
+                OpportunityStage.negotiation: 85.0,
+                OpportunityStage.won: 100.0,
+                OpportunityStage.lost: 0.0,
+                OpportunityStage.on_hold: 30.0,
+            }
+            base_score = stage_scores.get(opportunity.stage, 50.0)
+            
+            # Risk level adjustments
+            if opportunity.risk_level == RiskLevel.low_risk:
+                base_score += 15.0
+            elif opportunity.risk_level == RiskLevel.medium_risk:
+                base_score += 5.0
+            elif opportunity.risk_level == RiskLevel.high_risk:
+                base_score -= 20.0
+            
+            # Match score adjustments (AI match score)
+            if opportunity.match_score:
+                if opportunity.match_score >= 80:
+                    base_score += 15.0
+                elif opportunity.match_score >= 60:
+                    base_score += 10.0
+                elif opportunity.match_score >= 40:
+                    base_score += 5.0
+                else:
+                    base_score -= 10.0
+            
+            # Project value adjustments (higher value = more commitment)
+            if opportunity.project_value:
+                if opportunity.project_value >= 5000000:  # $5M+
+                    base_score += 10.0
+                elif opportunity.project_value >= 1000000:  # $1M+
+                    base_score += 8.0
+                elif opportunity.project_value >= 500000:  # $500K+
+                    base_score += 5.0
+                elif opportunity.project_value >= 100000:  # $100K+
+                    base_score += 3.0
+            
+            # Account relationship (if linked to account, better relationship)
+            if opportunity.account_id:
+                base_score += 5.0
+            
+            # Ensure score is within valid range
+            win_probability = max(0.0, min(100.0, base_score))
+            
+            return round(win_probability, 1)
+            
+        except Exception as e:
+            logger.error(f"Error calculating win probability: {e}")
+            return None
 
     # Overview Tab Methods
     async def get_overview(self, opportunity_id: uuid.UUID) -> OpportunityOverviewResponse:
@@ -27,18 +96,58 @@ class OpportunityTabsService:
         result = await self.db.execute(stmt)
         overview = result.scalar_one_or_none()
         
+        # Get opportunity to calculate win probability
+        opp_stmt = select(Opportunity).where(Opportunity.id == opportunity_id)
+        opp_result = await self.db.execute(opp_stmt)
+        opportunity = opp_result.scalar_one_or_none()
+        
         if not overview:
+            key_metrics = {}
+            if opportunity:
+                win_probability = self._calculate_win_probability(opportunity)
+                if win_probability is not None:
+                    key_metrics['win_probability'] = win_probability
+                # Always include project_value and ai_match_score (even if 0/None)
+                if opportunity.project_value is not None:
+                    key_metrics['project_value'] = float(opportunity.project_value)
+                if opportunity.match_score is not None:
+                    key_metrics['ai_match_score'] = opportunity.match_score
+            
             return OpportunityOverviewResponse(
                 project_description="",
                 project_scope=[],
-                key_metrics={},
+                key_metrics=key_metrics,
                 documents_summary={}
             )
+        
+        # Update key_metrics with calculated win probability if not present or if opportunity changed
+        key_metrics = overview.key_metrics or {}
+        if opportunity:
+            win_probability = self._calculate_win_probability(opportunity)
+            if win_probability is not None:
+                key_metrics['win_probability'] = win_probability
+            # Only update project_value from opportunity if it's not already in key_metrics
+            # This preserves user-edited values in key_metrics
+            if 'project_value' not in key_metrics:
+                if opportunity.project_value is not None:
+                    key_metrics['project_value'] = float(opportunity.project_value)
+                else:
+                    key_metrics['project_value'] = None
+            # Always update ai_match_score from opportunity
+            if opportunity.match_score is not None:
+                key_metrics['ai_match_score'] = opportunity.match_score
+            elif 'ai_match_score' not in key_metrics:
+                key_metrics['ai_match_score'] = None
+            
+            # Update overview if metrics changed
+            if overview.key_metrics != key_metrics:
+                overview.key_metrics = key_metrics
+                await self.db.flush()
             
         return OpportunityOverviewResponse(
             project_description=overview.project_description,
             project_scope=overview.project_scope or [],
-            key_metrics=overview.key_metrics or {},
+            key_metrics=key_metrics,
             documents_summary=overview.documents_summary or {}
         )
 
@@ -53,13 +162,32 @@ class OpportunityTabsService:
         result = await self.db.execute(stmt)
         overview = result.scalar_one_or_none()
         
+        # Get opportunity to recalculate win probability
+        opp_stmt = select(Opportunity).where(Opportunity.id == opportunity_id)
+        opp_result = await self.db.execute(opp_stmt)
+        opportunity = opp_result.scalar_one_or_none()
+        
         if not overview:
             # Create new overview record
+            key_metrics = update_data.key_metrics or {}
+            # Recalculate win probability if opportunity exists
+            if opportunity:
+                win_probability = self._calculate_win_probability(opportunity)
+                if win_probability is not None:
+                    key_metrics['win_probability'] = win_probability
+                # Sync project_value: from key_metrics to opportunity if provided, otherwise from opportunity to key_metrics
+                if 'project_value' in key_metrics and key_metrics['project_value'] is not None:
+                    opportunity.project_value = float(key_metrics['project_value'])
+                elif opportunity.project_value is not None:
+                    key_metrics['project_value'] = float(opportunity.project_value)
+                if opportunity.match_score is not None:
+                    key_metrics['ai_match_score'] = opportunity.match_score
+            
             overview = OpportunityOverview(
                 opportunity_id=opportunity_id,
                 project_description=update_data.project_description,
                 project_scope=update_data.project_scope,
-                key_metrics=update_data.key_metrics
+                key_metrics=key_metrics
             )
             self.db.add(overview)
         else:
@@ -69,7 +197,29 @@ class OpportunityTabsService:
             if update_data.project_scope is not None:
                 overview.project_scope = update_data.project_scope
             if update_data.key_metrics is not None:
-                overview.key_metrics = update_data.key_metrics
+                # Merge with existing key_metrics and recalculate win probability
+                key_metrics = {**(overview.key_metrics or {}), **update_data.key_metrics}
+                if opportunity:
+                    win_probability = self._calculate_win_probability(opportunity)
+                    if win_probability is not None:
+                        key_metrics['win_probability'] = win_probability
+                    # Only update project_value from opportunity if it's not in the update_data
+                    # This preserves user-edited values in key_metrics
+                    if 'project_value' not in update_data.key_metrics:
+                        if opportunity.project_value is not None:
+                            key_metrics['project_value'] = float(opportunity.project_value)
+                    else:
+                        # Sync project_value from key_metrics to opportunity for pipeline list display
+                        project_value_from_metrics = update_data.key_metrics.get('project_value')
+                        if project_value_from_metrics is not None:
+                            opportunity.project_value = float(project_value_from_metrics)
+                        elif project_value_from_metrics is None and 'project_value' in update_data.key_metrics:
+                            # Explicitly set to None if cleared
+                            opportunity.project_value = None
+                    # Always update ai_match_score from opportunity
+                    if opportunity.match_score is not None:
+                        key_metrics['ai_match_score'] = opportunity.match_score
+                overview.key_metrics = key_metrics
             if update_data.documents_summary is not None:
                 overview.documents_summary = update_data.documents_summary
         

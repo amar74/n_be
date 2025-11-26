@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from typing import List
 
 from app.schemas.opportunity_tabs import *
 from app.services.opportunity_tabs import OpportunityTabsService
+from app.services.opportunity import OpportunityService
 from app.dependencies.user_auth import get_current_user
 from app.dependencies.permissions import get_user_permission
 from app.models.user import User
@@ -16,27 +17,60 @@ logger = get_logger("opportunity_tabs_routes")
 
 router = APIRouter(prefix="/opportunities", tags=["Opportunity Tabs"])
 
+async def resolve_opportunity_id(
+    opportunity_id: str,
+    db: AsyncSession,
+    current_user: User
+) -> UUID:
+    """
+    Resolve opportunity_id from either UUID or custom_id (e.g., OPP-NYAM0018).
+    Returns the UUID of the opportunity.
+    """
+    # Try UUID first
+    try:
+        return UUID(opportunity_id)
+    except ValueError:
+        pass
+    
+    # If not UUID, try custom_id
+    if opportunity_id.startswith('OPP-'):
+        opportunity_service = OpportunityService(db)
+        opportunity = await opportunity_service.get_opportunity_by_custom_id(opportunity_id, current_user)
+        if opportunity:
+            return opportunity.id
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Opportunity with custom ID {opportunity_id} not found"
+        )
+    
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid opportunity ID format. Expected UUID or custom ID (e.g., OPP-NYAM0018)"
+    )
+
 # Overview Tab Routes
 @router.get("/{opportunity_id}/overview", response_model=OpportunityOverviewResponse)
 async def get_opportunity_overview(
-    opportunity_id: UUID,
+    opportunity_id: str = Path(..., description="Opportunity ID (UUID or custom ID like OPP-NYAM0018)"),
     db: AsyncSession = Depends(get_request_transaction),
     current_user: User = Depends(get_current_user),
     user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["read"]}))
 ):
+    uuid_id = await resolve_opportunity_id(opportunity_id, db, current_user)
     service = OpportunityTabsService(db)
-    return await service.get_overview(opportunity_id)
+    return await service.get_overview(uuid_id)
 
 @router.put("/{opportunity_id}/overview", response_model=OpportunityOverviewResponse)
 async def update_opportunity_overview(
-    opportunity_id: UUID,
-    update_data: OpportunityOverviewUpdate,
+    opportunity_id: str = Path(..., description="Opportunity ID (UUID or custom ID like OPP-NYAM0018)"),
+    update_data: OpportunityOverviewUpdate = None,
     db: AsyncSession = Depends(get_request_transaction),
     current_user: User = Depends(get_current_user),
     user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["update"]}))
 ):
+    uuid_id = await resolve_opportunity_id(opportunity_id, db, current_user)
     service = OpportunityTabsService(db)
-    return await service.update_overview(opportunity_id, update_data)
+    return await service.update_overview(uuid_id, update_data)
 
 # Stakeholders Tab Routes
 @router.get("/{opportunity_id}/stakeholders", response_model=List[StakeholderResponse])

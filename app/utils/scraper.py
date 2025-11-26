@@ -150,35 +150,111 @@ def _normalize_string_list(value: Any) -> List[str]:
 
 
 def extract_documents_from_html(html: str, base_url: str) -> List[Dict[str, Any]]:
+    """
+    Enhanced document extraction that finds all document links including:
+    - PDFs, Word docs, Excel, PowerPoint
+    - CAD files (DWG, DGN)
+    - Links in document/resource sections
+    - Download links
+    """
     if not html:
         return []
     soup = BeautifulSoup(html, "html.parser")
     documents: List[Dict[str, Any]] = []
     seen_urls: set[str] = set()
+    
+    # Document file extensions to look for
+    doc_extensions = [
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".dwg", ".dgn", ".zip", ".rar", ".txt", ".csv", ".xml"
+    ]
+    
+    # Keywords that indicate document links
+    doc_keywords = [
+        "download", "document", "pdf", "specification", "spec", "drawing",
+        "plan", "report", "study", "assessment", "rfp", "tender", "bid",
+        "attachment", "resource", "file", "manual", "guide"
+    ]
+    
+    # Find all links
     for link in soup.find_all("a"):
         href = link.get("href")
         if not href:
             continue
-        text = link.get_text(" ", strip=True)
-        normalized = href.lower()
-        if not text and not any(ext in normalized for ext in [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"]):
+        
+        text = link.get_text(" ", strip=True).strip()
+        normalized_href = href.lower()
+        normalized_text = text.lower() if text else ""
+        
+        # Check if it's a document by extension
+        has_doc_extension = any(ext in normalized_href for ext in doc_extensions)
+        
+        # Check if it's a document by keyword in URL or text
+        has_doc_keyword = any(keyword in normalized_href or keyword in normalized_text for keyword in doc_keywords)
+        
+        # Also check parent elements for document indicators
+        parent_text = ""
+        parent = link.parent
+        if parent:
+            parent_text = parent.get_text(" ", strip=True).lower()
+        has_parent_indicator = any(keyword in parent_text for keyword in ["document", "download", "resource", "attachment", "file"])
+        
+        # Include if it matches any criteria
+        if not (has_doc_extension or has_doc_keyword or has_parent_indicator):
             continue
-        is_document = any(
-            ext in normalized for ext in [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"]
-        ) or "download" in normalized or "document" in (text or "").lower()
-        if not is_document:
-            continue
+        
+        # Convert to absolute URL
         absolute_url = urljoin(base_url, href)
+        
+        # Skip duplicates
         if absolute_url in seen_urls:
             continue
         seen_urls.add(absolute_url)
-        documents.append(
-            {
-                "title": text or None,
-                "url": absolute_url,
-                "type": normalized.split(".")[-1] if "." in normalized else None,
-            }
-        )
+        
+        # Determine document type
+        doc_type = None
+        for ext in doc_extensions:
+            if ext in normalized_href:
+                doc_type = ext[1:].upper()  # Remove dot and uppercase
+                break
+        
+        # Extract title - prefer link text, fallback to filename
+        title = text if text else None
+        if not title:
+            # Try to get title from filename
+            filename = href.split("/")[-1].split("?")[0]
+            if filename and "." in filename:
+                title = filename
+        
+        documents.append({
+            "title": title or "Document",
+            "url": absolute_url,
+            "type": doc_type,
+            "description": None,  # Will be filled by AI if available
+        })
+    
+    # Also look for document links in specific sections
+    doc_sections = soup.find_all(["section", "div"], class_=lambda x: x and any(
+        keyword in x.lower() for keyword in ["document", "resource", "download", "attachment", "file"]
+    ))
+    
+    for section in doc_sections:
+        for link in section.find_all("a", href=True):
+            href = link.get("href")
+            if not href:
+                continue
+            absolute_url = urljoin(base_url, href)
+            if absolute_url not in seen_urls:
+                text = link.get_text(" ", strip=True).strip()
+                if text or any(ext in href.lower() for ext in doc_extensions):
+                    seen_urls.add(absolute_url)
+                    documents.append({
+                        "title": text or "Document",
+                        "url": absolute_url,
+                        "type": None,
+                        "description": None,
+                    })
+    
     return documents
 
 

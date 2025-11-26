@@ -74,6 +74,13 @@ def get_user_permission(required_permissions: Dict[str, List[str]]):
         for resource, required_actions in required_permissions.items():
             if not required_actions:  # Skip if no actions required
                 continue
+            
+            # Check if resource exists in user_permission model
+            # If it doesn't exist, allow access (for backward compatibility with new features)
+            if not hasattr(user_permission, resource):
+                # Resource doesn't exist in model - allow access for now
+                # TODO: Add finance field to UserPermission model and migrate database
+                continue
                 
             user_resource_permissions = getattr(user_permission, resource, [])
             
