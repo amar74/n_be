@@ -37,6 +37,7 @@ app.add_middleware(
         "http://52.55.26.148",       # Production backend server
         "http://52.55.26.148:8000",  # Production backend server with port
         "http://52.5.133.157:3000",  # Additional production frontend
+        "http://98.94.88.208",       # Current EC2 frontend via Nginx
         "http://98.94.88.208:5173",  # Current EC2 frontend (preview)
         "http://98.94.88.208:8000",  # Current EC2 backend direct
     ],
