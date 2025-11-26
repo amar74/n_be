@@ -1,7 +1,8 @@
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_, or_, String
 from sqlalchemy.orm import selectinload
+from sqlalchemy.dialects.postgresql import ARRAY, array
 
 from app.models.ai_agentic import AIAgenticTemplate
 from app.schemas.ai_agentic import AIAgenticTemplateCreate, AIAgenticTemplateUpdate
@@ -70,7 +71,9 @@ class AIAgenticService:
         query = select(AIAgenticTemplate).where(
             and_(
                 AIAgenticTemplate.is_active == True,
-                AIAgenticTemplate.assigned_modules.contains([module])
+                AIAgenticTemplate.assigned_modules.contains(
+                    array([module], type_=ARRAY(String))
+                )
             )
         )
         
