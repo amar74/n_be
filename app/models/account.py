@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Enum, ForeignKey, DateTime, Numeric, Integer, func
+from sqlalchemy import String, Enum, ForeignKey, DateTime, Numeric, Integer, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional, List
@@ -54,6 +54,10 @@ class Account(Base):
     approval_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
     approval_status: Mapped[Optional[str]] = mapped_column(String(20), default="pending")  # "pending", "approved", "declined"
     approval_notes: Mapped[Optional[str]] = mapped_column(String(1024))
+    # Soft delete columns - commented out until database migration is run
+    # is_deleted: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, index=True)  # Soft delete flag
+    # deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # When account was deleted
+    # deleted_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Who deleted it
     created_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     updated_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, server_default=func.now())

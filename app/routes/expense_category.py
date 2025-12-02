@@ -17,6 +17,9 @@ from app.schemas.finance import (
 )
 from app.services.expense_category import ExpenseCategoryService
 from app.models.expense_category import ExpenseCategory
+from app.utils.logger import get_logger
+
+logger = get_logger("expense_category_routes")
 
 router = APIRouter(prefix="/v1/expense-categories", tags=["expense-categories"])
 
@@ -29,13 +32,19 @@ async def get_expense_categories(
     db: AsyncSession = Depends(get_request_transaction),
     current_user: User = Depends(get_current_user),
 ) -> List[ExpenseCategoryResponse]:
-    categories = await ExpenseCategoryService.get_all(
-        db, 
-        include_inactive=include_inactive, 
-        include_subcategories=include_subcategories,
-        category_type=category_type
-    )
-    return [ExpenseCategoryResponse.model_validate(cat) for cat in categories]
+    try:
+        categories = await ExpenseCategoryService.get_all(
+            db, 
+            include_inactive=include_inactive, 
+            include_subcategories=include_subcategories,
+            category_type=category_type
+        )
+        # Convert to response models
+        # The service already handles subcategories properly (sets to [] when include_subcategories=False)
+        return [ExpenseCategoryResponse.model_validate(cat) for cat in categories]
+    except Exception as e:
+        logger.exception(f"Error fetching expense categories: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch expense categories: {str(e)}")
 
 
 @router.get("/{category_id}", response_model=ExpenseCategoryResponse)

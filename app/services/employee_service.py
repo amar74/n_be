@@ -2,6 +2,8 @@ import logging
 import csv
 import io
 import asyncio
+import json
+import re
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
@@ -350,8 +352,8 @@ class EmployeeService:
         company_id: Optional[UUID] = None
     ) -> SkillsGapResponse:
         """
-        Analyze skills gap between current team and project demands
-        This is a simulated analysis - would integrate with project module in production
+        AI-powered skills gap analysis based on actual opportunities and projects
+        Analyzes opportunities/projects to determine required skills, then compares with available team skills
         """
         try:
             # Get all accepted/active employees
@@ -360,37 +362,147 @@ class EmployeeService:
                 status=EmployeeStatus.ACCEPTED.value
             )
 
-            # Count skills
+            # Count current team skills
             skill_counts: Dict[str, int] = {}
+            all_team_skills = []
             for emp in employees:
                 if emp.skills:
                     for skill in emp.skills:
                         skill_counts[skill] = skill_counts.get(skill, 0) + 1
+                        all_team_skills.append(skill)
 
-            # Simulated project demands (would come from project module)
-            project_demands = {
-                "React": 5,
-                "Python": 6,
-                "UI/UX Design": 4,
-                "DevOps": 3,
-                "Product Management": 2,
-            }
+            # Get active opportunities and projects to analyze skill requirements
+            from app.models.opportunity import Opportunity, OpportunityStage
+            from sqlalchemy import select, and_, or_
+            from app.db.session import get_session
+            
+            async with get_session() as db:
+                # Get active opportunities (won, negotiation, shortlisted, proposal_development)
+                active_opportunities_result = await db.execute(
+                    select(Opportunity).where(
+                        and_(
+                            Opportunity.org_id == company_id,
+                            or_(
+                                Opportunity.stage == OpportunityStage.won,
+                                Opportunity.stage == OpportunityStage.negotiation,
+                                Opportunity.stage == OpportunityStage.shortlisted,
+                                Opportunity.stage == OpportunityStage.proposal_development,
+                            )
+                        )
+                    ).limit(20)
+                )
+                active_opportunities = active_opportunities_result.scalars().all()
 
-            # Calculate gaps
+            # Build context for AI analysis
+            opportunities_context = []
+            for opp in active_opportunities:
+                opp_data = {
+                    "project_name": opp.project_name,
+                    "description": opp.description or "",
+                    "market_sector": opp.market_sector or "",
+                    "team_size": opp.team_size or 0,
+                    "project_value": float(opp.project_value) if opp.project_value else 0,
+                    "stage": opp.stage.value if opp.stage else "",
+                }
+                opportunities_context.append(opp_data)
+
+            # Use AI to analyze opportunities and suggest required skills
+            project_demands = {}
+            if opportunities_context and gemini_service.enabled:
+                try:
+                    # Build AI prompt to analyze opportunities and suggest skills
+                    opportunities_text = "\n".join([
+                        f"Project: {o['project_name']} | Sector: {o['market_sector']} | "
+                        f"Team Size: {o['team_size']} | Value: ${o['project_value']:,.0f} | "
+                        f"Description: {o['description'][:200]}"
+                        for o in opportunities_context[:10]  # Limit to 10 for prompt size
+                    ])
+                    
+                    current_skills_summary = ", ".join(set(all_team_skills[:20]))  # Top 20 unique skills
+                    
+                    prompt = f"""You are an AI workforce planning analyst for a contractor/construction company (builders, interior designers, material suppliers).
+
+Analyze these active opportunities/projects and suggest the skills needed to fulfill them:
+
+ACTIVE OPPORTUNITIES/PROJECTS:
+{opportunities_text}
+
+CURRENT TEAM SKILLS:
+{current_skills_summary if current_skills_summary else "No skills data yet"}
+
+Based on the opportunities above, analyze what contractor-specific skills are needed. Consider:
+- Construction & Building: General Construction, Residential/Commercial Construction, Framing & Carpentry, Electrical/Plumbing/HVAC Installation, Flooring, Painting, etc.
+- Interior Design: Interior Design, Space Planning, Kitchen/Bathroom Design, CAD Design, Material Selection, etc.
+- Material Supply: Material Procurement, Supply Chain Management, Vendor Relations, Cost Estimation, etc.
+- Project Management: Project Management, Site Supervision, Quality Assurance, Safety Management, etc.
+
+Return ONLY a JSON object with this exact format:
+{{
+  "required_skills": {{
+    "Skill Name 1": <number of people needed>,
+    "Skill Name 2": <number of people needed>,
+    ...
+  }},
+  "analysis_summary": "Brief explanation of why these skills are needed"
+}}
+
+Focus on contractor-specific skills only. Return maximum 10-15 most critical skills. Prioritize skills with highest gaps.
+Return ONLY valid JSON, no markdown or explanation."""
+
+                    # Call Gemini AI
+                    response = await asyncio.to_thread(
+                        gemini_service.model.generate_content,
+                        prompt
+                    )
+                    response_text = response.text.strip()
+                    
+                    # Parse JSON from response
+                    import re
+                    json_match = re.search(r'\{[\s\S]*\}', response_text)
+                    if json_match:
+                        ai_result = json.loads(json_match.group())
+                        project_demands = ai_result.get("required_skills", {})
+                        logger.info(f"✅ AI suggested {len(project_demands)} skills based on {len(opportunities_context)} opportunities")
+                    else:
+                        logger.warning("Failed to parse AI response, using fallback")
+                        project_demands = {}
+                        
+                except Exception as ai_error:
+                    logger.error(f"AI analysis failed: {ai_error}, using fallback")
+                    project_demands = {}
+            
+            # Fallback: If no opportunities or AI fails, use contractor industry standards
+            if not project_demands:
+                logger.info("Using fallback contractor industry standard demands")
+                project_demands = {
+                    "General Construction": 6,
+                    "Project Management": 4,
+                    "Interior Design": 3,
+                    "Material Procurement": 3,
+                    "Site Supervision": 3,
+                }
+
+            # Calculate gaps - only show skills with actual gaps or high demand
             gaps = []
             for skill, required in project_demands.items():
                 available = skill_counts.get(skill, 0)
                 gap = max(0, required - available)
                 
-                priority = "high" if gap >= 2 else "medium" if gap == 1 else "low"
-                
-                gaps.append(SkillGapAnalysis(
-                    skill=skill,
-                    required=required,
-                    available=available,
-                    gap=gap,
-                    priority=priority
-                ))
+                # Only include skills that have gaps OR are in high demand (required >= 3)
+                if gap > 0 or required >= 3:
+                    priority = "high" if gap >= 2 else "medium" if gap == 1 else "low"
+                    
+                    gaps.append(SkillGapAnalysis(
+                        skill=skill,
+                        required=required,
+                        available=available,
+                        gap=gap,
+                        priority=priority
+                    ))
+            
+            # Sort by gap (highest first), then by priority, limit to top 10-12 most critical
+            gaps.sort(key=lambda x: (x.gap, 1 if x.priority == "high" else 2 if x.priority == "medium" else 3), reverse=True)
+            gaps = gaps[:12]  # Only show top 12 most critical skills
 
             total_gap = sum(g.gap for g in gaps)
             critical_gaps = sum(1 for g in gaps if g.priority == "high")
@@ -404,7 +516,7 @@ class EmployeeService:
             )
 
         except Exception as e:
-            logger.error(f"Error analyzing skills gap: {e}")
+            logger.error(f"Error analyzing skills gap: {e}", exc_info=True)
             raise
 
     @staticmethod

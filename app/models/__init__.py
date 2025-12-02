@@ -20,5 +20,13 @@ from .staff_planning import *
 from .finance_planning import *
 from .expense_category import *
 from .account_team import *
+from .account_audit import *
 from .proposal import *
 from .ai_agentic import *
+from .chat import *
+from .procurement import *
+from .procurement_budget import *
+from .vendor import *
+from .department import *
+from .role import *
+from .notification import *

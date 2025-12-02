@@ -18,7 +18,10 @@ class AccountService:
             # First, get accounts with their related data
             stmt = (
                 select(Account)
-                .where(Account.org_id == org_id)
+                .where(
+                    Account.org_id == org_id
+                    # Account.is_deleted == False  # Exclude soft-deleted accounts (column doesn't exist in DB yet)
+                )
                 .options(joinedload(Account.primary_contact))
                 .options(joinedload(Account.client_address))
                 .options(joinedload(Account.creator))
@@ -68,6 +71,7 @@ class AccountService:
                     and_(
                         Account.account_id == account_id,
                         Account.org_id == org_id
+                        # Account.is_deleted == False  # Exclude soft-deleted accounts (column doesn't exist in DB yet)
                     )
                 )
                 .options(joinedload(Account.primary_contact))
@@ -96,6 +100,47 @@ class AccountService:
             
         except Exception as e:
             logger.error(f"Error fetching account {account_id}: {str(e)}")
+            raise
+    
+    async def get_account_by_custom_id(self, custom_id: str, org_id: UUID) -> Optional[Account]:
+        """Get account by custom_id (e.g., AC-NY001)"""
+        db = get_request_transaction()
+        
+        try:
+            stmt = (
+                select(Account)
+                .where(
+                    and_(
+                        Account.custom_id == custom_id,
+                        Account.org_id == org_id
+                    )
+                )
+                .options(joinedload(Account.primary_contact))
+                .options(joinedload(Account.client_address))
+                .options(joinedload(Account.creator))
+            )
+            
+            result = await db.execute(stmt)
+            account = result.unique().scalar_one_or_none()
+            
+            if account:
+                # Calculate total_value from opportunities in a separate query
+                total_value_stmt = (
+                    select(func.coalesce(func.sum(Opportunity.project_value), 0))
+                    .where(Opportunity.account_id == account.account_id)
+                )
+                total_value_result = await db.execute(total_value_stmt)
+                total_value = total_value_result.scalar()
+                account.total_value = float(total_value) if total_value else 0.0
+                
+                logger.info(f"Retrieved account by custom_id {custom_id} (account_id: {account.account_id}) for organization {org_id}, total value: ${account.total_value}")
+            else:
+                logger.warning(f"Account with custom_id {custom_id} not found for organization {org_id}")
+            
+            return account
+            
+        except Exception as e:
+            logger.error(f"Error fetching account by custom_id {custom_id}: {str(e)}")
             raise
     
     async def get_accounts_by_ids(self, account_ids: List[UUID], org_id: UUID) -> List[Account]:
@@ -152,7 +197,10 @@ class AccountService:
         db = get_request_transaction()
         
         try:
-            stmt = select(Account).where(Account.org_id == org_id)
+            stmt = select(Account).where(
+                Account.org_id == org_id
+                # Account.is_deleted == False  # Exclude soft-deleted accounts (column doesn't exist in DB yet)
+            )
             
             # Apply filters
             if "client_type" in filters:

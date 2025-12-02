@@ -38,6 +38,18 @@ async def admin_create_new_user(
     payload: AdminCreateUserRequest,
     _: str = Depends(require_super_admin())
 ):
+    """
+    Create a vendor user who will log into the application.
+    
+    IMPORTANT: This is for Super Admin vendor users, NOT Procurement vendors (suppliers).
+    
+    - Super Admin Vendors: Users who log into the application (this endpoint)
+    - Procurement Vendors: Supplier records for procurement management (/vendors/ endpoint)
+    
+    These are TWO COMPLETELY SEPARATE systems. Do NOT mix them.
+    
+    See: docs/VENDOR_SYSTEMS_DOCUMENTATION.md for full details.
+    """
     
     user = await admin_create_user(
         email=payload.email,

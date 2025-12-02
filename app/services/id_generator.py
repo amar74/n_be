@@ -196,3 +196,178 @@ class IDGenerator:
         stmt = select(Account).where(Account.custom_id == custom_id)
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
+    
+    @staticmethod
+    async def generate_requisition_id(org_id: str, db: AsyncSession) -> str:
+        """Generate purchase requisition ID"""
+        import time
+        try:
+            from app.models.procurement import PurchaseRequisition
+            from app.models.organization import Organization
+            
+            org_stmt = select(Organization).where(Organization.id == org_id)
+            org_result = await db.execute(org_stmt)
+            organization = org_result.scalar_one_or_none()
+            
+            org_prefix = "ORG"
+            if organization:
+                org_name = organization.name or "ORG"
+                org_prefix = org_name[:2].upper() if len(org_name) >= 2 else "OR"
+            
+            stmt = select(PurchaseRequisition.custom_id).where(
+                PurchaseRequisition.org_id == org_id,
+                PurchaseRequisition.custom_id.isnot(None),
+                PurchaseRequisition.custom_id.like(f'REQ-{org_prefix}%')
+            )
+            result = await db.execute(stmt)
+            existing_ids = [row[0] for row in result.fetchall()]
+            
+            if existing_ids:
+                numbers = []
+                for custom_id in existing_ids:
+                    try:
+                        number_part = custom_id.split('-')[-1]
+                        numbers.append(int(number_part))
+                    except (ValueError, IndexError):
+                        continue
+                next_number = max(numbers) + 1 if numbers else 1
+            else:
+                next_number = 1
+            
+            custom_id = f"REQ-{org_prefix}{next_number:04d}"
+            return custom_id
+        except Exception as e:
+            timestamp = int(time.time())
+            return f"REQ-{org_prefix}{timestamp}"
+    
+    @staticmethod
+    async def generate_po_id(org_id: str, db: AsyncSession) -> str:
+        """Generate purchase order ID"""
+        import time
+        try:
+            from app.models.procurement import PurchaseOrder
+            from app.models.organization import Organization
+            
+            org_stmt = select(Organization).where(Organization.id == org_id)
+            org_result = await db.execute(org_stmt)
+            organization = org_result.scalar_one_or_none()
+            
+            org_prefix = "ORG"
+            if organization:
+                org_name = organization.name or "ORG"
+                org_prefix = org_name[:2].upper() if len(org_name) >= 2 else "OR"
+            
+            stmt = select(PurchaseOrder.custom_id).where(
+                PurchaseOrder.org_id == org_id,
+                PurchaseOrder.custom_id.isnot(None),
+                PurchaseOrder.custom_id.like(f'PO-{org_prefix}%')
+            )
+            result = await db.execute(stmt)
+            existing_ids = [row[0] for row in result.fetchall()]
+            
+            if existing_ids:
+                numbers = []
+                for custom_id in existing_ids:
+                    try:
+                        number_part = custom_id.split('-')[-1]
+                        numbers.append(int(number_part))
+                    except (ValueError, IndexError):
+                        continue
+                next_number = max(numbers) + 1 if numbers else 1
+            else:
+                next_number = 1
+            
+            custom_id = f"PO-{org_prefix}{next_number:04d}"
+            return custom_id
+        except Exception as e:
+            timestamp = int(time.time())
+            return f"PO-{org_prefix}{timestamp}"
+    
+    @staticmethod
+    async def generate_rfq_id(org_id: str, db: AsyncSession) -> str:
+        """Generate RFQ ID"""
+        import time
+        try:
+            from app.models.procurement import RFQ
+            from app.models.organization import Organization
+            
+            org_stmt = select(Organization).where(Organization.id == org_id)
+            org_result = await db.execute(org_stmt)
+            organization = org_result.scalar_one_or_none()
+            
+            org_prefix = "ORG"
+            if organization:
+                org_name = organization.name or "ORG"
+                org_prefix = org_name[:2].upper() if len(org_name) >= 2 else "OR"
+            
+            stmt = select(RFQ.custom_id).where(
+                RFQ.org_id == org_id,
+                RFQ.custom_id.isnot(None),
+                RFQ.custom_id.like(f'RFQ-{org_prefix}%')
+            )
+            result = await db.execute(stmt)
+            existing_ids = [row[0] for row in result.fetchall()]
+            
+            if existing_ids:
+                numbers = []
+                for custom_id in existing_ids:
+                    try:
+                        # Format is RFQ-{org_prefix}{number}, e.g., RFQ-AM0001
+                        # Extract the numeric part after the org_prefix
+                        if custom_id.startswith(f'RFQ-{org_prefix}'):
+                            number_part = custom_id[len(f'RFQ-{org_prefix}'):]
+                            numbers.append(int(number_part))
+                    except (ValueError, IndexError):
+                        continue
+                next_number = max(numbers) + 1 if numbers else 1
+            else:
+                next_number = 1
+            
+            custom_id = f"RFQ-{org_prefix}{next_number:04d}"
+            return custom_id
+        except Exception as e:
+            timestamp = int(time.time())
+            return f"RFQ-{org_prefix}{timestamp}"
+    
+    @staticmethod
+    async def generate_expense_id(org_id: str, db: AsyncSession) -> str:
+        """Generate employee expense ID"""
+        import time
+        try:
+            from app.models.procurement import EmployeeExpense
+            from app.models.organization import Organization
+            
+            org_stmt = select(Organization).where(Organization.id == org_id)
+            org_result = await db.execute(org_stmt)
+            organization = org_result.scalar_one_or_none()
+            
+            org_prefix = "ORG"
+            if organization:
+                org_name = organization.name or "ORG"
+                org_prefix = org_name[:2].upper() if len(org_name) >= 2 else "OR"
+            
+            stmt = select(EmployeeExpense.custom_id).where(
+                EmployeeExpense.org_id == org_id,
+                EmployeeExpense.custom_id.isnot(None),
+                EmployeeExpense.custom_id.like(f'EXP-{org_prefix}%')
+            )
+            result = await db.execute(stmt)
+            existing_ids = [row[0] for row in result.fetchall()]
+            
+            if existing_ids:
+                numbers = []
+                for custom_id in existing_ids:
+                    try:
+                        number_part = custom_id.split('-')[-1]
+                        numbers.append(int(number_part))
+                    except (ValueError, IndexError):
+                        continue
+                next_number = max(numbers) + 1 if numbers else 1
+            else:
+                next_number = 1
+            
+            custom_id = f"EXP-{org_prefix}{next_number:04d}"
+            return custom_id
+        except Exception as e:
+            timestamp = int(time.time())
+            return f"EXP-{org_prefix}{timestamp}"

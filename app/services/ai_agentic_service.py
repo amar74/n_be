@@ -1,8 +1,6 @@
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, String
-from sqlalchemy.orm import selectinload
-from sqlalchemy.dialects.postgresql import ARRAY, array
+from sqlalchemy import select, and_, or_
 
 from app.models.ai_agentic import AIAgenticTemplate
 from app.schemas.ai_agentic import AIAgenticTemplateCreate, AIAgenticTemplateUpdate
@@ -32,8 +30,7 @@ class AIAgenticService:
         if category:
             conditions.append(AIAgenticTemplate.category == category)
         
-        if module:
-            conditions.append(AIAgenticTemplate.assigned_modules.contains([module]))
+        # Note: module filtering is done in Python after fetching to avoid PostgreSQL array operator issues
         
         if is_active is not None:
             conditions.append(AIAgenticTemplate.is_active == is_active)
@@ -46,7 +43,18 @@ class AIAgenticService:
         query = query.order_by(AIAgenticTemplate.display_order, AIAgenticTemplate.name)
         
         result = await db.execute(query)
-        return list(result.scalars().all())
+        all_templates = list(result.scalars().all())
+        
+        # Filter by module in Python if specified
+        if module:
+            filtered_templates = []
+            for template in all_templates:
+                if template.assigned_modules and isinstance(template.assigned_modules, list):
+                    if module in template.assigned_modules:
+                        filtered_templates.append(template)
+            return filtered_templates
+        
+        return all_templates
     
     @staticmethod
     async def get_by_id(
@@ -68,13 +76,10 @@ class AIAgenticService:
         module: str,
         org_id: Optional[uuid.UUID] = None
     ) -> List[AIAgenticTemplate]:
+        # Fetch all active templates first, then filter by module in Python
+        # This is more reliable than trying to use PostgreSQL array operators
         query = select(AIAgenticTemplate).where(
-            and_(
-                AIAgenticTemplate.is_active == True,
-                AIAgenticTemplate.assigned_modules.contains(
-                    array([module], type_=ARRAY(String))
-                )
-            )
+            AIAgenticTemplate.is_active == True
         )
         
         if org_id:
@@ -90,7 +95,16 @@ class AIAgenticService:
         query = query.order_by(AIAgenticTemplate.display_order, AIAgenticTemplate.name)
         
         result = await db.execute(query)
-        return list(result.scalars().all())
+        all_templates = list(result.scalars().all())
+        
+        # Filter templates where module is in assigned_modules array
+        filtered_templates = []
+        for template in all_templates:
+            if template.assigned_modules and isinstance(template.assigned_modules, list):
+                if module in template.assigned_modules:
+                    filtered_templates.append(template)
+        
+        return filtered_templates
     
     @staticmethod
     async def create(

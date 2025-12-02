@@ -10,9 +10,45 @@ from app.services.ai_data_enrichment import ai_data_enrichment_service
 from app.services.ai_tiering import ai_tiering_service
 from app.services.ai_insights import ai_insights_service
 from app.services.health_score import health_score_service
+# Import only when needed to avoid circular dependencies
+# from app.services.account_risk_assessment import account_risk_assessment_service
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/ai", tags=["ai-features"])
+
+@router.post(
+    "/risk-assessment/{account_id}",
+    response_model=Dict[str, Any],
+    operation_id="assessAccountRisk"
+)
+async def assess_account_risk(
+    account_id: str = Path(..., description="Account ID to assess"),
+    include_predictions: bool = True,
+    user: User = Depends(get_current_user),
+    user_permission: UserPermissionResponse = Depends(get_user_permission({"accounts": ["view"]}))
+):
+    """
+    Enhanced risk assessment with predictive modeling and early warnings
+    """
+    try:
+        from app.services.account_risk_assessment import account_risk_assessment_service
+        assessment_result = await account_risk_assessment_service.assess_account_risk(
+            UUID(account_id),
+            user.org_id,
+            include_predictions=include_predictions
+        )
+        
+        return assessment_result
+        
+    except ValueError as e:
+        logger.error(f"Account not found for risk assessment: {account_id}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as err:
+        logger.error(f"Error assessing account risk for {account_id}: {err}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to assess account risk: {str(err)}"
+        )
 
 @router.post(
     "/enrich/{account_id}",
@@ -33,10 +69,10 @@ async def enrich_account_data(
         return enrichment_result
         
     except Exception as err:
-        logger.error(f"Error enriching account data for {account_id}: {e}")
+        logger.error(f"Error enriching account data for {account_id}: {err}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to enrich account data: {str(e)}"
+            detail=f"Failed to enrich account data: {str(err)}"
         )
 
 @router.post(

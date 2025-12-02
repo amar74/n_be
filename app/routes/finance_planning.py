@@ -7,12 +7,15 @@ mock service layer so the frontend can transition to API-driven data.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 from datetime import datetime
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.db.session import get_request_transaction
 from app.dependencies.user_auth import get_current_user
@@ -37,6 +40,16 @@ from app.services.finance_planning import (
     update_annual_budget,
     save_planning_config,
     update_scenario,
+    get_budget_approvals,
+    submit_budget_for_approval,
+    process_approval_action,
+    save_variance_explanations,
+)
+from app.schemas.finance import (
+    BudgetApprovalListResponse,
+    BudgetApprovalActionRequest,
+    BudgetSubmitRequest,
+    VarianceExplanationsRequest,
 )
 from app.models.finance_planning import (
     FinanceAnnualBudget,
@@ -56,6 +69,7 @@ router = APIRouter(prefix="/v1/finance/planning", tags=["Finance Planning"])
 async def read_finance_planning_annual(
     budget_year: Optional[str] = None,
     db: AsyncSession = Depends(get_request_transaction),
+    current_user: AuthUserResponse = Depends(get_current_user),
 ) -> FinancePlanningAnnualResponse:
     """
     Return the annual planning snapshot (budget, revenue/expense breakdown, thresholds).
@@ -64,15 +78,21 @@ async def read_finance_planning_annual(
     import logging
     logger = logging.getLogger(__name__)
     
-    # Try to get from database first
-    db_budget = await get_annual_budget_from_db(db, budget_year)
+    # Try to get from database first - filter by org_id
+    org_id_uuid = None
+    if current_user.org_id:
+        try:
+            org_id_uuid = uuid.UUID(str(current_user.org_id))
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid org_id format: {current_user.org_id}")
+    db_budget = await get_annual_budget_from_db(db, budget_year, org_id_uuid)
     
     if db_budget:
-        logger.info(f"Returning budget from database for year: {budget_year or 'latest'}")
+        logger.info(f"Returning budget from database for year: {budget_year or 'latest'}, org_id: {current_user.org_id}")
         return db_budget
     
     # Fallback to mock data if no database record exists
-    logger.info("No budget found in database, returning mock data")
+    logger.info(f"No budget found in database for org_id: {current_user.org_id}, returning mock data")
     return get_annual_planning_snapshot()
 
 
@@ -89,16 +109,99 @@ async def create_finance_planning_annual(
     logger = logging.getLogger(__name__)
     
     try:
-        logger.info(f"Saving annual budget for year {budget_data.budget_year}, user: {current_user.id}")
+        logger.info(f"Saving annual budget for year {budget_data.budget_year}, user: {current_user.id}, org_id: {current_user.org_id}")
         logger.info(f"Budget data: revenue_lines={len(budget_data.revenue_lines)}, expense_lines={len(budget_data.expense_lines)}, business_units={len(budget_data.business_units) if budget_data.business_units else 0}")
-        budget = await save_annual_budget(db, budget_data, current_user.id)
-        logger.info(f"Successfully saved budget ID: {budget.id}")
-        # Return updated data from database
-        db_response = await get_annual_budget_from_db(db, budget_data.budget_year)
-        if db_response:
-            return db_response
-        # Fallback to mock if conversion fails
-        return get_annual_planning_snapshot()
+        logger.info(f"Expense lines: {[(line.label, line.target) for line in budget_data.expense_lines]}")
+        # Convert org_id to UUID
+        org_id_uuid = None
+        if current_user.org_id:
+            try:
+                org_id_uuid = uuid.UUID(str(current_user.org_id))
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid org_id format: {current_user.org_id}")
+        budget = await save_annual_budget(db, budget_data, current_user.id, org_id_uuid)
+        logger.info(f"Successfully saved budget ID: {budget.id}, org_id: {budget.org_id}, year: {budget.budget_year}")
+        
+        # Ensure we have the budget ID before proceeding
+        if not budget.id:
+            logger.error("Budget saved but has no ID!")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Budget saved but ID not found"
+            )
+        
+        # Return updated data from database - use the saved budget's year and org_id
+        # This ensures we get the correct budget even if there are multiple budgets
+        try:
+            db_response = await get_annual_budget_from_db(db, budget.budget_year, org_id_uuid)
+            if db_response and budget.id:
+                # Always ensure budget_id is set from the saved budget (most reliable source)
+                # Try to update the budget_id directly on the response object
+                try:
+                    # For Pydantic v2
+                    if hasattr(db_response, 'model_dump'):
+                        response_dict = db_response.model_dump()
+                        response_dict['budget_id'] = budget.id
+                        from app.schemas.finance import FinancePlanningAnnualResponse
+                        response = FinancePlanningAnnualResponse(**response_dict)
+                        logger.info(f"Returning response with budget_id={response.budgetId} (from saved budget.id={budget.id})")
+                        return response
+                    # For Pydantic v1 fallback
+                    elif hasattr(db_response, 'dict'):
+                        response_dict = db_response.dict()
+                        response_dict['budget_id'] = budget.id
+                        from app.schemas.finance import FinancePlanningAnnualResponse
+                        response = FinancePlanningAnnualResponse(**response_dict)
+                        logger.info(f"Returning response with budget_id={response.budgetId} (from saved budget.id={budget.id})")
+                        return response
+                    else:
+                        # Direct assignment fallback
+                        db_response.budgetId = budget.id
+                        logger.info(f"Updated db_response.budgetId to {budget.id}")
+                        return db_response
+                except Exception as update_error:
+                    logger.error(f"Error updating budget_id in response: {str(update_error)}", exc_info=True)
+                    # Return db_response as-is, budget_id might already be set
+                    return db_response
+            elif db_response:
+                return db_response
+        except Exception as fetch_error:
+            logger.error(f"Error fetching budget after save: {str(fetch_error)}", exc_info=True)
+            # Continue to fallback
+        
+        # If get_annual_budget_from_db returns None or errored, try to construct a minimal response
+        # This should not happen in normal flow, but we'll handle it gracefully
+        logger.warning(f"get_annual_budget_from_db returned None or errored for budget_id={budget.id}, year={budget.budget_year}, org_id={org_id_uuid}")
+        
+        # Try to construct a basic response from the saved budget
+        # This ensures we at least return the budget_id even if fetching fails
+        try:
+            from app.schemas.finance import FinancePlanningAnnualResponse, FinancePlanningMetric
+            minimal_response = FinancePlanningAnnualResponse(
+                budget_id=budget.id,
+                budget_year=budget.budget_year,
+                budget_summary=[
+                    FinancePlanningMetric(label="Revenue Target", value=budget.total_revenue_target, tone="default"),
+                    FinancePlanningMetric(label="Expense Budget", value=budget.total_expense_budget, tone="negative"),
+                    FinancePlanningMetric(label="Target Profit", value=budget.target_profit or 0, tone="positive"),
+                    FinancePlanningMetric(label="Profit Margin", value=None, value_label=f"{budget.profit_margin or 0:.1f}%", tone="accent"),
+                ],
+                revenue_lines=[],
+                expense_lines=[],
+                business_units=[],
+                variance_thresholds=[],
+                reporting_schedule=[],
+                ai_highlights=[],
+            )
+            logger.info(f"Returning minimal response with budget_id={minimal_response.budgetId}")
+            return minimal_response
+        except Exception as minimal_error:
+            logger.error(f"Error creating minimal response: {str(minimal_error)}", exc_info=True)
+            # Last resort: return mock data
+            snapshot = get_annual_planning_snapshot()
+            if budget.id:
+                snapshot.budgetId = budget.id
+            return snapshot
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
@@ -518,3 +621,137 @@ async def export_forecast(
             detail=f"Failed to export forecast: {str(e)}"
         )
 
+
+
+# ---------------------------------------------------------------------------
+# Budget Approval Workflow Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/annual/{budget_id}/approvals",
+    response_model=BudgetApprovalListResponse,
+    summary="Get budget approval stages"
+)
+async def get_budget_approvals_endpoint(
+    budget_id: int = Path(..., description="Budget ID"),
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: AuthUserResponse = Depends(get_current_user),
+) -> BudgetApprovalListResponse:
+    """
+    Get all approval stages for a budget.
+    """
+    try:
+        user_uuid = uuid.UUID(str(current_user.id)) if current_user.id else None
+        return await get_budget_approvals(db, budget_id, user_uuid)
+    except Exception as e:
+        logger.error(f"Error getting budget approvals: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get budget approvals: {str(e)}"
+        )
+
+
+@router.post(
+    "/annual/{budget_id}/submit",
+    response_model=BudgetApprovalListResponse,
+    summary="Submit budget for approval"
+)
+async def submit_budget_for_approval_endpoint(
+    budget_id: int = Path(..., description="Budget ID"),
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: AuthUserResponse = Depends(get_current_user),
+) -> BudgetApprovalListResponse:
+    """
+    Submit budget for approval workflow.
+    Changes budget status to 'submitted' and activates first approval stage.
+    """
+    try:
+        user_uuid = uuid.UUID(str(current_user.id)) if current_user.id else None
+        return await submit_budget_for_approval(db, budget_id, user_uuid)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error submitting budget for approval: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to submit budget for approval: {str(e)}"
+        )
+
+
+@router.post(
+    "/annual/{budget_id}/approve",
+    response_model=BudgetApprovalListResponse,
+    summary="Process approval action"
+)
+async def process_approval_action_endpoint(
+    budget_id: int = Path(..., description="Budget ID"),
+    action_data: BudgetApprovalActionRequest = ...,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: AuthUserResponse = Depends(get_current_user),
+) -> BudgetApprovalListResponse:
+    """
+    Process an approval action (approve, reject, request_changes) for a budget stage.
+    """
+    try:
+        user_uuid = uuid.UUID(str(current_user.id)) if current_user.id else None
+        user_role = getattr(current_user, 'role', None)
+        return await process_approval_action(db, budget_id, action_data, user_uuid, user_role)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing approval action: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process approval action: {str(e)}"
+        )
+
+
+@router.post(
+    "/annual/{budget_id}/variance-explanations",
+    status_code=status.HTTP_200_OK,
+    summary="Save variance explanations"
+)
+async def save_variance_explanations_endpoint(
+    budget_id: int = Path(..., description="Budget ID"),
+    explanations_data: VarianceExplanationsRequest = ...,
+    db: AsyncSession = Depends(get_request_transaction),
+    current_user: AuthUserResponse = Depends(get_current_user),
+) -> dict:
+    """
+    Save variance explanations for a budget.
+    Explanations are saved to revenue_lines and expense_lines.
+    """
+    try:
+        org_id_uuid = None
+        if current_user.org_id:
+            try:
+                org_id_uuid = uuid.UUID(str(current_user.org_id))
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid org_id format: {current_user.org_id}")
+        
+        # Convert Pydantic models to dicts
+        explanations_list = [
+            {
+                'category': exp.category,
+                'explanation': exp.explanation,
+                'rootCause': exp.rootCause,
+                'actionPlan': exp.actionPlan,
+            }
+            for exp in explanations_data.explanations
+        ]
+        
+        await save_variance_explanations(db, budget_id, explanations_list, org_id_uuid)
+        
+        return {
+            "status": "success",
+            "message": "Variance explanations saved successfully",
+            "budget_id": budget_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving variance explanations: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save variance explanations: {str(e)}"
+        )

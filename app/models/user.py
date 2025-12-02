@@ -47,6 +47,7 @@ class User(Base):
     country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default='United States')
     timezone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default='America/New_York')
     language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default='en')
+    profile_picture_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     org_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
@@ -62,6 +63,14 @@ class User(Base):
     last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="users", foreign_keys=[org_id])
+    
+    # Notification relationships
+    notifications: Mapped[List["Notification"]] = relationship(
+        "Notification", back_populates="user", foreign_keys="Notification.user_id"
+    )
+    notification_preferences: Mapped[Optional["NotificationPreference"]] = relationship(
+        "NotificationPreference", back_populates="user", uselist=False
+    )
 
     def to_dict(self) -> Dict[str, Any]:
 
@@ -80,6 +89,7 @@ class User(Base):
             "country": self.country,
             "timezone": self.timezone,
             "language": self.language,
+            "profile_picture_url": self.profile_picture_url,
             "org_id": self.org_id,
             "role": self.role,
             "password_hash": self.password_hash,

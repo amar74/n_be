@@ -85,42 +85,51 @@ async def get_templates_by_module(
     db: AsyncSession = Depends(get_request_transaction),
     current_user: AuthUserResponse = Depends(get_current_user),
 ):
-    org_id = getattr(current_user, 'org_id', None)
-    if org_id:
-        org_id = uuid.UUID(str(org_id))
-    
-    templates = await AIAgenticService.get_by_module(
-        db=db,
-        module=module,
-        org_id=org_id
-    )
-    
-    # Convert templates to response format
-    template_responses = []
-    for template in templates:
-        template_responses.append(AIAgenticTemplateResponse(
-            id=template.id,
-            name=template.name,
-            description=template.description,
-            category=template.category,
-            tags=template.tags or [],
-            assigned_modules=template.assigned_modules or [],
-            system_prompt=template.system_prompt,
-            welcome_message=template.welcome_message,
-            quick_actions=template.quick_actions if template.quick_actions else None,
-            is_active=template.is_active,
-            is_default=template.is_default,
-            display_order=template.display_order,
-            org_id=str(template.org_id) if template.org_id else None,
-            created_by=str(template.created_by) if template.created_by else None,
-            created_at=template.created_at,
-            updated_at=template.updated_at,
-        ))
-    
-    return AIAgenticTemplateListResponse(
-        templates=template_responses,
-        total=len(template_responses)
-    )
+    try:
+        org_id = getattr(current_user, 'org_id', None)
+        if org_id:
+            org_id = uuid.UUID(str(org_id))
+        
+        templates = await AIAgenticService.get_by_module(
+            db=db,
+            module=module,
+            org_id=org_id
+        )
+        
+        # Convert templates to response format
+        template_responses = []
+        for template in templates:
+            template_responses.append(AIAgenticTemplateResponse(
+                id=template.id,
+                name=template.name,
+                description=template.description,
+                category=template.category,
+                tags=template.tags or [],
+                assigned_modules=template.assigned_modules or [],
+                system_prompt=template.system_prompt,
+                welcome_message=template.welcome_message,
+                quick_actions=template.quick_actions if template.quick_actions else None,
+                is_active=template.is_active,
+                is_default=template.is_default,
+                display_order=template.display_order,
+                org_id=str(template.org_id) if template.org_id else None,
+                created_by=str(template.created_by) if template.created_by else None,
+                created_at=template.created_at,
+                updated_at=template.updated_at,
+            ))
+        
+        return AIAgenticTemplateListResponse(
+            templates=template_responses,
+            total=len(template_responses)
+        )
+    except Exception as e:
+        import traceback
+        logger.error(f"Error fetching AI Agentic templates by module {module}: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch templates by module: {str(e)}"
+        )
 
 
 @router.get("/templates/{template_id}", response_model=AIAgenticTemplateResponse)

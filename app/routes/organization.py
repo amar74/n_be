@@ -1,7 +1,11 @@
-from fastapi import APIRouter, Depends, Query, Body
+from fastapi import APIRouter, Depends, Query, Body, UploadFile, File, Form
 from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
 from typing import List, Dict, Any, Optional
+import boto3
+from botocore.exceptions import ClientError
+from datetime import datetime
+import os
 from app.schemas.organization import (
     OrgCreateRequest,
     OrgCreateResponse,
@@ -223,6 +227,8 @@ async def patch_organization(
             org.name = data['name']
         if 'website' in data:
             org.website = data['website']
+        if 'logo_url' in data:
+            org.logo_url = data['logo_url']
         
         # Handle address - update existing or create new
         if 'address' in data:
@@ -289,11 +295,12 @@ async def patch_organization(
         return {
         "success": True,
         "message": "Organization updated",
-        "org": {
-            "id": str(org.id),
-            "name": org.name,
-            "website": org.website,
-            "address": {
+            "org": {
+                "id": str(org.id),
+                "name": org.name,
+                "website": org.website,
+                "logo_url": org.logo_url,
+                "address": {
                 "line1": org.address.line1 if org.address else None,
                 "line2": org.address.line2 if org.address else None,
                 "city": org.address.city if org.address else None,
@@ -306,6 +313,140 @@ async def patch_organization(
             } if org.contact else None,
         }
     }
+
+@router.post(
+    "/{org_id}/logo",
+    status_code=200,
+    operation_id="uploadOrgLogo",
+)
+async def upload_org_logo(
+    org_id: str,
+    file: UploadFile = File(...),
+    current_user: AuthUserResponse = Depends(require_role([Roles.VENDOR, Roles.ADMIN])),
+) -> Dict[str, Any]:
+    """
+    Upload organization logo to S3 and update database
+    """
+    from uuid import UUID
+    from app.db.session import get_transaction
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from app.models.organization import Organization
+    
+    try:
+        org_uuid = UUID(org_id)
+    except ValueError:
+        raise MegapolisHTTPException(status_code=400, details="Invalid organization ID")
+    
+    if current_user.org_id != org_uuid:
+        raise MegapolisHTTPException(status_code=403, details="Not authorized")
+    
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp']
+    if file.content_type not in allowed_types:
+        raise MegapolisHTTPException(
+            status_code=400, 
+            details=f"Invalid file type. Allowed types: {', '.join(allowed_types)}"
+        )
+    
+    # Read file content
+    file_content = await file.read()
+    
+    if not file_content or len(file_content) == 0:
+        raise MegapolisHTTPException(status_code=400, details="File is empty")
+    
+    # Check S3 configuration
+    s3_enabled = all([
+        environment.AWS_ACCESS_KEY_ID,
+        environment.AWS_SECRET_ACCESS_KEY,
+        environment.AWS_S3_BUCKET_NAME
+    ])
+    
+    file_url = None
+    file_extension = file.filename.split('.')[-1] if file.filename else 'png'
+    timestamp = datetime.utcnow().timestamp()
+    
+    # Try S3 upload first if configured
+    if s3_enabled:
+        try:
+            # Generate S3 key
+            s3_key = f"organization-logos/{org_uuid}/{timestamp}.{file_extension}"
+            
+            # Upload to S3
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=environment.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=environment.AWS_SECRET_ACCESS_KEY,
+                region_name=environment.AWS_S3_REGION or "us-east-1"
+            )
+            
+            # Check if bucket exists
+            try:
+                s3_client.head_bucket(Bucket=environment.AWS_S3_BUCKET_NAME)
+            except ClientError as e:
+                error_code = e.response.get('Error', {}).get('Code', '')
+                if error_code == '404' or error_code == '403':
+                    logger.warning(f"S3 bucket '{environment.AWS_S3_BUCKET_NAME}' does not exist or is not accessible. Falling back to local storage.")
+                    s3_enabled = False
+                else:
+                    raise
+            
+            if s3_enabled:
+                s3_client.put_object(
+                    Bucket=environment.AWS_S3_BUCKET_NAME,
+                    Key=s3_key,
+                    Body=file_content,
+                    ContentType=file.content_type
+                )
+                
+                region_segment = f".{environment.AWS_S3_REGION}" if environment.AWS_S3_REGION else ""
+                file_url = f"https://{environment.AWS_S3_BUCKET_NAME}.s3{region_segment}.amazonaws.com/{s3_key}"
+                logger.info(f"Logo uploaded to S3: {s3_key}")
+        except ClientError as e:
+            logger.error(f"S3 upload failed: {e}. Falling back to local storage.")
+            s3_enabled = False
+    
+    # Fallback to local storage if S3 is not configured or failed
+    if not s3_enabled or not file_url:
+        try:
+            upload_root = os.path.join("uploads", "organization_logos")
+            os.makedirs(upload_root, exist_ok=True)
+            org_dir = os.path.join(upload_root, str(org_uuid))
+            os.makedirs(org_dir, exist_ok=True)
+            local_path = os.path.join(org_dir, f"{timestamp}.{file_extension}")
+            
+            with open(local_path, "wb") as f:
+                f.write(file_content)
+            
+            # Generate a URL that can be served by the backend
+            # Use API base URL - static files are served directly from root, not /api
+            api_base = environment.FRONTEND_URL.replace(":5173", ":8000") if hasattr(environment, 'FRONTEND_URL') and environment.FRONTEND_URL else "http://127.0.0.1:8000"
+            file_url = f"{api_base}/uploads/organization_logos/{org_uuid}/{timestamp}.{file_extension}"
+            logger.info(f"Logo saved to local storage: {local_path}")
+        except Exception as e:
+            logger.error(f"Local storage save failed: {e}")
+            raise MegapolisHTTPException(status_code=500, details=f"Failed to save logo: {str(e)}")
+    
+    # Update organization with logo URL
+    async with get_transaction() as db:
+        result = await db.execute(
+            select(Organization)
+            .options(selectinload(Organization.address), selectinload(Organization.contact))
+            .where(Organization.id == org_uuid)
+        )
+        org = result.scalar_one_or_none()
+        
+        if not org:
+            raise MegapolisHTTPException(status_code=404, details="Organization not found")
+        
+        org.logo_url = file_url
+        await db.commit()
+        
+        return {
+            "success": True,
+            "message": "Logo uploaded successfully",
+            "logo_url": file_url
+        }
 
 @router.get(
     "/members",

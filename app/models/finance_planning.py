@@ -2,7 +2,8 @@
 Finance Planning Models
 Handles annual budgets, revenue/expense lines, scenarios, and forecasting data
 """
-from sqlalchemy import Column, Integer, String, Float, Date, TIMESTAMP, Text, JSON, Boolean, ForeignKey
+import enum
+from sqlalchemy import Column, Integer, String, Float, Date, TIMESTAMP, Text, JSON, Boolean, ForeignKey, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -46,6 +47,7 @@ class FinanceAnnualBudget(Base):
     revenue_lines = relationship("FinanceRevenueLine", back_populates="budget", cascade="all, delete-orphan")
     expense_lines = relationship("FinanceExpenseLine", back_populates="budget", cascade="all, delete-orphan")
     business_units = relationship("FinanceBusinessUnit", back_populates="budget", cascade="all, delete-orphan")
+    approvals = relationship("BudgetApproval", back_populates="budget", cascade="all, delete-orphan")
 
 
 class FinanceRevenueLine(Base):
@@ -60,6 +62,11 @@ class FinanceRevenueLine(Base):
     label: Mapped[str] = mapped_column(String(255), nullable=False)
     target: Mapped[float] = mapped_column(Float, default=0.0)
     variance: Mapped[float] = mapped_column(Float, default=0.0)
+    
+    # Variance explanations
+    variance_explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    root_cause: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    action_plan: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     # Ordering
     display_order: Mapped[int] = mapped_column(Integer, default=0)
@@ -83,6 +90,11 @@ class FinanceExpenseLine(Base):
     label: Mapped[str] = mapped_column(String(255), nullable=False)
     target: Mapped[float] = mapped_column(Float, default=0.0)
     variance: Mapped[float] = mapped_column(Float, default=0.0)
+    
+    # Variance explanations
+    variance_explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    root_cause: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    action_plan: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     # Ordering
     display_order: Mapped[int] = mapped_column(Integer, default=0)
@@ -254,3 +266,42 @@ class FinanceForecast(Base):
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
+
+
+class BudgetApprovalStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    requested_changes = "requested_changes"
+    not_started = "not_started"
+
+
+class BudgetApproval(Base):
+    """
+    Budget approval workflow stages
+    """
+    __tablename__ = "budget_approvals"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    budget_id: Mapped[int] = mapped_column(Integer, ForeignKey("finance_annual_budgets.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    stage_id: Mapped[str] = mapped_column(String(50), nullable=False)  # draft, department, finance, executive
+    stage_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    required_role: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    
+    status: Mapped[BudgetApprovalStatus] = mapped_column(
+        SQLEnum(BudgetApprovalStatus, name="budget_approval_status"),
+        nullable=False,
+        default=BudgetApprovalStatus.not_started,
+    )
+    
+    approver_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    decision_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP, nullable=True)
+    comments: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    budget: Mapped["FinanceAnnualBudget"] = relationship("FinanceAnnualBudget", back_populates="approvals")

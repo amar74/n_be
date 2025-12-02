@@ -4,11 +4,13 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from app.router import api_router
 from app.middlewares.request_transaction import RequestTransactionMiddleware
 from app.utils.error import MegapolisHTTPException
 from app.utils.logger import logger
 from pydantic import BaseModel
+import os
 
 app = FastAPI(title="Megapolis API", version="0.1.0")
 
@@ -50,6 +52,11 @@ app.add_middleware(RequestTransactionMiddleware)
 
 
 app.include_router(api_router, prefix="/api")
+
+# Mount static files for uploads
+uploads_dir = "uploads"
+if os.path.exists(uploads_dir):
+    app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 def custom_openapi():
     if app.openapi_schema:

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from typing import List, Optional
 from uuid import UUID
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.employee import (
     EmployeeCreate,
@@ -26,11 +27,11 @@ from app.services.email import send_employee_activation_email
 from app.dependencies.user_auth import get_current_user
 from app.models.user import User
 from app.db.session import get_request_transaction, get_session, get_transaction
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.utils.logger import get_logger
 
 import logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/resources", tags=["Employee Onboarding"])
 
@@ -336,7 +337,8 @@ async def activate_employee(
             status="active",
             user_id=user.id,  # Pass UUID directly, not string
             role=activation_data.user_role,  # Save system role (employee, admin, manager, etc.)
-            review_notes=f"User account created. Role: {activation_data.user_role}, Permissions: {', '.join(activation_data.permissions)}, Password: {activation_data.temporary_password}"
+            department=activation_data.department,  # Save department if provided
+            review_notes=f"User account created. Role: {activation_data.user_role}, Department: {activation_data.department or 'Not assigned'}, Password: {activation_data.temporary_password}"
         )
         
         if not employee_updated:
@@ -566,51 +568,150 @@ async def get_onboarding_dashboard(
 # ==================== PERMISSIONS (RBAC) ====================
 
 @router.get("/roles")
-async def get_available_roles(current_user: User = Depends(get_current_user)):
-    """
-    Get list of available roles
-    Returns system roles + any custom roles created by admins
-    """
-    # System roles (default, cannot be deleted)
-    system_roles = [
-        {
-            "id": "employee",
-            "name": "Employee",
-            "description": "Standard employee with basic access to assigned work",
-            "permissions": ["view_projects", "view_accounts", "view_resources"],
-            "isSystem": True,
-            "color": "bg-blue-100 text-blue-700 border-blue-200"
-        },
-        {
-            "id": "team_lead",
-            "name": "Team Lead",
-            "description": "Manages team members and projects",
-            "permissions": ["view_projects", "edit_projects", "view_accounts", "edit_accounts", "view_resources", "manage_team", "view_reports"],
-            "isSystem": True,
-            "color": "bg-purple-100 text-purple-700 border-purple-200"
-        },
-        {
-            "id": "manager",
-            "name": "Manager",
-            "description": "Department management with extended access",
-            "permissions": ["view_projects", "edit_projects", "view_accounts", "edit_accounts", "view_opportunities", "edit_opportunities", "view_resources", "edit_resources", "manage_team", "view_reports", "export_data"],
-            "isSystem": True,
-            "color": "bg-amber-100 text-amber-700 border-amber-200"
-        },
-        {
-            "id": "admin",
-            "name": "Admin",
-            "description": "Full system access including role management",
-            "permissions": ["view_projects", "edit_projects", "delete_projects", "view_accounts", "edit_accounts", "delete_accounts", "view_opportunities", "edit_opportunities", "view_resources", "edit_resources", "manage_team", "view_reports", "export_data", "manage_roles", "system_settings"],
-            "isSystem": True,
-            "color": "bg-red-100 text-red-700 border-red-200"
-        }
-    ]
+async def get_available_roles(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_request_transaction)
+):
     
-    # TODO: Fetch custom roles from database (when role table is implemented)
-    # For now, returning only system roles
+    from app.services.role_service import RoleService
     
-    return {"roles": system_roles}
+    if not current_user.org_id:
+        # Return empty if no org_id
+        return {"roles": []}
+    
+    try:
+        role_service = RoleService(db)
+        # Fetch all roles (both system and custom) from database
+        all_roles_db = await role_service.list_roles(current_user.org_id, include_system=True)
+        
+        # Convert to dict format expected by frontend
+        roles = []
+        for role in all_roles_db:
+            role_dict = role.to_dict()
+            # Ensure isSystem field matches frontend expectation (to_dict returns isSystem)
+            # The to_dict method already converts is_system to isSystem
+            roles.append(role_dict)
+        
+        return {"roles": roles}
+    except Exception as e:
+        logger.error(f"Error fetching roles: {e}")
+        # Fallback to empty list on error
+        return {"roles": []}
+
+
+@router.post("/roles", status_code=status.HTTP_201_CREATED)
+async def create_role(
+    role_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_request_transaction)
+):
+    
+    from app.services.role_service import RoleService
+    from app.schemas.role import RoleResponse
+    
+    if not current_user.org_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must belong to an organization"
+        )
+    
+    # Check if user is admin
+    user_role = current_user.role.lower() if current_user.role else ''
+    if user_role not in ['admin', 'vendor', 'super_admin']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can create custom roles"
+        )
+    
+    try:
+        role_service = RoleService(db)
+        role = await role_service.create_role(
+            name=role_data.get('name'),
+            org_id=current_user.org_id,
+            description=role_data.get('description'),
+            permissions=role_data.get('permissions', []),
+            color=role_data.get('color'),
+        )
+        # Flush to ensure the role is persisted
+        await db.flush()
+        logger.info(f"Successfully created role: {role.name} (ID: {role.id}) for org {current_user.org_id}")
+        return role.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating role: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create role: {str(e)}"
+        )
+
+
+@router.put("/roles/{role_id}")
+async def update_role(
+    role_id: UUID,
+    role_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_request_transaction)
+):
+    
+    from app.services.role_service import RoleService
+    
+    if not current_user.org_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must belong to an organization"
+        )
+    
+    # Check if user is admin
+    user_role = current_user.role.lower() if current_user.role else ''
+    if user_role not in ['admin', 'vendor', 'super_admin']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can update roles"
+        )
+    
+    role_service = RoleService(db)
+    role = await role_service.update_role(
+        role_id=role_id,
+        org_id=current_user.org_id,
+        name=role_data.get('name'),
+        description=role_data.get('description'),
+        permissions=role_data.get('permissions'),
+        color=role_data.get('color'),
+    )
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found"
+        )
+    return role.to_dict()
+
+
+@router.delete("/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_role(
+    role_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_request_transaction)
+):
+   
+    from app.services.role_service import RoleService
+    
+    if not current_user.org_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must belong to an organization"
+        )
+    
+    # Check if user is admin
+    user_role = current_user.role.lower() if current_user.role else ''
+    if user_role not in ['admin', 'vendor', 'super_admin']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can delete roles"
+        )
+    
+    role_service = RoleService(db)
+    await role_service.delete_role(role_id, current_user.org_id)
 
 
 @router.patch("/users/{user_id}/permissions")
@@ -619,11 +720,7 @@ async def update_user_permissions(
     permissions: PermissionUpdate,
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update user permissions (RBAC)
-    
-    - **permissions**: List of permission IDs to assign
-    """
+
     # This would integrate with your existing user permissions system
     # For now, returning success response
     return {
@@ -638,7 +735,7 @@ async def get_user_permissions(
     user_id: UUID,
     current_user: User = Depends(get_current_user)
 ):
-    """Get current user permissions"""
+    
     # This would fetch from your permissions table
     return {
         "user_id": str(user_id),

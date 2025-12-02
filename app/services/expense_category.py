@@ -72,9 +72,17 @@ class ExpenseCategoryService:
             
             query = query.where(ExpenseCategory.parent_id == None)
             query = query.order_by(ExpenseCategory.display_order, ExpenseCategory.name)
+            # Load subcategories relationship even if we're filtering them out, to avoid lazy load issues
+            query = query.options(selectinload(ExpenseCategory.subcategories))
             
             result = await db.execute(query)
-            return list(result.scalars().all())
+            categories = list(result.scalars().all())
+            
+            # Set subcategories to empty list for each category since include_subcategories=False
+            for cat in categories:
+                cat.subcategories = []
+            
+            return categories
 
     @staticmethod
     async def get_by_id(

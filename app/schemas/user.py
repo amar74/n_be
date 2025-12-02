@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     username: Optional[str] = None  # Employee code for employees, None for vendors
     name: Optional[str] = None
     role: str
+    profile_picture_url: Optional[str] = None
     org_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

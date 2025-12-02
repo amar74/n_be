@@ -1,11 +1,19 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import timedelta, datetime
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, Dict, Any
+import boto3
+from botocore.exceptions import ClientError
+import os
+from app.environment import environment
+from app.utils.logger import logger
+from app.utils.error import MegapolisHTTPException
 
 from app.services.auth_service import AuthService
 from app.models.user import User
+from app.db.session import get_transaction
+from sqlalchemy import select
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 security = HTTPBearer()
@@ -33,6 +41,7 @@ class UserResponse(BaseModel):
     country: Optional[str] = None
     timezone: Optional[str] = None
     language: Optional[str] = None
+    profile_picture_url: Optional[str] = None
     role: str
     org_id: Optional[str] = None
     created_at: Optional[str] = None
@@ -163,6 +172,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         country=current_user.country,
         timezone=current_user.timezone,
         language=current_user.language,
+        profile_picture_url=current_user.profile_picture_url,
         role=current_user.role,
         org_id=str(current_user.org_id) if current_user.org_id else None,
         created_at=current_user.created_at.isoformat() if current_user.created_at else None,
@@ -234,6 +244,7 @@ async def update_profile(
             country=updated_user.country,
             timezone=updated_user.timezone,
             language=updated_user.language,
+            profile_picture_url=updated_user.profile_picture_url,
             role=updated_user.role,
             org_id=str(updated_user.org_id) if updated_user.org_id else None,
             created_at=updated_user.created_at.isoformat() if updated_user.created_at else None,
@@ -246,6 +257,129 @@ async def update_profile(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update profile: {str(e)}"
+        )
+
+@router.post("/profile/picture", status_code=200)
+async def upload_profile_picture(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    
+    try:
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp']
+        if not file.content_type or file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type. Allowed types: {', '.join(allowed_types)}"
+            )
+        
+        # Read file content
+        file_content = await file.read()
+        
+        if not file_content or len(file_content) == 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is empty")
+        
+        # Check S3 configuration
+        s3_enabled = all([
+            environment.AWS_ACCESS_KEY_ID,
+            environment.AWS_SECRET_ACCESS_KEY,
+            environment.AWS_S3_BUCKET_NAME
+        ])
+        
+        file_url = None
+        file_extension = file.filename.split('.')[-1] if file.filename else 'png'
+        timestamp = datetime.utcnow().timestamp()
+        
+        # Try S3 upload first if configured
+        if s3_enabled:
+            try:
+                # Generate S3 key
+                s3_key = f"profile-pictures/{current_user.id}/{timestamp}.{file_extension}"
+                
+                # Upload to S3
+                s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=environment.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=environment.AWS_SECRET_ACCESS_KEY,
+                    region_name=environment.AWS_S3_REGION or "us-east-1"
+                )
+                
+                # Check if bucket exists
+                try:
+                    s3_client.head_bucket(Bucket=environment.AWS_S3_BUCKET_NAME)
+                except ClientError as e:
+                    error_code = e.response.get('Error', {}).get('Code', '')
+                    if error_code == '404' or error_code == '403':
+                        logger.warning(f"S3 bucket '{environment.AWS_S3_BUCKET_NAME}' does not exist or is not accessible. Falling back to local storage.")
+                        s3_enabled = False
+                    else:
+                        raise
+                
+                if s3_enabled:
+                    s3_client.put_object(
+                        Bucket=environment.AWS_S3_BUCKET_NAME,
+                        Key=s3_key,
+                        Body=file_content,
+                        ContentType=file.content_type
+                    )
+                    
+                    region_segment = f".{environment.AWS_S3_REGION}" if environment.AWS_S3_REGION else ""
+                    file_url = f"https://{environment.AWS_S3_BUCKET_NAME}.s3{region_segment}.amazonaws.com/{s3_key}"
+                    logger.info(f"Profile picture uploaded to S3: {s3_key}")
+            except ClientError as e:
+                logger.error(f"S3 upload failed: {e}. Falling back to local storage.")
+                s3_enabled = False
+        
+        # Fallback to local storage if S3 is not configured or failed
+        if not s3_enabled or not file_url:
+            try:
+                upload_root = os.path.join("uploads", "profile_pictures")
+                os.makedirs(upload_root, exist_ok=True)
+                user_id_str = str(current_user.id)
+                user_dir = os.path.join(upload_root, user_id_str)
+                os.makedirs(user_dir, exist_ok=True)
+                local_path = os.path.join(user_dir, f"{timestamp}.{file_extension}")
+                
+                with open(local_path, "wb") as f:
+                    f.write(file_content)
+                
+                # Generate a URL that can be served by the backend
+                api_base = environment.FRONTEND_URL.replace(":5173", ":8000") if hasattr(environment, 'FRONTEND_URL') and environment.FRONTEND_URL else "http://127.0.0.1:8000"
+                file_url = f"{api_base}/uploads/profile_pictures/{user_id_str}/{timestamp}.{file_extension}"
+                logger.info(f"Profile picture saved to local storage: {local_path}")
+            except Exception as e:
+                logger.error(f"Local storage save failed: {e}", exc_info=True)
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to save profile picture: {str(e)}")
+        
+        # Update user with profile picture URL
+        async with get_transaction() as db:
+            result = await db.execute(
+                select(User).where(User.id == current_user.id)
+            )
+            user = result.scalar_one_or_none()
+            
+            if not user:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            
+            user.profile_picture_url = file_url
+            await db.commit()
+            
+            # Refresh to get updated user
+            await db.refresh(user)
+            
+            return {
+                "success": True,
+                "message": "Profile picture uploaded successfully",
+                "profile_picture_url": file_url
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Profile picture upload failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload profile picture: {str(e)}"
         )
 
 @router.post("/change-password")

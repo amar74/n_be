@@ -10,8 +10,24 @@ from app.schemas.user_permission import Permission, UserPermissionResponse
 from typing import Dict, List
 
 def require_role(allowed_roles: List[str]):
+    """
+    Role-based access control dependency.
+    
+    IMPORTANT: "vendor" role = main owner/admin of subscribed application (full admin privileges).
+    If 'admin' is in allowed_roles, 'vendor' role is automatically allowed.
+    """
     async def role_checker(current_user: AuthUserResponse = Depends(get_current_user)):
-        if current_user.role not in allowed_roles:
+        user_role_lower = current_user.role.lower() if current_user.role else ''
+        
+        # If 'admin' is allowed, also allow 'vendor' role (main owner has admin privileges)
+        effective_allowed_roles = allowed_roles.copy()
+        if 'admin' in [r.lower() for r in allowed_roles]:
+            effective_allowed_roles.append('vendor')
+        
+        # Normalize roles for comparison
+        normalized_allowed = [r.lower() for r in effective_allowed_roles]
+        
+        if user_role_lower not in normalized_allowed:
             raise MegapolisHTTPException(
                 status_code=403,
                 details="You do not have permission to perform this action",
@@ -25,14 +41,17 @@ def require_role(allowed_roles: List[str]):
 
 def require_super_admin():
 
-    async def super_admin_checker(current_user: AuthUserResponse = Depends(get_current_user)) -> str:
+    async def super_admin_checker(current_user: AuthUserResponse = Depends(get_current_user)) -> User:
         allowed_emails = Constants.SUPER_ADMIN_EMAILS
         if current_user.email not in allowed_emails:
             raise MegapolisHTTPException(
                 status_code=403,
                 details="You do not have permission to perform this action",
             )
-        return current_user.id
+        user = await User.get_by_id(current_user.id)
+        if not user:
+            raise MegapolisHTTPException(status_code=404, details="User not found")
+        return user
 
     return super_admin_checker
 

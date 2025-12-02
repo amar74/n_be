@@ -5,6 +5,7 @@ import httpx
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 from app.environment import environment
+from app.utils.logger import get_logger
 from typing import List, Dict, Union, Any, Optional
 
 async def scrape_text_with_bs4(url: str) -> Dict[str, Union[str, Dict[str, str]]]:
@@ -409,33 +410,46 @@ def extract_opportunities(text: str, html: str, base_url: str, max_items: int = 
     if parsed_opportunities:
         return parsed_opportunities
 
-    prompt = f"""You are an analyst extracting infrastructure or procurement opportunities from structured or semi-structured website content.
-Return ONLY JSON that conforms strictly to the following schema:
+    prompt = f"""You are an expert analyst specializing in extracting infrastructure, construction, consulting, and procurement opportunities from website content.
+
+**Your Task:**
+Extract all distinct project, tender, RFP, or opportunity records from the provided content. Focus on active, upcoming, or in-progress opportunities.
+
+**Output Format (JSON only, no markdown):**
 {{
   "opportunities": [
     {{
-      "title": string | null,
-      "status": string | null,
-      "description": string | null,
-      "client": string | null,
-      "location": string | null,
-      "budget_text": string | null,
-      "deadline": string | null,
-      "detail_url": string | null,
-      "tags": [string, ...]
+      "title": string | null (project/opportunity name),
+      "status": string | null (e.g., "In Progress", "Upcoming", "Open", "Active", "Planned"),
+      "description": string | null (brief description, 100-300 words if available),
+      "client": string | null (client organization name),
+      "location": string | null (city, state, or full address),
+      "budget_text": string | null (budget range or value as text, e.g., "$1M-$5M", "$500K"),
+      "deadline": string | null (submission deadline, RFP due date, or project start date in ISO format if possible),
+      "detail_url": string | null (absolute URL to detailed page, convert relative URLs using base "{base_url}"),
+      "tags": [string, ...] (relevant tags like "infrastructure", "construction", "consulting", "RFP", etc.)
     }}
   ]
 }}
 
-Guidelines:
-- Include up to {max_items} distinct project or tender records described in the content.
-- Use null when a field is missing.
-- If a relative link to a detailed page exists, convert it into an absolute URL using the base \"{base_url}\".
-- Focus on sections that clearly resemble projects, tenders, or program listings.
-- Ignore navigation, unrelated content, or repeated headers.
+**Extraction Guidelines:**
+1. Extract up to {max_items} distinct opportunities (prioritize active/upcoming ones)
+2. Use null for missing fields (don't guess or make up data)
+3. Convert relative URLs to absolute using base URL: "{base_url}"
+4. Focus on:
+   - Project listings, tender announcements, RFP postings
+   - Active or upcoming opportunities (not completed/closed)
+   - Infrastructure, construction, consulting, engineering projects
+5. Ignore:
+   - Navigation menus, headers, footers
+   - Completed or closed projects (unless specifically requested)
+   - Unrelated content or advertisements
+   - Duplicate entries
 
-Content to analyse:
-\"\"\"{text[:15000]}\"\"\""""
+**Content to analyze:**
+\"\"\"{text[:20000]}\"\"\"
+
+Return ONLY valid JSON, no additional text or markdown formatting."""
 
     try:
         response = model.generate_content(prompt)
@@ -474,36 +488,154 @@ Content to analyse:
         return []
 
 
-async def process_urls(urls: List[str]) -> List[Dict[str, Any]]:
+async def crawl_site_recursively(
+    base_url: str,
+    max_depth: int = 2,
+    max_pages: int = 200,
+    project_keywords: Optional[List[str]] = None
+) -> List[str]:
+    """
+    Recursively crawl a website to find project/opportunity pages.
+    
+    Args:
+        base_url: Base URL to start crawling from
+        max_depth: Maximum depth to crawl (default: 2)
+        max_pages: Maximum number of pages to visit (default: 200)
+        project_keywords: Keywords to identify project pages
+    
+    Returns:
+        List of URLs that appear to be project/opportunity pages
+    """
+    from urllib.parse import urljoin, urlparse
+    
+    if project_keywords is None:
+        project_keywords = [
+            'project', 'projects', 'program', 'programs', 'opportunity', 'opportunities',
+            'tender', 'tenders', 'rfp', 'rfps', 'bid', 'bids', 'contract', 'contracts',
+            'freeway', 'construction', 'in-progress', 'ongoing', 'upcoming'
+        ]
+    
+    visited: set[str] = set()
+    to_visit: List[tuple[str, int]] = [(base_url, 0)]  # (url, depth)
+    project_urls: List[str] = []
+    base_domain = urlparse(base_url).netloc
+    
+    while to_visit and len(visited) < max_pages:
+        current_url, depth = to_visit.pop(0)
+        
+        if current_url in visited or depth > max_depth:
+            continue
+        
+        visited.add(current_url)
+        
+        try:
+            page = await scrape_text_with_bs4(current_url)
+            if "error" in page:
+                continue
+            
+            html = page.get("html", "")
+            if not html:
+                continue
+            
+            soup = BeautifulSoup(html, "html.parser")
+            
+            # Extract all links
+            for link in soup.find_all("a", href=True):
+                href = link.get("href")
+                if not href:
+                    continue
+                
+                # Convert to absolute URL
+                full_url = urljoin(current_url, href)
+                parsed = urlparse(full_url)
+                
+                # Only follow links from same domain
+                if parsed.netloc != base_domain:
+                    continue
+                
+                # Remove fragments and query params for comparison
+                clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                
+                if clean_url in visited:
+                    continue
+                
+                # Check if URL looks like a project page
+                url_lower = clean_url.lower()
+                is_project_page = any(keyword in url_lower for keyword in project_keywords)
+                
+                if is_project_page:
+                    if clean_url not in project_urls:
+                        project_urls.append(clean_url)
+                elif depth < max_depth:
+                    # Add to queue for further crawling
+                    to_visit.append((clean_url, depth + 1))
+        
+        except Exception as e:
+            logger = get_logger("scraper")
+            logger.warning(f"Error crawling {current_url}: {e}")
+            continue
+    
+    return project_urls
+
+
+async def process_urls(urls: List[str], recursive: bool = False, max_depth: int = 2) -> List[Dict[str, Any]]:
+    """
+    Process URLs to extract opportunities.
+    
+    Args:
+        urls: List of URLs to process
+        recursive: If True, recursively crawl each URL to find project pages
+        max_depth: Maximum depth for recursive crawling (if recursive=True)
+    
+    Returns:
+        List of results with opportunities found
+    """
     results = []
-
+    
     for url in urls:
-        page = await scrape_text_with_bs4(url)
-
-        if "text" in page:
-            info = extract_info(page["text"])
-            base_opportunities = extract_opportunities(
-                page["text"],
-                page.get("html") or "",
-                url,
-            )
-            enriched_opportunities: List[Dict[str, Any]] = []
-            for opportunity in base_opportunities:
-                detail_url = opportunity.get("detail_url")
-                detail_payload: Dict[str, Any] = {}
-                if detail_url:
-                    detail_payload = await enrich_opportunity_details(detail_url)
-                elif len(base_opportunities) == 1:
-                    detail_payload = await enrich_opportunity_details(url, prefetched_page=page)
-
-                merged = {**opportunity}
-                merged.update(
-                    {k: v for k, v in detail_payload.items() if v is not None}
-                )
-                enriched_opportunities.append(merged)
-
-            results.append({"url": url, "info": info, "opportunities": enriched_opportunities})
-        else:
-            results.append({"url": url, "error": page.get("error", "Unknown error")})
-
+        try:
+            # If recursive, first discover project pages
+            urls_to_process = [url]
+            if recursive:
+                project_urls = await crawl_site_recursively(url, max_depth=max_depth)
+                if project_urls:
+                    urls_to_process = project_urls
+                    logger = get_logger("scraper")
+                    logger.info(f"Found {len(project_urls)} project pages from {url}")
+            
+            # Process each discovered URL
+            for process_url in urls_to_process:
+                page = await scrape_text_with_bs4(process_url)
+                
+                if "text" in page:
+                    info = extract_info(page["text"])
+                    base_opportunities = extract_opportunities(
+                        page["text"],
+                        page.get("html") or "",
+                        process_url,
+                    )
+                    enriched_opportunities: List[Dict[str, Any]] = []
+                    for opportunity in base_opportunities:
+                        detail_url = opportunity.get("detail_url")
+                        detail_payload: Dict[str, Any] = {}
+                        if detail_url:
+                            detail_payload = await enrich_opportunity_details(detail_url)
+                        elif len(base_opportunities) == 1:
+                            detail_payload = await enrich_opportunity_details(process_url, prefetched_page=page)
+                        
+                        merged = {**opportunity}
+                        merged.update(
+                            {k: v for k, v in detail_payload.items() if v is not None}
+                        )
+                        enriched_opportunities.append(merged)
+                    
+                    results.append({"url": process_url, "info": info, "opportunities": enriched_opportunities})
+                else:
+                    results.append({"url": process_url, "error": page.get("error", "Unknown error")})
+        
+        except Exception as e:
+            logger = get_logger("scraper")
+            logger.error(f"Error processing URL {url}: {e}")
+            results.append({"url": url, "error": str(e)})
+    
     return results

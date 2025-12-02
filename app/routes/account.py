@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Query, Path, HTTPException, Response
+from fastapi import APIRouter, Depends, Query, Path, HTTPException, Response, Request
+from starlette.requests import Request
 from fastapi.responses import StreamingResponse, FileResponse
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 import csv
 import io
@@ -22,6 +23,7 @@ from app.services.account import account_service
 from app.dependencies.user_auth import get_current_user
 from app.dependencies.permissions import get_user_permission
 from app.models.user import User
+from app.models.account import Account
 from app.schemas.user_permission import UserPermissionResponse
 from app.schemas.auth import AuthUserResponse
 from app.utils.logger import logger
@@ -245,13 +247,14 @@ async def list_accounts(
         raise HTTPException(status_code=500, detail="Failed to retrieve accounts")
 
 # Get single account by ID
-# Export accounts to CSV
+# Export accounts to CSV, Excel, or PDF
 @router.get("/export")
 async def export_accounts(
+    format: str = Query("csv", regex="^(csv|excel|pdf)$", description="Export format: csv, excel, or pdf"),
     current_user: AuthUserResponse = Depends(get_current_user)
 ):
     """
-    Export all accounts for the current user's organization to CSV format
+    Export all accounts for the current user's organization to CSV, Excel, or PDF format
     """
     try:
         logger.info(f"Export request received from user {current_user.id}")
@@ -337,8 +340,190 @@ async def export_accounts(
         csv_content = output.getvalue()
         output.close()
         
-        # Create temporary file
+        # Create temporary file based on format
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        if format == "excel":
+            # Excel export (requires openpyxl - install with: pip install openpyxl)
+            try:
+                from openpyxl import Workbook
+                from openpyxl.styles import Font, Alignment, PatternFill
+                
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Accounts"
+                
+                # Write headers with styling
+                header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                header_font = Font(bold=True, color="FFFFFF")
+                
+                for col_idx, header in enumerate(headers, 1):
+                    cell = ws.cell(row=1, column=col_idx, value=header)
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                
+                # Write data
+                for row_idx, account in enumerate(accounts, 2):
+                    # Same data as CSV
+                    health_score = account.ai_health_score or 0
+                    risk = 'Low' if health_score >= 80 else 'Medium' if health_score >= 50 else 'High'
+                    
+                    primary_contact_name = None
+                    primary_contact_email = None
+                    primary_contact_phone = None
+                    try:
+                        if account.primary_contact:
+                            primary_contact_name = account.primary_contact.name
+                            primary_contact_email = account.primary_contact.email
+                            primary_contact_phone = account.primary_contact.phone
+                    except Exception:
+                        pass
+                    
+                    approval_status = "pending"
+                    if account.account_approver and account.approval_date:
+                        approval_status = "approved"
+                    
+                    row_data = [
+                        account.client_name or '',
+                        account.client_address.city if account.client_address else '',
+                        account.hosting_area or '',
+                        account.market_sector or '',
+                        primary_contact_name or '',
+                        account.client_type.value if account.client_type else '',
+                        f"{health_score}%",
+                        risk,
+                        f"${(account.total_value or 0):.1f}M",
+                        approval_status,
+                        account.created_at.strftime('%Y-%m-%d') if account.created_at else '',
+                        primary_contact_email or '',
+                        primary_contact_phone or ''
+                    ]
+                    
+                    for col_idx, value in enumerate(row_data, 1):
+                        ws.cell(row=row_idx, column=col_idx, value=value)
+                
+                # Auto-adjust column widths
+                for col in ws.columns:
+                    max_length = 0
+                    col_letter = col[0].column_letter
+                    for cell in col:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    ws.column_dimensions[col_letter].width = adjusted_width
+                
+                filename = f"accounts_export_{timestamp}.xlsx"
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+                temp_file.close()
+                wb.save(temp_file.name)
+                
+                return FileResponse(
+                    path=temp_file.name,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename=filename,
+                    headers={"Content-Disposition": f"attachment; filename={filename}"}
+                )
+            except ImportError:
+                logger.warning("openpyxl not installed, falling back to CSV")
+                format = "csv"
+        
+        if format == "pdf":
+            # PDF export (requires reportlab - install with: pip install reportlab)
+            try:
+                from reportlab.lib.pagesizes import letter
+                from reportlab.lib import colors
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+                from reportlab.lib.units import inch
+                
+                filename = f"accounts_export_{timestamp}.pdf"
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+                temp_file.close()
+                
+                doc = SimpleDocTemplate(temp_file.name, pagesize=letter)
+                story = []
+                
+                # Title
+                styles = getSampleStyleSheet()
+                title_style = ParagraphStyle(
+                    'CustomTitle',
+                    parent=styles['Heading1'],
+                    fontSize=16,
+                    textColor=colors.HexColor('#366092'),
+                    spaceAfter=30,
+                )
+                story.append(Paragraph("Accounts Export Report", title_style))
+                story.append(Spacer(1, 0.2*inch))
+                
+                # Table data
+                table_data = [headers]
+                for account in accounts:
+                    health_score = account.ai_health_score or 0
+                    risk = 'Low' if health_score >= 80 else 'Medium' if health_score >= 50 else 'High'
+                    
+                    primary_contact_name = None
+                    primary_contact_email = None
+                    primary_contact_phone = None
+                    try:
+                        if account.primary_contact:
+                            primary_contact_name = account.primary_contact.name
+                            primary_contact_email = account.primary_contact.email
+                            primary_contact_phone = account.primary_contact.phone
+                    except Exception:
+                        pass
+                    
+                    approval_status = "pending"
+                    if account.account_approver and account.approval_date:
+                        approval_status = "approved"
+                    
+                    table_data.append([
+                        account.client_name or '',
+                        account.client_address.city if account.client_address else '',
+                        account.hosting_area or '',
+                        account.market_sector or '',
+                        primary_contact_name or '',
+                        account.client_type.value if account.client_type else '',
+                        f"{health_score}%",
+                        risk,
+                        f"${(account.total_value or 0):.1f}M",
+                        approval_status,
+                        account.created_at.strftime('%Y-%m-%d') if account.created_at else '',
+                        primary_contact_email or '',
+                        primary_contact_phone or ''
+                    ])
+                
+                # Create table
+                table = Table(table_data)
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#366092')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ]))
+                
+                story.append(table)
+                doc.build(story)
+                
+                return FileResponse(
+                    path=temp_file.name,
+                    media_type="application/pdf",
+                    filename=filename,
+                    headers={"Content-Disposition": f"attachment; filename={filename}"}
+                )
+            except ImportError:
+                logger.warning("reportlab not installed, falling back to CSV")
+                format = "csv"
+        
+        # Default CSV export
         filename = f"accounts_export_{timestamp}.csv"
         
         # Write to temporary file
@@ -412,11 +597,19 @@ async def delete_account_contact(
 
 @router.get("/{account_id}", response_model=AccountDetailResponse)
 async def get_account(
-    account_id: UUID = Path(..., description="Account ID to retrieve"),
+    account_id: str = Path(..., description="Account ID (UUID) or custom_id (e.g., AC-NY001) to retrieve"),
     current_user: AuthUserResponse = Depends(get_current_user)
 ):
     try:
-        account = await account_service.get_account_by_id(account_id, current_user.org_id)
+        # Try to parse as UUID first, if it fails, treat as custom_id
+        account = None
+        try:
+            account_uuid = UUID(account_id)
+            account = await account_service.get_account_by_id(account_uuid, current_user.org_id)
+        except (ValueError, TypeError):
+            # Not a valid UUID, try as custom_id
+            logger.info(f"Treating {account_id} as custom_id")
+            account = await account_service.get_account_by_custom_id(account_id, current_user.org_id)
         
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
@@ -452,7 +645,7 @@ async def get_account(
             from app.db.session import get_request_transaction
             
             db = get_request_transaction()
-            contacts_stmt = select(Contact).where(Contact.account_id == account_id)
+            contacts_stmt = select(Contact).where(Contact.account_id == account.account_id)
             contacts_result = await db.execute(contacts_stmt)
             account_contacts = contacts_result.scalars().all()
             
@@ -550,7 +743,8 @@ async def test_accounts():
 @router.post("/", response_model=AccountCreateResponse)
 async def create_account(
     account_data: AccountCreate,
-    current_user: AuthUserResponse = Depends(get_current_user)
+    current_user: AuthUserResponse = Depends(get_current_user),
+    request: Request = None
 ):
     try:
         # Log the received data
@@ -562,6 +756,22 @@ async def create_account(
             account_data=account_data.dict() if hasattr(account_data, 'dict') else account_data,
             created_by=current_user.id
         )
+        
+        # Log audit trail
+        try:
+            from app.services.account_audit import account_audit_service
+            db = get_request_transaction()
+            await account_audit_service.log_account_change(
+                db=db,
+                account_id=account.account_id,
+                action='create',
+                user_id=current_user.id,
+                summary=f"Account '{account.client_name}' created",
+                request=request
+            )
+            await db.commit()
+        except Exception as audit_error:
+            logger.warning(f"Failed to log audit trail: {audit_error}")
         
         logger.info(f"Account created successfully: {account.account_id}")
         
@@ -583,7 +793,8 @@ async def create_account(
 async def approve_account(
     request_data: AccountApprovalRequest,
     account_id: UUID = Path(..., description="Account ID to approve"),
-    current_user: AuthUserResponse = Depends(get_current_user)
+    current_user: AuthUserResponse = Depends(get_current_user),
+    request: Request = None
 ):
     try:
         # Get the account
@@ -603,6 +814,21 @@ async def approve_account(
         db.add(account)
         await db.commit()
         
+        # Log audit trail
+        try:
+            from app.services.account_audit import account_audit_service
+            await account_audit_service.log_account_change(
+                db=db,
+                account_id=account.account_id,
+                action='approve',
+                user_id=current_user.id,
+                summary=f"Account approved by {current_user.email}",
+                request=request
+            )
+            await db.commit()
+        except Exception as audit_error:
+            logger.warning(f"Failed to log audit trail: {audit_error}")
+        
         logger.info(f"Account {account_id} approved by {current_user.email}")
         
         return AccountUpdateResponse(
@@ -621,7 +847,8 @@ async def approve_account(
 async def decline_account(
     request_data: AccountApprovalRequest,
     account_id: UUID = Path(..., description="Account ID to decline"),
-    current_user: AuthUserResponse = Depends(get_current_user)
+    current_user: AuthUserResponse = Depends(get_current_user),
+    request: Request = None
 ):
     try:
         # Get the account
@@ -640,6 +867,21 @@ async def decline_account(
         db = get_request_transaction()
         db.add(account)
         await db.commit()
+        
+        # Log audit trail
+        try:
+            from app.services.account_audit import account_audit_service
+            await account_audit_service.log_account_change(
+                db=db,
+                account_id=account.account_id,
+                action='decline',
+                user_id=current_user.id,
+                summary=f"Account declined by {current_user.email}",
+                request=request
+            )
+            await db.commit()
+        except Exception as audit_error:
+            logger.warning(f"Failed to log audit trail: {audit_error}")
         
         logger.info(f"Account {account_id} declined by {current_user.email}")
         
@@ -814,7 +1056,8 @@ async def update_account_contact(
 async def update_account(
     account_id: UUID,
     account_data: AccountUpdate,
-    current_user: AuthUserResponse = Depends(get_current_user)
+    current_user: AuthUserResponse = Depends(get_current_user),
+    request: Request = None
 ):
     """Update account details including address and primary contact"""
     try:
@@ -822,6 +1065,16 @@ async def update_account(
         account = await account_service.get_account_by_id(account_id, current_user.org_id)
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
+        
+        # Store old data for audit trail
+        old_data = {
+            'client_name': account.client_name,
+            'client_type': account.client_type.value if account.client_type else None,
+            'market_sector': account.market_sector,
+            'company_website': account.company_website,
+            'hosting_area': account.hosting_area,
+            'notes': account.notes,
+        }
         
         # Update account fields
         if account_data.client_name is not None:
@@ -880,6 +1133,33 @@ async def update_account(
         db.add(account)
         await db.commit()
         
+        # Log audit trail
+        try:
+            from app.services.account_audit import account_audit_service
+            new_data = {
+                'client_name': account.client_name,
+                'client_type': account.client_type.value if account.client_type else None,
+                'market_sector': account.market_sector,
+                'company_website': account.company_website,
+                'hosting_area': account.hosting_area,
+                'notes': account.notes,
+            }
+            changes = account_audit_service.compute_field_changes(old_data, new_data)
+            summary = account_audit_service.generate_summary('update', changes)
+            
+            await account_audit_service.log_account_change(
+                db=db,
+                account_id=account.account_id,
+                action='update',
+                user_id=current_user.id,
+                changes=changes,
+                summary=summary,
+                request=request
+            )
+            await db.commit()
+        except Exception as audit_error:
+            logger.warning(f"Failed to log audit trail: {audit_error}")
+        
         logger.info(f"Account {account_id} updated by {current_user.email}")
         
         return AccountUpdateResponse(
@@ -892,6 +1172,490 @@ async def update_account(
     except Exception as e:
         logger.error(f"Error updating account {account_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update account: {str(e)}")
+
+# Get account audit trail
+@router.get("/{account_id}/audit-trail")
+async def get_account_audit_trail(
+    account_id: UUID = Path(..., description="Account ID"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of audit logs to return"),
+    action: Optional[str] = Query(None, description="Filter by action type"),
+    current_user: AuthUserResponse = Depends(get_current_user)
+):
+    """Get audit trail (change history) for an account"""
+    try:
+        # Verify account exists and user has access
+        account = await account_service.get_account_by_id(account_id, current_user.org_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
+        
+        # Get audit logs
+        from app.services.account_audit import account_audit_service
+        db = get_request_transaction()
+        audit_logs = await account_audit_service.get_account_audit_history(
+            db=db,
+            account_id=account_id,
+            limit=limit,
+            action_filter=action
+        )
+        
+        return {
+            "account_id": str(account_id),
+            "total_logs": len(audit_logs),
+            "logs": [log.to_dict() for log in audit_logs]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching audit trail for account {account_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch audit trail: {str(e)}")
+
+# Bulk operations
+@router.post("/bulk/delete")
+async def bulk_delete_accounts(
+    account_ids: List[UUID],
+    current_user: AuthUserResponse = Depends(get_current_user),
+    request: Request = None
+):
+    """Bulk delete accounts"""
+    try:
+        if not account_ids:
+            raise HTTPException(status_code=400, detail="No account IDs provided")
+        
+        db = get_request_transaction()
+        deleted_count = 0
+        
+        for account_id in account_ids:
+            account = await account_service.get_account_by_id(account_id, current_user.org_id)
+            if account:
+                # Log audit trail before deletion
+                try:
+                    from app.services.account_audit import account_audit_service
+                    await account_audit_service.log_account_change(
+                        db=db,
+                        account_id=account.account_id,
+                        action='delete',
+                        user_id=current_user.id,
+                        summary=f"Account '{account.client_name}' deleted",
+                        request=request
+                    )
+                except Exception as audit_error:
+                    logger.warning(f"Failed to log audit trail: {audit_error}")
+                
+                await db.delete(account)
+                deleted_count += 1
+        
+        await db.commit()
+        
+        logger.info(f"Bulk deleted {deleted_count} accounts by {current_user.email}")
+        
+        return {
+            "message": f"Successfully deleted {deleted_count} account(s)",
+            "deleted_count": deleted_count,
+            "total_requested": len(account_ids)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk delete: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete accounts: {str(e)}")
+
+@router.post("/bulk/update")
+async def bulk_update_accounts(
+    updates: List[dict],  # List of {account_id, updates}
+    current_user: AuthUserResponse = Depends(get_current_user),
+    request: Request = None
+):
+    """Bulk update accounts"""
+    try:
+        if not updates:
+            raise HTTPException(status_code=400, detail="No updates provided")
+        
+        db = get_request_transaction()
+        updated_count = 0
+        
+        for update_item in updates:
+            account_id = UUID(update_item.get('account_id'))
+            update_data = update_item.get('updates', {})
+            
+            account = await account_service.get_account_by_id(account_id, current_user.org_id)
+            if account:
+                # Store old data for audit
+                old_data = {
+                    'client_name': account.client_name,
+                    'client_type': account.client_type.value if account.client_type else None,
+                    'market_sector': account.market_sector,
+                }
+                
+                # Apply updates
+                if 'client_name' in update_data:
+                    account.client_name = update_data['client_name']
+                if 'market_sector' in update_data:
+                    account.market_sector = update_data['market_sector']
+                if 'hosting_area' in update_data:
+                    account.hosting_area = update_data['hosting_area']
+                
+                account.updated_by = current_user.id
+                db.add(account)
+                
+                # Log audit trail
+                try:
+                    from app.services.account_audit import account_audit_service
+                    new_data = {
+                        'client_name': account.client_name,
+                        'client_type': account.client_type.value if account.client_type else None,
+                        'market_sector': account.market_sector,
+                    }
+                    changes = account_audit_service.compute_field_changes(old_data, new_data)
+                    summary = account_audit_service.generate_summary('update', changes)
+                    
+                    await account_audit_service.log_account_change(
+                        db=db,
+                        account_id=account.account_id,
+                        action='update',
+                        user_id=current_user.id,
+                        changes=changes,
+                        summary=f"Bulk update: {summary}",
+                        request=request
+                    )
+                except Exception as audit_error:
+                    logger.warning(f"Failed to log audit trail: {audit_error}")
+                
+                updated_count += 1
+        
+        await db.commit()
+        
+        logger.info(f"Bulk updated {updated_count} accounts by {current_user.email}")
+        
+        return {
+            "message": f"Successfully updated {updated_count} account(s)",
+            "updated_count": updated_count,
+            "total_requested": len(updates)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk update: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update accounts: {str(e)}")
+
+# Soft delete (archive) account
+@router.post("/{account_id}/archive")
+async def archive_account(
+    account_id: UUID = Path(..., description="Account ID to archive"),
+    current_user: AuthUserResponse = Depends(get_current_user),
+    request: Request = None
+):
+    """Soft delete (archive) an account"""
+    try:
+        account = await account_service.get_account_by_id(account_id, current_user.org_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
+        
+        if account.is_deleted:
+            raise HTTPException(status_code=400, detail="Account is already archived")
+        
+        # Soft delete
+        account.is_deleted = True
+        account.deleted_at = datetime.now()
+        account.deleted_by = current_user.id
+        
+        db = get_request_transaction()
+        db.add(account)
+        await db.commit()
+        
+        # Log audit trail
+        try:
+            from app.services.account_audit import account_audit_service
+            await account_audit_service.log_account_change(
+                db=db,
+                account_id=account.account_id,
+                action='delete',
+                user_id=current_user.id,
+                summary=f"Account '{account.client_name}' archived",
+                request=request
+            )
+            await db.commit()
+        except Exception as audit_error:
+            logger.warning(f"Failed to log audit trail: {audit_error}")
+        
+        logger.info(f"Account {account_id} archived by {current_user.email}")
+        
+        return AccountUpdateResponse(
+            account_id=str(account.account_id),
+            message="Account archived successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error archiving account {account_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to archive account: {str(e)}")
+
+# Restore archived account
+@router.post("/{account_id}/restore")
+async def restore_account(
+    account_id: UUID = Path(..., description="Account ID to restore"),
+    current_user: AuthUserResponse = Depends(get_current_user),
+    request: Request = None
+):
+    """Restore an archived account"""
+    try:
+        db = get_request_transaction()
+        
+        # Get account including archived ones
+        stmt = select(Account).where(
+            and_(
+                Account.account_id == account_id,
+                Account.org_id == current_user.org_id
+            )
+        )
+        result = await db.execute(stmt)
+        account = result.scalar_one_or_none()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
+        
+        if not account.is_deleted:
+            raise HTTPException(status_code=400, detail="Account is not archived")
+        
+        # Restore
+        account.is_deleted = False
+        account.deleted_at = None
+        account.deleted_by = None
+        account.updated_by = current_user.id
+        
+        db.add(account)
+        await db.commit()
+        
+        # Log audit trail
+        try:
+            from app.services.account_audit import account_audit_service
+            await account_audit_service.log_account_change(
+                db=db,
+                account_id=account.account_id,
+                action='update',
+                user_id=current_user.id,
+                summary=f"Account '{account.client_name}' restored from archive",
+                request=request
+            )
+            await db.commit()
+        except Exception as audit_error:
+            logger.warning(f"Failed to log audit trail: {audit_error}")
+        
+        logger.info(f"Account {account_id} restored by {current_user.email}")
+        
+        return AccountUpdateResponse(
+            account_id=str(account.account_id),
+            message="Account restored successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error restoring account {account_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to restore account: {str(e)}")
+
+# Get archived accounts
+@router.get("/archived", response_model=AccountListResponse)
+async def get_archived_accounts(
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
+    current_user: AuthUserResponse = Depends(get_current_user)
+):
+    """Get archived (soft-deleted) accounts"""
+    try:
+        db = get_request_transaction()
+        
+        stmt = (
+            select(Account)
+            .where(
+                and_(
+                    Account.org_id == current_user.org_id,
+                    Account.is_deleted == True
+                )
+            )
+            .order_by(Account.deleted_at.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )
+        
+        result = await db.execute(stmt)
+        accounts = list(result.scalars().all())
+        
+        # Get total count
+        count_stmt = select(func.count(Account.account_id)).where(
+            and_(
+                Account.org_id == current_user.org_id,
+                Account.is_deleted == True
+            )
+        )
+        count_result = await db.execute(count_stmt)
+        total = count_result.scalar() or 0
+        
+        # Convert to response format
+        account_items = []
+        for account in accounts:
+            primary_contact_name = None
+            primary_contact_email = None
+            try:
+                if account.primary_contact:
+                    primary_contact_name = account.primary_contact.name
+                    primary_contact_email = account.primary_contact.email
+            except Exception:
+                pass
+            
+            account_items.append(AccountListItem(
+                account_id=str(account.account_id),
+                custom_id=account.custom_id,
+                client_name=account.client_name,
+                client_type=account.client_type.value if account.client_type else None,
+                market_sector=account.market_sector,
+                hosting_area=account.hosting_area,
+                total_value=float(account.total_value) if account.total_value else 0.0,
+                ai_health_score=float(account.ai_health_score) if account.ai_health_score else None,
+                health_trend=account.health_trend,
+                risk_level=account.risk_level,
+                approval_status=account.approval_status,
+                created_at=account.created_at,
+            ))
+        
+        return AccountListResponse(
+            accounts=account_items,
+            pagination={
+                "total": total,
+                "page": page,
+                "size": size,
+                "total_pages": (total + size - 1) // size if total > 0 else 0,
+                "has_next": (page * size) < total,
+                "has_prev": page > 1
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error fetching archived accounts: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch archived accounts: {str(e)}")
+
+# Advanced Analytics endpoints
+@router.get("/analytics/revenue")
+async def get_revenue_analytics(
+    time_period: str = Query("30d", regex="^(7d|30d|90d|1y|all)$", description="Time period for analytics"),
+    account_id: Optional[UUID] = Query(None, description="Filter by specific account"),
+    current_user: AuthUserResponse = Depends(get_current_user)
+):
+    """Get revenue analytics with trends"""
+    try:
+        from app.services.account_analytics import account_analytics_service
+        
+        analytics = await account_analytics_service.get_revenue_analytics(
+            org_id=current_user.org_id,
+            time_period=time_period,
+            account_id=account_id
+        )
+        
+        return analytics
+        
+    except Exception as e:
+        logger.error(f"Error fetching revenue analytics: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch revenue analytics: {str(e)}")
+
+@router.get("/analytics/performance")
+async def get_performance_dashboard(
+    account_id: Optional[UUID] = Query(None, description="Filter by specific account"),
+    current_user: AuthUserResponse = Depends(get_current_user)
+):
+    """Get performance dashboard with KPIs"""
+    try:
+        from app.services.account_analytics import account_analytics_service
+        
+        dashboard = await account_analytics_service.get_performance_dashboard(
+            org_id=current_user.org_id,
+            account_id=account_id
+        )
+        
+        return dashboard
+        
+    except Exception as e:
+        logger.error(f"Error fetching performance dashboard: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch performance dashboard: {str(e)}")
+
+@router.get("/analytics/growth")
+async def get_growth_tracking(
+    account_id: Optional[UUID] = Query(None, description="Filter by specific account"),
+    months: int = Query(12, ge=1, le=24, description="Number of months to track"),
+    current_user: AuthUserResponse = Depends(get_current_user)
+):
+    """Get growth tracking over time"""
+    try:
+        from app.services.account_analytics import account_analytics_service
+        
+        growth = await account_analytics_service.get_growth_tracking(
+            org_id=current_user.org_id,
+            account_id=account_id,
+            months=months
+        )
+        
+        return growth
+        
+    except Exception as e:
+        logger.error(f"Error fetching growth tracking: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch growth tracking: {str(e)}")
+
+@router.post("/analytics/compare")
+async def compare_accounts(
+    account_ids: List[UUID],
+    current_user: AuthUserResponse = Depends(get_current_user)
+):
+    """Compare multiple accounts side by side"""
+    try:
+        if not account_ids or len(account_ids) < 2:
+            raise HTTPException(status_code=400, detail="At least 2 account IDs required for comparison")
+        
+        if len(account_ids) > 10:
+            raise HTTPException(status_code=400, detail="Maximum 10 accounts can be compared at once")
+        
+        from app.services.account_analytics import account_analytics_service
+        
+        comparison = await account_analytics_service.compare_accounts(
+            account_ids=account_ids,
+            org_id=current_user.org_id
+        )
+        
+        return comparison
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error comparing accounts: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to compare accounts: {str(e)}")
+
+# Project Sheet Generation endpoints
+@router.post("/{account_id}/project-sheet")
+async def generate_project_sheet(
+    account_id: UUID = Path(..., description="Account ID"),
+    template_type: str = Query("comprehensive", regex="^(comprehensive|executive|technical|financial)$", description="Template type"),
+    include_history: bool = Query(True, description="Include historical data"),
+    current_user: AuthUserResponse = Depends(get_current_user)
+):
+    """Generate AI-powered project sheet for an account"""
+    try:
+        from app.services.project_sheet_generation import project_sheet_generation_service
+        
+        sheet = await project_sheet_generation_service.generate_project_sheet(
+            account_id=account_id,
+            org_id=current_user.org_id,
+            template_type=template_type,
+            include_history=include_history
+        )
+        
+        return sheet
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error generating project sheet: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate project sheet: {str(e)}")
 
 # Health check endpoint
 @router.get("/health", status_code=200)

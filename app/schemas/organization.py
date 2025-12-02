@@ -55,6 +55,7 @@ class OrgResponse(BaseModel):
     name: str
     address: Optional[AddressCreateResponse] = None
     website: Optional[str] = None
+    logo_url: Optional[str] = None
     contact: Optional[CreateContactResponse] = None
     created_at: datetime
     profile_completion: int = 0  # Profile completion percentage (0-100)

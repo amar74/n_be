@@ -34,7 +34,14 @@ from app.routes.expense_category import router as expense_category_router
 from app.routes.delivery_model_templates import router as delivery_model_templates_router
 from app.routes.proposal import router as proposal_router
 from app.routes.opportunity_ingestion import router as opportunity_ingestion_router
+from app.routes.opportunity_scheduler import router as opportunity_scheduler_router
+from app.routes.document_parser import router as document_parser_router
 from app.routes.ai_agentic import router as ai_agentic_router
+from app.routes.chat import router as chat_router
+from app.routes.procurement import router as procurement_router
+from app.routes.notifications import router as notifications_router
+from app.routes.opportunity_filter_preset import router as opportunity_filter_preset_router
+from app.routes.departments import router as departments_router
 
 api_router = APIRouter()
 
@@ -73,4 +80,11 @@ api_router.include_router(expense_category_router)
 api_router.include_router(delivery_model_templates_router)
 api_router.include_router(proposal_router)
 api_router.include_router(opportunity_ingestion_router)
+api_router.include_router(opportunity_scheduler_router)
+api_router.include_router(document_parser_router)
 api_router.include_router(ai_agentic_router)
+api_router.include_router(chat_router)
+api_router.include_router(procurement_router)
+api_router.include_router(notifications_router)
+api_router.include_router(opportunity_filter_preset_router)
+api_router.include_router(departments_router)

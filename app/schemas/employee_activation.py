@@ -5,9 +5,10 @@ from uuid import UUID
 class EmployeeActivationRequest(BaseModel):
     temporary_password: str
     user_role: str = "employee"
-    permissions: List[str] = []
+    department: Optional[str] = None
     send_welcome_email: bool = True
     # Note: No override_email needed - employees login with username (employee_number)
+    # Permissions are automatically assigned based on the selected role
 
 class EmployeeActivationResponse(BaseModel):
     user_id: UUID

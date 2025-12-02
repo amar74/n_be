@@ -498,6 +498,61 @@ class OpportunityIngestionService:
         await self.db.refresh(record)
         return OpportunityTempResponse.model_validate(record)
 
+    async def find_or_create_account(
+        self,
+        client_name: str,
+        org_id: uuid.UUID,
+        location: Optional[str] = None,
+        market_sector: Optional[str] = None,
+        website: Optional[str] = None,
+    ) -> Optional[uuid.UUID]:
+        """Find existing account by client name or create new one."""
+        try:
+            from app.models.account import Account
+            
+            # Try to find existing account by client name (fuzzy match)
+            stmt = select(Account).where(
+                Account.org_id == org_id,
+                func.lower(Account.client_name).like(f"%{client_name.lower()}%")
+            )
+            result = await self.db.execute(stmt)
+            existing_account = result.scalar_one_or_none()
+            
+            if existing_account:
+                logger.info(f"Found existing account {existing_account.account_id} for client {client_name}")
+                return existing_account.account_id
+            
+            # Create new account
+            from app.services.account import account_service
+            account_data = {
+                "client_name": client_name,
+                "client_type": "client",  # Default type
+                "market_sector": market_sector,
+                "company_website": website,
+            }
+            
+            # Parse location if provided
+            if location:
+                location_parts = location.split(",")
+                if len(location_parts) >= 2:
+                    account_data["client_address"] = {
+                        "city": location_parts[0].strip(),
+                        "state": location_parts[1].strip(),
+                    }
+            
+            new_account = await account_service.create_account(
+                org_id=org_id,
+                account_data=account_data,
+                created_by=None
+            )
+            
+            logger.info(f"Created new account {new_account.account_id} for client {client_name}")
+            return new_account.account_id
+            
+        except Exception as e:
+            logger.error(f"Error finding/creating account for {client_name}: {e}")
+            return None
+
     async def promote_temp_opportunity(
         self,
         temp_id: uuid.UUID,
@@ -562,6 +617,16 @@ class OpportunityIngestionService:
             # Ensure deadline is always at least 1 day after expected_rfp_date
             deadline = expected_rfp_date + timedelta(days=1)
 
+        # Auto-match or create account if not provided
+        if not account_id and record.client_name:
+            account_id = await self.find_or_create_account(
+                client_name=record.client_name,
+                org_id=user.org_id,
+                location=state,
+                market_sector=market_sector,
+                website=raw_payload.get("source_url") or raw_payload.get("company_website"),
+            )
+
         opportunity_payload = OpportunityCreate(
             project_name=record.project_title,
             client_name=record.client_name or "Unknown client",
@@ -614,6 +679,18 @@ class OpportunityIngestionService:
         record.reviewer_id = user.id
         record.updated_at = datetime.utcnow()
         await self.db.flush()
+
+        # Send notification
+        try:
+            from app.services.opportunity_notifications import OpportunityNotificationService
+            notification_service = OpportunityNotificationService(self.db)
+            await notification_service.notify_opportunity_promoted(
+                opportunity.id,
+                user.org_id,
+                user.id
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send promotion notification: {e}")
 
         return opportunity
 

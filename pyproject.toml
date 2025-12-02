@@ -54,15 +54,24 @@ packages = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q --cov=app --cov-report=term-missing --cov-report=html"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "api: API endpoint tests",
+    "slow: Slow running tests"
+]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
 pytest-asyncio = "^1.1.0"
+pytest-cov = "^6.0.0"
+pytest-mock = "^3.14.0"
 anyio = "^4.10.0"
 httpx = "^0.28.1"
 aiosqlite = "^0.21.0"
+faker = "^33.0.0"
 

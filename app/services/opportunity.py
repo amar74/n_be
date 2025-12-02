@@ -80,6 +80,18 @@ class OpportunityService:
             await self.db.flush()
             await self.db.refresh(opportunity)
             
+            # Send notification
+            try:
+                from app.services.opportunity_notifications import OpportunityNotificationService
+                notification_service = OpportunityNotificationService(self.db)
+                await notification_service.notify_opportunity_created(
+                    opportunity.id,
+                    user.org_id,
+                    user.id
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send creation notification: {e}")
+            
             logger.info(f"Successfully created opportunity {opportunity.id}")
             return OpportunityResponse.model_validate(opportunity)
             
@@ -154,7 +166,14 @@ class OpportunityService:
         stage: Optional[OpportunityStage] = None,
         search: Optional[str] = None,
         sort_by: str = "created_at",
-        sort_order: str = "desc"
+        sort_order: str = "desc",
+        market_sector: Optional[str] = None,
+        state: Optional[str] = None,
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+        risk_level: Optional[str] = None,
+        min_match_score: Optional[int] = None,
+        account_id: Optional[UUID] = None,
     ) -> OpportunityListResponse:
 
         try:
@@ -162,29 +181,76 @@ class OpportunityService:
             
             offset = (page - 1) * size
             
-            opportunities = await Opportunity.list_by_org(
-                org_id=user.org_id,
-                stage=stage,
-                limit=size,
-                offset=offset
-            )
+            from sqlalchemy import and_, or_
+            from app.models.opportunity import RiskLevel
             
-            total_stmt = select(func.count(Opportunity.id)).where(
-                Opportunity.org_id == user.org_id
-            )
+            # Build query with filters
+            query = select(Opportunity).where(Opportunity.org_id == user.org_id)
+            count_query = select(func.count(Opportunity.id)).where(Opportunity.org_id == user.org_id)
+            
+            filters = []
             
             if stage:
-                total_stmt = total_stmt.where(Opportunity.stage == stage)
-                
+                filters.append(Opportunity.stage == stage)
+            
             if search:
                 search_filter = or_(
                     Opportunity.project_name.ilike(f"%{search}%"),
                     Opportunity.client_name.ilike(f"%{search}%"),
                     Opportunity.description.ilike(f"%{search}%")
                 )
-                total_stmt = total_stmt.where(search_filter)
+                filters.append(search_filter)
             
-            total_result = await self.db.execute(total_stmt)
+            if market_sector:
+                filters.append(Opportunity.market_sector.ilike(f"%{market_sector}%"))
+            
+            if state:
+                filters.append(Opportunity.state.ilike(f"%{state}%"))
+            
+            if min_value is not None:
+                filters.append(Opportunity.project_value >= min_value)
+            
+            if max_value is not None:
+                filters.append(Opportunity.project_value <= max_value)
+            
+            if risk_level:
+                try:
+                    risk_enum = RiskLevel(risk_level)
+                    filters.append(Opportunity.risk_level == risk_enum)
+                except ValueError:
+                    pass
+            
+            if min_match_score is not None:
+                filters.append(Opportunity.match_score >= min_match_score)
+            
+            if account_id:
+                filters.append(Opportunity.account_id == account_id)
+            
+            if filters:
+                query = query.where(and_(*filters))
+                count_query = count_query.where(and_(*filters))
+            
+            # Apply sorting
+            if sort_by == "created_at":
+                order_col = Opportunity.created_at
+            elif sort_by == "project_value":
+                order_col = Opportunity.project_value
+            elif sort_by == "match_score":
+                order_col = Opportunity.match_score
+            else:
+                order_col = Opportunity.created_at
+            
+            if sort_order == "desc":
+                query = query.order_by(order_col.desc())
+            else:
+                query = query.order_by(order_col.asc())
+            
+            query = query.limit(size).offset(offset)
+            
+            result = await self.db.execute(query)
+            opportunities = result.scalars().all()
+            
+            total_result = await self.db.execute(count_query)
             total = total_result.scalar()
             
             opportunity_responses = [OpportunityResponse.model_validate(opp) for opp in opportunities]

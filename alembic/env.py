@@ -10,12 +10,12 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
-from app.environment import environment
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
+    sys.path.insert(0, str(ROOT_DIR))
 
+from app.environment import environment  # noqa: E402
 from app.db.base import Base  # noqa: E402
 
 import app.models  # Import all models to register them with Base.metadata

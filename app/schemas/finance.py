@@ -38,6 +38,47 @@ class FinanceAiHighlight(BaseModel):
     detail: str
 
 
+class IncomeStatementMonthData(BaseModel):
+    month: str
+    month_number: int
+    plan: Dict[str, float]
+    actual: Dict[str, float]
+
+    class Config:
+        from_attributes = True
+
+
+class IncomeStatementResponse(BaseModel):
+    year: int
+    business_unit: str
+    monthly_data: List[IncomeStatementMonthData]
+
+    class Config:
+        from_attributes = True
+
+
+class HistoricalGrowthYear(BaseModel):
+    year: int
+    net_revenue: float
+    gross_profit: float
+    operating_income: float
+    bookings: float
+    backlog: float
+    effective_multiplier: float
+    billability: float
+
+    class Config:
+        from_attributes = True
+
+
+class HistoricalGrowthResponse(BaseModel):
+    historical_data: List[HistoricalGrowthYear]
+    cagr: Dict[str, float]
+
+    class Config:
+        from_attributes = True
+
+
 class FinanceComprehensiveAnalysisResponse(BaseModel):
     executive_summary: str
     key_insights: List[str]
@@ -169,6 +210,10 @@ class FinancePlanningLineItem(BaseModel):
     label: str
     target: float
     variance: float
+    actual: Optional[float] = None  # Actual amount (if calculated from real data)
+    variance_explanation: Optional[str] = None  # Explanation for the variance
+    root_cause: Optional[str] = None  # Root cause of the variance
+    action_plan: Optional[str] = None  # Action plan to address the variance
 
 
 class FinancePlanningBusinessUnit(BaseModel):
@@ -203,6 +248,8 @@ class FinancePlanningAiHighlight(BaseModel):
 
 
 class FinancePlanningAnnualResponse(BaseModel):
+    budgetId: Optional[int] = Field(None, alias="budget_id")
+    budgetYear: Optional[str] = Field(None, alias="budget_year")
     budgetSummary: List[FinancePlanningMetric] = Field(..., alias="budget_summary")
     revenueLines: List[FinancePlanningLineItem] = Field(..., alias="revenue_lines")
     expenseLines: List[FinancePlanningLineItem] = Field(..., alias="expense_lines")
@@ -423,3 +470,58 @@ class ForecastResponse(BaseModel):
 class ForecastListResponse(BaseModel):
     forecasts: List[ForecastResponse]
     total: int
+
+
+# ---------------------------------------------------------------------------
+# Budget Approval Schemas
+# ---------------------------------------------------------------------------
+
+class BudgetApprovalStageResponse(BaseModel):
+    id: int
+    budget_id: int
+    stage_id: str
+    stage_name: str
+    required_role: Optional[str] = None
+    sequence: int
+    status: str  # pending, approved, rejected, requested_changes, not_started
+    approver_id: Optional[str] = None
+    approver_name: Optional[str] = None
+    decision_at: Optional[datetime] = None
+    comments: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BudgetApprovalListResponse(BaseModel):
+    stages: List[BudgetApprovalStageResponse]
+    budget_id: int
+    budget_year: str
+    current_stage: Optional[str] = None
+    overall_status: str  # draft, submitted, in_review, approved, rejected
+
+
+class BudgetApprovalActionRequest(BaseModel):
+    stage_id: int
+    action: str  # approve, reject, request_changes
+    comments: Optional[str] = None
+
+
+class BudgetSubmitRequest(BaseModel):
+    """Request to submit budget for approval"""
+    pass  # No additional fields needed, budget_id comes from path
+
+
+class VarianceExplanationItem(BaseModel):
+    """Single variance explanation item"""
+    category: str  # 'revenue', 'expense', or 'profit'
+    explanation: str
+    rootCause: str
+    actionPlan: str
+
+
+class VarianceExplanationsRequest(BaseModel):
+    """Request to save variance explanations"""
+    explanations: List[VarianceExplanationItem]

@@ -55,6 +55,8 @@ class Organization(Base):
 
     website: Mapped[Optional[str]] = mapped_column(String(255))
 
+    logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
     contact_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID_Type(as_uuid=True), ForeignKey("contacts.id"), nullable=True
     )
@@ -88,6 +90,7 @@ class Organization(Base):
             "name": self.name,
             "address_id": self.address_id,
             "website": self.website,
+            "logo_url": self.logo_url,
             "contact_id": self.contact_id,
             "created_at": self.created_at.isoformat(),
         }
