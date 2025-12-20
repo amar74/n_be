@@ -17,9 +17,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create account_team table (many-to-many relationship)
-    op.create_table(
-        'account_team',
+    # Check if table exists before creating
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
+    
+    if 'account_team' not in tables:
+        # Create account_team table (many-to-many relationship)
+        op.create_table(
+            'account_team',
         sa.Column('id', sa.Integer, nullable=False, primary_key=True, autoincrement=True),
         sa.Column('account_id', UUID(as_uuid=True), sa.ForeignKey('accounts.id', ondelete='CASCADE'), nullable=False, index=True),
         sa.Column('employee_id', UUID(as_uuid=True), sa.ForeignKey('employees.id', ondelete='CASCADE'), nullable=False, index=True),
@@ -29,14 +36,14 @@ def upgrade() -> None:
         sa.Column('removed_at', TIMESTAMP, nullable=True),
     )
     
-    # Create composite index for unique account-employee combination (where not removed)
-    op.create_index(
-        'idx_account_team_unique',
-        'account_team',
-        ['account_id', 'employee_id'],
-        unique=True,
-        postgresql_where=sa.text('removed_at IS NULL')
-    )
+        # Create composite index for unique account-employee combination (where not removed)
+        op.create_index(
+            'idx_account_team_unique',
+            'account_team',
+            ['account_id', 'employee_id'],
+            unique=True,
+            postgresql_where=sa.text('removed_at IS NULL')
+        )
 
 
 def downgrade() -> None:
