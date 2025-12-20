@@ -145,8 +145,15 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
     sa.ForeignKeyConstraint(['org_id'], ['organizations.id'], ),
     sa.ForeignKeyConstraint(['requisition_id'], ['purchase_requisitions.id'], ),
-    sa.ForeignKeyConstraint(['vendor_id'], ['vendors.id'], ),
     sa.PrimaryKeyConstraint('id')
+    )
+    # Add vendor_id foreign key only if vendors table exists
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
+    if 'vendors' in tables:
+        op.create_foreign_key('fk_purchase_orders_vendor_id', 'purchase_orders', 'vendors', ['vendor_id'], ['id'])
     )
     op.create_index(op.f('ix_purchase_orders_created_by'), 'purchase_orders', ['created_by'], unique=False)
     op.create_index(op.f('ix_purchase_orders_custom_id'), 'purchase_orders', ['custom_id'], unique=True)
