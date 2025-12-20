@@ -263,9 +263,15 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['rfq_id'], ['rfqs.id'], ),
-    sa.ForeignKeyConstraint(['vendor_id'], ['vendors.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    # Add vendor_id foreign key only if vendors table exists
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
+    if 'vendors' in tables:
+        op.create_foreign_key('fk_rfq_responses_vendor_id', 'rfq_responses', 'vendors', ['vendor_id'], ['id'])
     op.create_index(op.f('ix_rfq_responses_id'), 'rfq_responses', ['id'], unique=False)
     op.create_index(op.f('ix_rfq_responses_rfq_id'), 'rfq_responses', ['rfq_id'], unique=False)
     op.create_index(op.f('ix_rfq_responses_status'), 'rfq_responses', ['status'], unique=False)
@@ -294,9 +300,11 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['grn_id'], ['grns.id'], ),
     sa.ForeignKeyConstraint(['org_id'], ['organizations.id'], ),
     sa.ForeignKeyConstraint(['po_id'], ['purchase_orders.id'], ),
-    sa.ForeignKeyConstraint(['vendor_id'], ['vendors.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    # Add vendor_id foreign key only if vendors table exists
+    if 'vendors' in tables:
+        op.create_foreign_key('fk_vendor_invoices_vendor_id', 'vendor_invoices', 'vendors', ['vendor_id'], ['id'])
     op.create_index(op.f('ix_vendor_invoices_grn_id'), 'vendor_invoices', ['grn_id'], unique=False)
     op.create_index(op.f('ix_vendor_invoices_id'), 'vendor_invoices', ['id'], unique=False)
     op.create_index(op.f('ix_vendor_invoices_invoice_number'), 'vendor_invoices', ['invoice_number'], unique=True)
