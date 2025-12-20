@@ -42,7 +42,7 @@ router = APIRouter(prefix="/v1/finance/dashboard", tags=["Finance Dashboard"])
 
 @router.get("/summary", response_model=FinanceDashboardSummaryResponse)
 def read_finance_dashboard_summary(
-    business_unit: BusinessUnitKey | None = Query(
+    business_unit: Optional[BusinessUnitKey] = Query(
         default=None,
         description="Optional business unit filter. Defaults to firmwide view.",
     )
@@ -55,7 +55,7 @@ def read_finance_dashboard_summary(
 
 @router.get("/overhead", response_model=FinanceOverheadResponse)
 async def read_finance_overhead(
-    business_unit: BusinessUnitKey | None = Query(
+    business_unit: Optional[BusinessUnitKey] = Query(
         default=None,
         description="Optional business unit filter. Defaults to firmwide view.",
     ),
@@ -71,7 +71,7 @@ async def read_finance_overhead(
 
 @router.get("/bookings", response_model=FinanceBookingsResponse)
 def read_finance_bookings(
-    business_unit: BusinessUnitKey | None = Query(
+    business_unit: Optional[BusinessUnitKey] = Query(
         default=None,
         description="Optional business unit filter. Defaults to firmwide view.",
     )
@@ -84,7 +84,7 @@ def read_finance_bookings(
 
 @router.get("/revenue", response_model=FinanceOverheadResponse)
 async def read_finance_revenue(
-    business_unit: BusinessUnitKey | None = Query(
+    business_unit: Optional[BusinessUnitKey] = Query(
         default=None,
         description="Optional business unit filter. Defaults to firmwide view.",
     ),
@@ -99,7 +99,7 @@ async def read_finance_revenue(
 
 @router.get("/trends", response_model=FinanceTrendResponse)
 def read_finance_trends(
-    business_unit: BusinessUnitKey | None = Query(
+    business_unit: Optional[BusinessUnitKey] = Query(
         default=None,
         description="Optional business unit filter. Defaults to firmwide view.",
     )
@@ -112,7 +112,7 @@ def read_finance_trends(
 
 @router.post("/ai-analysis", response_model=FinanceComprehensiveAnalysisResponse)
 async def generate_finance_ai_analysis(
-    business_unit: BusinessUnitKey | None = Query(
+    business_unit: Optional[BusinessUnitKey] = Query(
         default=None,
         description="Optional business unit filter. Defaults to firmwide view.",
     ),
@@ -128,7 +128,7 @@ async def generate_finance_ai_analysis(
 
 @router.get("/income-statement", response_model=IncomeStatementResponse)
 async def read_income_statement(
-    business_unit: BusinessUnitKey | None = Query(
+    business_unit: Optional[BusinessUnitKey] = Query(
         default=None,
         description="Optional business unit filter. Defaults to firmwide view.",
     ),
@@ -157,7 +157,7 @@ async def read_income_statement(
 
 @router.get("/historical-growth", response_model=HistoricalGrowthResponse)
 async def read_historical_growth(
-    business_unit: BusinessUnitKey | None = Query(
+    business_unit: Optional[BusinessUnitKey] = Query(
         default=None,
         description="Optional business unit filter. Defaults to firmwide view.",
     ),

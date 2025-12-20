@@ -41,19 +41,18 @@ async def get_current_user(
                 status_code=401, details="Invalid token: no user ID found"
             )
 
-        # Direct database query to avoid SQLAlchemy relationship issues
         db_url = environment.DATABASE_URL.replace('postgresql+psycopg://', 'postgresql://')
-        conn = await asyncpg.connect(db_url)
+        conn = None
         try:
+            conn = await asyncpg.connect(db_url)
             user_row = await conn.fetchrow(
                 'SELECT id, short_id, email, org_id, role FROM users WHERE id = $1',
                 user_id
             )
-            logger.warning(f"DEBUG: Database query result: {user_row}")
             if not user_row:
-                logger.warning(f"User with ID {user_id} not found")
+                logger.warning(f"Authentication failed: invalid user ID")
                 raise MegapolisHTTPException(
-                    status_code=404, details=f"User with ID {user_id} not found"
+                    status_code=401, details="Invalid authentication credentials"
                 )
             
             # Create a simple user object
@@ -65,8 +64,12 @@ async def get_current_user(
                 org_id=str(user_row['org_id']) if user_row['org_id'] else None,
                 role=user_row['role']
             )
+        except asyncpg.PostgresError as e:
+            logger.error(f"Database error during authentication: {e}")
+            raise MegapolisHTTPException(status_code=500, details="Authentication service error")
         finally:
-            await conn.close()
+            if conn:
+                await conn.close()
             
         return user
 

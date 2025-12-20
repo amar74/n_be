@@ -29,12 +29,28 @@ async def upload_opportunity_document(
     current_user: User = Depends(get_current_user),
     user_permission: UserPermissionResponse = Depends(get_user_permission({"opportunities": ["update"]}))
 ):
+    from app.utils.security import validate_file_type, validate_file_size, sanitize_filename
+    
     try:
-        # Read file content
+        if not file.filename:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Filename is required")
+        
+        safe_name = sanitize_filename(file.filename)
+        
+        allowed_extensions = ['.pdf', '.doc', '.docx', '.txt', '.csv', '.xls', '.xlsx', '.jpg', '.jpeg', '.png']
+        if not validate_file_type(safe_name, allowed_extensions):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+            )
+        
         file_content = await file.read()
         
-        # Create document data
-        safe_name = file.filename or "document"
+        if not validate_file_size(len(file_content), max_size_mb=10):
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="File size exceeds 10MB limit"
+            )
         document_data = OpportunityDocumentCreate(
             file_name=safe_name,
             original_name=safe_name,

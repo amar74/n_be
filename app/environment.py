@@ -42,7 +42,12 @@ def pick(name: str, default: Optional[str] = None) -> Optional[str]:
     if raw is None:
         return default
 
-    return raw         
+    return raw
+
+def _generate_fallback_secret() -> str:
+    """Generate a random secret key if not provided (development only)"""
+    import secrets
+    return secrets.token_urlsafe(32)
 
 class Environment(BaseModel):
 
@@ -75,6 +80,11 @@ class Environment(BaseModel):
     AWS_SECRET_ACCESS_KEY: Optional[str] = Field(default=None)
     AWS_S3_BUCKET_NAME: Optional[str] = Field(default="megapolis-resumes")
     AWS_S3_REGION: Optional[str] = Field(default="us-east-1")
+    
+    # Security Configuration
+    ALLOWED_ORIGINS: str = Field(default="http://localhost:5173,http://127.0.0.1:5173")
+    RATE_LIMIT_ENABLED: bool = Field(default=True)
+    RATE_LIMIT_PER_MINUTE: int = Field(default=60)
 
 class Constants():
 
@@ -90,7 +100,7 @@ class Constants():
 def load_environment() -> Environment:
 
     env = {
-        "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY", "-your-secret-key-here"),
+        "JWT_SECRET_KEY": pick("JWT_SECRET_KEY") or _generate_fallback_secret(),
         "DATABASE_URL": normalize_psycopg(
             os.getenv(
                 "DATABASE_URL"
@@ -123,6 +133,11 @@ def load_environment() -> Environment:
         "AWS_SECRET_ACCESS_KEY": pick("AWS_SECRET_ACCESS_KEY", default=None),
         "AWS_S3_BUCKET_NAME": pick("AWS_S3_BUCKET_NAME", default="megapolis-resumes"),
         "AWS_S3_REGION": pick("AWS_S3_REGION", default="us-east-1"),
+        
+        # Security Configuration
+        "ALLOWED_ORIGINS": pick("ALLOWED_ORIGINS", default="http://localhost:5173,http://127.0.0.1:5173"),
+        "RATE_LIMIT_ENABLED": pick("RATE_LIMIT_ENABLED", "true").lower() == "true",
+        "RATE_LIMIT_PER_MINUTE": int(pick("RATE_LIMIT_PER_MINUTE", "60")),
     }
 
     return Environment.model_validate(env)

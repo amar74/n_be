@@ -42,6 +42,13 @@ class ProposalSource(enum.Enum):
     manual = "manual"
 
 
+class ProposalType(enum.Enum):
+    proposal = "proposal"
+    brochure = "brochure"
+    interview = "interview"
+    campaign = "campaign"
+
+
 class Proposal(Base):
     __tablename__ = "proposals"
 
@@ -72,6 +79,9 @@ class Proposal(Base):
     )
     source: Mapped[ProposalSource] = mapped_column(
         SqlEnum(ProposalSource, name="proposal_source"), nullable=False, default=ProposalSource.opportunity
+    )
+    proposal_type: Mapped[ProposalType] = mapped_column(
+        SqlEnum(ProposalType, name="proposal_type"), nullable=False, default=ProposalType.proposal, index=True
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 

@@ -211,6 +211,7 @@ class Employee(Base):
     user: Mapped[Optional["User"]] = relationship("User", foreign_keys=[user_id])
     resumes: Mapped[List["Resume"]] = relationship("Resume", back_populates="employee", cascade="all, delete-orphan")
     account_assignments: Mapped[List["AccountTeam"]] = relationship("AccountTeam", back_populates="employee", cascade="all, delete-orphan")
+    attendance_records: Mapped[List["Attendance"]] = relationship("Attendance", back_populates="employee", cascade="all, delete-orphan")
 
     def to_dict(self) -> Dict[str, Any]:
         return {

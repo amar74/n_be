@@ -15,6 +15,7 @@ from .opportunity_document import *
 from .opportunity_source import *
 from .delivery_model_template import *
 from .employee import *
+from .attendance import *
 from .candidate import *
 from .staff_planning import *
 from .finance_planning import *

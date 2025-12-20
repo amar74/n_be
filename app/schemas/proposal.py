@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.models.proposal import (
     ProposalStatus,
     ProposalSource,
+    ProposalType,
     ProposalSectionStatus,
     ProposalDocumentCategory,
     ProposalApprovalStatus,
@@ -104,6 +105,7 @@ class ProposalBase(BaseModel):
     title: str
     summary: Optional[str] = None
     status: ProposalStatus = ProposalStatus.draft
+    proposal_type: ProposalType = ProposalType.proposal
     total_value: Optional[float] = Field(None, ge=0)
     currency: str = Field("USD", min_length=3, max_length=3)
     estimated_cost: Optional[float] = Field(None, ge=0)
@@ -132,6 +134,7 @@ class ProposalUpdate(BaseModel):
     title: Optional[str] = None
     summary: Optional[str] = None
     owner_id: Optional[uuid.UUID] = None
+    proposal_type: Optional[ProposalType] = None
     total_value: Optional[float] = Field(None, ge=0)
     currency: Optional[str] = Field(None, min_length=3, max_length=3)
     estimated_cost: Optional[float] = Field(None, ge=0)
@@ -142,6 +145,7 @@ class ProposalUpdate(BaseModel):
     client_response_date: Optional[date] = None
     ai_assistance_summary: Optional[str] = None
     ai_content_percentage: Optional[int] = Field(None, ge=0, le=100)
+    ai_metadata: Optional[Dict[str, Any]] = None
     finance_snapshot: Optional[Dict[str, Any]] = None
     resource_snapshot: Optional[Dict[str, Any]] = None
     client_snapshot: Optional[Dict[str, Any]] = None
@@ -160,6 +164,7 @@ class ProposalResponse(BaseModel):
     summary: Optional[str]
     status: ProposalStatus
     source: ProposalSource
+    proposal_type: ProposalType
     version: int
     opportunity_id: Optional[uuid.UUID]
     account_id: Optional[uuid.UUID]
@@ -202,6 +207,7 @@ class ProposalListItem(BaseModel):
     proposal_number: str
     title: str
     status: ProposalStatus
+    proposal_type: ProposalType
     opportunity_id: Optional[uuid.UUID]
     account_id: Optional[uuid.UUID]
     total_value: Optional[float]

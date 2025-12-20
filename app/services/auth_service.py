@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.environment import environment
 from app.db.session import get_session
+from app.utils.logger import logger
 
 # Password hashing configuration | check the reference @amar.softication don't change it
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -21,11 +22,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours (changed from 30 minutes to preve
 class AuthService:
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        # Handle legacy hashes
-        if hashed_password == "admin_hash" and plain_password == "Amar77492$#@":
-            return True
-        if hashed_password == "user_hash" and plain_password == "Amar77492#@$":
-            return True
+        if environment.ENVIRONMENT == "dev":
+            if hashed_password == "admin_hash" and plain_password == "Amar77492$#@":
+                logger.warning("Using hardcoded password - SECURITY RISK in production!")
+                return True
+            if hashed_password == "user_hash" and plain_password == "Amar77492#@$":
+                logger.warning("Using hardcoded password - SECURITY RISK in production!")
+                return True
         
         # Handle new SHA-256 format: "sha256:salt:hash"
         if hashed_password.startswith("sha256:"):
@@ -56,24 +59,24 @@ class AuthService:
         
         password = str(password)
         
-        from app.utils.logger import logger
-        import hashlib
-        import secrets
+        if len(password) < 8:
+            raise ValueError("Password must be at least 8 characters long")
         
-        logger.info(f"🔐 Hashing password: length={len(password)}, bytes={len(password.encode('utf-8'))}")
-        
-        # Use a simple but secure hashing method to avoid bcrypt issues
-        # Add a salt for security
-        salt = secrets.token_hex(16)
-        salted_password = password + salt
-        
-        # Use SHA-256 with salt (not ideal for production, but works for now)
-        hash_obj = hashlib.sha256()
-        hash_obj.update(salted_password.encode('utf-8'))
-        password_hash = hash_obj.hexdigest()
-        
-        # Store as "method:salt:hash" format
-        return f"sha256:{salt}:{password_hash}"
+        try:
+            hashed = pwd_context.hash(password)
+            logger.info("Password hashed using bcrypt")
+            return hashed
+        except Exception as e:
+            logger.warning(f"Bcrypt hashing failed, using SHA-256 fallback: {e}")
+            import hashlib
+            import secrets
+            
+            salt = secrets.token_hex(16)
+            salted_password = password + salt
+            hash_obj = hashlib.sha256()
+            hash_obj.update(salted_password.encode('utf-8'))
+            password_hash = hash_obj.hexdigest()
+            return f"sha256:{salt}:{password_hash}"
     
     @staticmethod
     def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

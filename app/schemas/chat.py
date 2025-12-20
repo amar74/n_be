@@ -67,3 +67,18 @@ class ChatSessionListResponse(BaseModel):
     sessions: List[ChatSessionResponse]
     total: int
 
+
+class AIChatRequest(BaseModel):
+    user_message: str = Field(..., min_length=1)
+    module: Optional[str] = None
+    thinking_mode: Optional[str] = Field("normal", max_length=20)
+    conversation_history: Optional[List[Dict[str, str]]] = None
+    system_prompt: Optional[str] = None
+    use_case: Optional[str] = Field(None, description="Use case: content_enrichment, content_development, suggestions, auto_enhancement, ideas")
+
+
+class AIChatResponse(BaseModel):
+    response: str
+    thinking_mode: str
+    use_case: Optional[str] = None
+

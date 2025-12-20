@@ -10,12 +10,7 @@ from app.schemas.user_permission import Permission, UserPermissionResponse
 from typing import Dict, List
 
 def require_role(allowed_roles: List[str]):
-    """
-    Role-based access control dependency.
     
-    IMPORTANT: "vendor" role = main owner/admin of subscribed application (full admin privileges).
-    If 'admin' is in allowed_roles, 'vendor' role is automatically allowed.
-    """
     async def role_checker(current_user: AuthUserResponse = Depends(get_current_user)):
         user_role_lower = current_user.role.lower() if current_user.role else ''
         
@@ -55,6 +50,79 @@ def require_super_admin():
 
     return super_admin_checker
 
+def _get_rbac_role(user: User, employee_record=None) -> str:
+    user_role = user.role.lower() if user.role else ''
+    
+    if user_role in ['admin', 'vendor', 'super_admin', 'platform_admin', 'org_admin']:
+        return 'org_admin'
+    
+    if user_role in ['manager', 'contributor', 'viewer']:
+        return user_role
+    
+    if employee_record:
+        job_title = (employee_record.job_title or '').lower()
+        department = (employee_record.department or '').lower()
+        role = (employee_record.role or '').lower()
+        
+        if 'manager' in job_title or 'lead' in job_title or 'director' in job_title:
+            return 'manager'
+        
+        if department == 'hr' or 'hr' in job_title:
+            return 'contributor'
+        
+        if department == 'finance' or 'finance' in job_title or 'accountant' in job_title:
+            return 'manager' if 'manager' in job_title else 'contributor'
+        
+        if user_role == 'employee':
+            if 'analyst' in job_title or 'viewer' in job_title or 'read-only' in job_title:
+                return 'viewer'
+            return 'contributor'
+        
+        if role == 'viewer':
+            return 'viewer'
+        elif role == 'contributor':
+            return 'contributor'
+        elif role == 'manager':
+            return 'manager'
+    
+    return 'viewer'
+
+def _get_rbac_permissions(rbac_role: str) -> Dict[str, List[str]]:
+    if rbac_role == 'org_admin':
+        return {
+            'accounts': [Permission.VIEW, Permission.EDIT],
+            'opportunities': [Permission.VIEW, Permission.EDIT],
+            'proposals': [Permission.VIEW, Permission.EDIT],
+            'projects': [Permission.VIEW, Permission.EDIT],
+            'resources': [Permission.VIEW, Permission.EDIT],
+        }
+    elif rbac_role == 'manager':
+        return {
+            'accounts': [Permission.VIEW, Permission.EDIT],
+            'opportunities': [Permission.VIEW, Permission.EDIT],
+            'proposals': [Permission.VIEW, Permission.EDIT],
+            'projects': [Permission.VIEW, Permission.EDIT],
+            'resources': [Permission.VIEW, Permission.EDIT],
+        }
+    elif rbac_role == 'contributor':
+        return {
+            'accounts': [Permission.VIEW, Permission.EDIT],
+            'opportunities': [Permission.VIEW, Permission.EDIT],
+            'proposals': [Permission.VIEW, Permission.EDIT],
+            'projects': [Permission.VIEW, Permission.EDIT],
+            'resources': [Permission.VIEW, Permission.EDIT],
+        }
+    elif rbac_role == 'viewer':
+        return {
+            'accounts': [Permission.VIEW],
+            'opportunities': [Permission.VIEW],
+            'proposals': [Permission.VIEW],
+            'projects': [Permission.VIEW],
+            'resources': [Permission.VIEW],
+        }
+    else:
+        return {}
+
 def get_user_permission(required_permissions: Dict[str, List[str]]):
 
     async def permission_checker(current_user: User = Depends(get_current_user)) -> UserPermissionResponse:
@@ -77,28 +145,34 @@ def get_user_permission(required_permissions: Dict[str, List[str]]):
             )
         
         if not user_permission:
+            rbac_role = _get_rbac_role(current_user, None)
+            rbac_perms = _get_rbac_permissions(rbac_role)
+            
             for resource, required_actions in required_permissions.items():
-                if required_actions:  # If any actions are required
+                if not required_actions:
+                    continue
+                
+                rbac_resource_perms = rbac_perms.get(resource, [])
+                missing_actions = [action for action in required_actions if action not in rbac_resource_perms]
+                
+                if missing_actions:
                     raise MegapolisHTTPException(
                         status_code=403,
-                        details=f"Insufficient permissions for {resource}. Required: {required_actions}"
+                        details=f"Insufficient permissions for {resource}. Required: {required_actions}, Missing: {missing_actions}. Your RBAC role ({rbac_role}) provides: {rbac_resource_perms}"
                     )
+            
             return UserPermissionResponse(
                 userid=current_user.id,
-                accounts=[],
-                opportunities=[],
-                proposals=[]
+                accounts=rbac_perms.get('accounts', []),
+                opportunities=rbac_perms.get('opportunities', []),
+                proposals=rbac_perms.get('proposals', [])
             )
         
         for resource, required_actions in required_permissions.items():
-            if not required_actions:  # Skip if no actions required
+            if not required_actions:
                 continue
             
-            # Check if resource exists in user_permission model
-            # If it doesn't exist, allow access (for backward compatibility with new features)
             if not hasattr(user_permission, resource):
-                # Resource doesn't exist in model - allow access for now
-                # TODO: Add finance field to UserPermission model and migrate database
                 continue
                 
             user_resource_permissions = getattr(user_permission, resource, [])

@@ -93,6 +93,49 @@ async def get_employees(
         )
 
 
+@router.get("/employees/me", response_model=EmployeeResponse)
+async def get_my_employee(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_request_transaction)
+):
+    """Get current user's employee record"""
+    try:
+        if not current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User ID not found"
+            )
+        
+        from app.models.employee import Employee
+        from sqlalchemy import select, and_
+        
+        result = await db.execute(
+            select(Employee).where(
+                and_(
+                    Employee.user_id == current_user.id,
+                    Employee.company_id == current_user.org_id
+                )
+            )
+        )
+        employee = result.scalar_one_or_none()
+        
+        if not employee:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee record not found for current user"
+            )
+        
+        return EmployeeResponse.model_validate(employee.to_dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching employee for user {current_user.id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch employee: {str(e)}"
+        )
+
+
 @router.get("/employees/{employee_id}", response_model=EmployeeResponse)
 async def get_employee(
     employee_id: UUID,
@@ -274,12 +317,30 @@ async def activate_employee(
     5. Updates employee status to 'active'
     """
     try:
+        logger.info(f"🔍 Activating employee {employee_id} for org {current_user.org_id}")
+        
         # Get employee
         employee = await employee_service.get_employee_by_id(employee_id, current_user.org_id)
         if not employee:
+            logger.warning(f"❌ Employee {employee_id} not found for org {current_user.org_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Employee not found"
+            )
+        
+        logger.info(f"✅ Found employee: {employee.name}, employee_number={employee.employee_number}, email={employee.email}")
+        
+        # Validate employee has required fields
+        if not employee.employee_number:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Employee does not have an employee number. Please ensure the employee record is properly created."
+            )
+        
+        if not employee.email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Employee does not have an email address. Please update the employee record first."
             )
         
         # Use employee_number as username for login (no email conflicts!)
@@ -290,18 +351,31 @@ async def activate_employee(
         logger.info(f"Activating employee: username={username}, email={user_email}, name={employee.name}")
         
         # Check if user account already exists with this username in the SAME organization
-        # Note: Email can be shared across organizations since we use username for login
-        from sqlalchemy import select, and_
-        async with get_session() as db_check:
-            existing_user_result = await db_check.execute(
-                select(User).where(
+        # Also check if email is already in use (email must be unique globally)
+        # Use the same db session for consistency
+        from sqlalchemy import select, and_, or_
+        
+        # Check for existing user by username in same org OR by email (globally unique)
+        existing_user_result = await db.execute(
+            select(User).where(
+                or_(
                     and_(
                         User.username == username,
                         User.org_id == current_user.org_id
-                    )
+                    ),
+                    User.email == user_email  # Email must be globally unique
                 )
             )
-            existing_user = existing_user_result.scalar_one_or_none()
+        )
+        existing_user = existing_user_result.scalar_one_or_none()
+        
+        # If user exists with same email but different org, that's a conflict
+        if existing_user and existing_user.email == user_email and existing_user.org_id != current_user.org_id:
+            logger.warning(f"Email {user_email} already exists for user {existing_user.id} in org {existing_user.org_id}")
+            # This is okay - we use username for login, email can be shared
+            # But we should still use the existing user if username matches
+            if existing_user.username != username or existing_user.org_id != current_user.org_id:
+                existing_user = None  # Don't reuse if username/org doesn't match
         
         if existing_user:
             # User exists in the SAME organization with the same username
@@ -312,42 +386,144 @@ async def activate_employee(
             # Update user's password
             if activation_data.temporary_password:
                 try:
-                    await AuthService.update_user_password(str(user.id), activation_data.temporary_password)
+                    from app.services.auth_service import AuthService
+                    user.password_hash = AuthService.get_password_hash(activation_data.temporary_password)
+                    await db.flush()
                     logger.info(f"Updated password for existing user {user.id}")
                 except Exception as pw_error:
-                    logger.warning(f"Failed to update password: {pw_error}")
+                    logger.error(f"Failed to update password: {pw_error}", exc_info=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to update user password: {str(pw_error)}"
+                    )
         else:
             # Create new user account with employee_number as username
             # Email can be shared across organizations - username is unique per org
-            user = await AuthService.create_user(
-                email=user_email,
-                password=activation_data.temporary_password,
-                role=activation_data.user_role,
-                name=employee.name,
-                org_id=current_user.org_id,
-                username=username  # employee_number (SFTAM001, SFTRB002, etc.)
-            )
-            logger.info(f"✅ Created user account: username={username}, email={user_email}, user_id={user.id}")
+            try:
+                from app.services.auth_service import AuthService
+                from app.models.user import generate_short_user_id
+                
+                # Generate unique short_id
+                short_id = generate_short_user_id()
+                while True:
+                    existing_short = await db.execute(select(User).where(User.short_id == short_id))
+                    if not existing_short.scalar_one_or_none():
+                        break
+                    short_id = generate_short_user_id()
+                
+                # Check if email is already in use (even if username is different)
+                email_check = await db.execute(select(User).where(User.email == user_email))
+                email_user = email_check.scalar_one_or_none()
+                
+                if email_user:
+                    # Email already exists - we can't create a new user with this email
+                    # But if it's in the same org and has the same username, we can reuse
+                    if email_user.org_id == current_user.org_id and email_user.username == username:
+                        logger.info(f"Reusing existing user with email {user_email} and username {username}")
+                        user = email_user
+                        # Update password
+                        user.password_hash = AuthService.get_password_hash(activation_data.temporary_password)
+                        await db.flush()
+                        await db.refresh(user)
+                    else:
+                        # Email conflict - can't create user
+                        logger.error(f"Email {user_email} already exists for user {email_user.id} in org {email_user.org_id}")
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Email {user_email} is already registered. Please use a different email or contact support."
+                        )
+                else:
+                    # Create user in the same transaction
+                    user = User(
+                        email=user_email,
+                        username=username,
+                        password_hash=AuthService.get_password_hash(activation_data.temporary_password),
+                        role=activation_data.user_role,
+                        name=employee.name,
+                        org_id=current_user.org_id,
+                        short_id=short_id
+                    )
+                    db.add(user)
+                    await db.flush()
+                    await db.refresh(user)
+                    logger.info(f"✅ Created user account: username={username}, email={user_email}, user_id={user.id}")
+            except Exception as create_error:
+                logger.error(f"Error creating user account: {create_error}", exc_info=True)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to create user account: {str(create_error)}"
+                )
         
         # Update employee status to active, link user_id, and set system role
-        # Use direct Employee.update() to avoid schema type conversion issues
+        # Use the existing db session from the request transaction
         from app.models.employee import Employee
-        employee_updated = await Employee.update(
-            employee_id,
-            status="active",
-            user_id=user.id,  # Pass UUID directly, not string
-            role=activation_data.user_role,  # Save system role (employee, admin, manager, etc.)
-            department=activation_data.department,  # Save department if provided
-            review_notes=f"User account created. Role: {activation_data.user_role}, Department: {activation_data.department or 'Not assigned'}, Password: {activation_data.temporary_password}"
-        )
-        
-        if not employee_updated:
+        from sqlalchemy import select
+        try:
+            logger.info(f"🔄 Updating employee {employee_id} with user_id={user.id}")
+            
+            # Get the employee using the existing db session
+            # First try without org check to see if employee exists
+            result = await db.execute(
+                select(Employee).where(Employee.id == employee_id)
+            )
+            employee_model = result.scalar_one_or_none()
+            
+            if not employee_model:
+                logger.error(f"❌ Employee {employee_id} not found in database")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Employee not found in database"
+                )
+            
+            # Verify it belongs to the same organization (if company_id is set)
+            if employee_model.company_id is not None and employee_model.company_id != current_user.org_id:
+                logger.error(f"❌ Employee {employee_id} belongs to org {employee_model.company_id}, but user org is {current_user.org_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Employee does not belong to your organization"
+                )
+            
+            # If employee doesn't have company_id, set it now
+            if employee_model.company_id is None:
+                logger.info(f"Setting company_id for employee {employee_id} to {current_user.org_id}")
+                employee_model.company_id = current_user.org_id
+            
+            logger.info(f"📝 Employee model found: id={employee_model.id}, company_id={employee_model.company_id}, current_user_id={employee_model.user_id}")
+            
+            # Update employee fields directly
+            from app.models.employee import EmployeeStatus
+            employee_model.status = EmployeeStatus.ACTIVE.value  # Use enum value
+            employee_model.user_id = user.id  # Pass UUID directly
+            employee_model.role = activation_data.user_role
+            if activation_data.department:
+                employee_model.department = activation_data.department
+            employee_model.review_notes = f"User account created. Role: {activation_data.user_role}, Department: {activation_data.department or 'Not assigned'}, Password: {activation_data.temporary_password}"
+            
+            logger.info(f"💾 Flushing employee update: user_id={employee_model.user_id}, status={employee_model.status}")
+            
+            # Flush changes to the database
+            try:
+                await db.flush()
+                await db.refresh(employee_model)
+            except Exception as flush_error:
+                logger.error(f"Database flush error: {flush_error}", exc_info=True)
+                # Try to get more details about the error
+                if hasattr(flush_error, 'orig'):
+                    logger.error(f"Original error: {flush_error.orig}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Database error while updating employee: {str(flush_error)}"
+                )
+            
+            logger.info(f"✅ Employee {employee_id} updated successfully: status=active, user_id={employee_model.user_id}")
+        except HTTPException:
+            raise
+        except Exception as update_error:
+            logger.error(f"Error updating employee: {update_error}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update employee after user creation"
+                detail=f"Failed to update employee: {str(update_error)}"
             )
-        
-        logger.info(f"✅ Employee {employee_id} updated: status=active, user_id={user.id}")
         
         # Send welcome email if requested (use the user account email, not employee email)
         email_sent = False
@@ -380,14 +556,43 @@ async def activate_employee(
             email_sent=email_sent
         )
         
-    except HTTPException:
+    except HTTPException as http_ex:
+        logger.error(f"HTTPException in activate_employee: {http_ex.status_code} - {http_ex.detail}")
         raise
     except Exception as e:
-        logger.error(f"Error activating employee: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to activate employee: {str(e)}"
-        )
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"❌ Unexpected error activating employee {employee_id}: {e}")
+        logger.error(f"Full traceback:\n{error_trace}")
+        
+        # Check for common database errors
+        error_str = str(e).lower()
+        if "unique constraint" in error_str or "duplicate key" in error_str:
+            if "email" in error_str or "users.email" in error_str:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Email is already registered. Please use a different email."
+                )
+            elif "username" in error_str or "users.username" in error_str:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Username is already taken. Please contact support."
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Database constraint violation: {str(e)}"
+                )
+        elif "foreign key" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid reference: {str(e)}"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to activate employee: {str(e)}"
+            )
 
 
 # ==================== AI FEATURES ====================
@@ -1226,5 +1431,292 @@ Interviewer: {feedback_data.interviewer_name}
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to submit interview feedback: {str(e)}"
+        )
+
+
+# ==================== EMPLOYEE ATTENDANCE ====================
+
+@router.get("/employee/attendance")
+async def get_attendance_records(
+    month: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_request_transaction)
+):
+    """
+    Get attendance records for the current user (employee)
+    
+    - **month**: Format YYYY-MM (e.g., "2025-12"). If not provided, uses current month
+    """
+    try:
+        from app.models.attendance import Attendance
+        from app.models.employee import Employee
+        from datetime import datetime
+        from sqlalchemy import select, and_, extract
+        
+        # Get employee record for current user
+        employee_result = await db.execute(
+            select(Employee).where(
+                and_(
+                    Employee.user_id == current_user.id,
+                    Employee.company_id == current_user.org_id
+                )
+            )
+        )
+        employee = employee_result.scalar_one_or_none()
+        
+        if not employee:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee record not found for current user"
+            )
+        
+        # Parse month parameter or use current month
+        if month:
+            try:
+                year, month_num = map(int, month.split('-'))
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid month format. Use YYYY-MM (e.g., '2025-12')"
+                )
+        else:
+            now = datetime.now()
+            year = now.year
+            month_num = now.month
+        
+        # Query attendance records for the month
+        result = await db.execute(
+            select(Attendance).where(
+                and_(
+                    Attendance.employee_id == employee.id,
+                    extract('year', Attendance.date) == year,
+                    extract('month', Attendance.date) == month_num
+                )
+            ).order_by(Attendance.date)
+        )
+        records = result.scalars().all()
+        
+        return {
+            "records": [record.to_dict() for record in records]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching attendance records: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch attendance records: {str(e)}"
+        )
+
+
+@router.post("/employee/attendance/punch-in")
+async def punch_in(
+    punch_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_request_transaction)
+):
+    """
+    Record employee punch-in time
+    
+    - **date**: Format YYYY-MM-DD (e.g., "2025-12-06")
+    - **time**: Format HH:mm:ss (e.g., "09:00:00")
+    """
+    try:
+        from app.models.attendance import Attendance
+        from app.models.employee import Employee
+        from datetime import datetime, date
+        from sqlalchemy import select, and_
+        
+        # Get employee record
+        employee_result = await db.execute(
+            select(Employee).where(
+                and_(
+                    Employee.user_id == current_user.id,
+                    Employee.company_id == current_user.org_id
+                )
+            )
+        )
+        employee = employee_result.scalar_one_or_none()
+        
+        if not employee:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee record not found for current user"
+            )
+        
+        # Parse date and time
+        date_str = punch_data.get('date')
+        time_str = punch_data.get('time')
+        
+        if not date_str or not time_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both 'date' and 'time' are required"
+            )
+        
+        try:
+            attendance_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            punch_in_datetime = f"{date_str} {time_str}"
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid date or time format: {str(e)}"
+            )
+        
+        # Check if attendance record exists for today
+        existing_result = await db.execute(
+            select(Attendance).where(
+                and_(
+                    Attendance.employee_id == employee.id,
+                    Attendance.date == attendance_date
+                )
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+        
+        if existing:
+            if existing.punch_in:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Already punched in for this date"
+                )
+            # Update existing record
+            existing.punch_in = punch_in_datetime
+            await db.flush()
+            await db.refresh(existing)
+            return existing.to_dict()
+        else:
+            # Create new record
+            attendance = Attendance(
+                employee_id=employee.id,
+                user_id=current_user.id,
+                date=attendance_date,
+                punch_in=punch_in_datetime,
+                work_hours=0.0
+            )
+            db.add(attendance)
+            await db.flush()
+            await db.refresh(attendance)
+            return attendance.to_dict()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error punching in: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to punch in: {str(e)}"
+        )
+
+
+@router.post("/employee/attendance/punch-out")
+async def punch_out(
+    punch_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_request_transaction)
+):
+    """
+    Record employee punch-out time and calculate work hours
+    
+    - **date**: Format YYYY-MM-DD (e.g., "2025-12-06")
+    - **time**: Format HH:mm:ss (e.g., "17:00:00")
+    - Maximum 8 hours per day (even if worked more)
+    """
+    try:
+        from app.models.attendance import Attendance
+        from app.models.employee import Employee
+        from datetime import datetime, date
+        from sqlalchemy import select, and_
+        
+        # Get employee record
+        employee_result = await db.execute(
+            select(Employee).where(
+                and_(
+                    Employee.user_id == current_user.id,
+                    Employee.company_id == current_user.org_id
+                )
+            )
+        )
+        employee = employee_result.scalar_one_or_none()
+        
+        if not employee:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee record not found for current user"
+            )
+        
+        # Parse date and time
+        date_str = punch_data.get('date')
+        time_str = punch_data.get('time')
+        
+        if not date_str or not time_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both 'date' and 'time' are required"
+            )
+        
+        try:
+            attendance_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            punch_out_datetime = f"{date_str} {time_str}"
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid date or time format: {str(e)}"
+            )
+        
+        # Get existing attendance record
+        existing_result = await db.execute(
+            select(Attendance).where(
+                and_(
+                    Attendance.employee_id == employee.id,
+                    Attendance.date == attendance_date
+                )
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+        
+        if not existing or not existing.punch_in:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Must punch in before punching out"
+            )
+        
+        if existing.punch_out:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Already punched out for this date"
+            )
+        
+        # Update punch-out time
+        existing.punch_out = punch_out_datetime
+        
+        # Calculate work hours (max 8 hours)
+        try:
+            punch_in_dt = datetime.strptime(existing.punch_in, '%Y-%m-%d %H:%M:%S')
+            punch_out_dt = datetime.strptime(punch_out_datetime, '%Y-%m-%d %H:%M:%S')
+            diff_seconds = (punch_out_dt - punch_in_dt).total_seconds()
+            diff_hours = diff_seconds / 3600.0
+            
+            # Maximum 8 hours per day
+            MAX_HOURS = 8.0
+            work_hours = min(diff_hours, MAX_HOURS)
+            
+            existing.work_hours = work_hours
+        except Exception as calc_error:
+            logger.error(f"Error calculating work hours: {calc_error}")
+            existing.work_hours = 0.0
+        
+        await db.flush()
+        await db.refresh(existing)
+        return existing.to_dict()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error punching out: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to punch out: {str(e)}"
         )
 

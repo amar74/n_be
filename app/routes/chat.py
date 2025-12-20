@@ -13,8 +13,11 @@ from app.schemas.chat import (
     ChatSessionListResponse,
     ChatMessageCreate,
     ChatMessageResponse,
+    AIChatRequest,
+    AIChatResponse,
 )
 from app.services.chat_service import ChatService
+from app.services.ai_chat_service import ai_chat_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -320,5 +323,37 @@ async def add_message(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to add message: {str(e)}"
+        )
+
+
+@router.post("/generate-response", response_model=AIChatResponse, operation_id="generateAIChatResponse")
+async def generate_ai_response(
+    request: AIChatRequest,
+    current_user: AuthUserResponse = Depends(get_current_user),
+):
+    """
+    Generate an AI-powered response for chat messages.
+    Supports content enrichment, content development, suggestions, auto enhancement, ideas, and more.
+    """
+    try:
+        response = await ai_chat_service.generate_response(
+            user_message=request.user_message,
+            module=request.module,
+            thinking_mode=request.thinking_mode or "normal",
+            conversation_history=request.conversation_history,
+            system_prompt=request.system_prompt,
+            use_case=request.use_case
+        )
+        
+        return AIChatResponse(
+            response=response,
+            thinking_mode=request.thinking_mode or "normal",
+            use_case=request.use_case
+        )
+    except Exception as e:
+        logger.error(f"Error generating AI response: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate AI response: {str(e)}"
         )
 
