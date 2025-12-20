@@ -20,21 +20,35 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Check if columns exist before adding
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('users')]
+    
     # Add bio field
-    op.add_column('users', sa.Column('bio', sa.String(length=500), nullable=True))
+    if 'bio' not in columns:
+        op.add_column('users', sa.Column('bio', sa.String(length=500), nullable=True))
     
     # Add address fields
-    op.add_column('users', sa.Column('address', sa.String(length=255), nullable=True))
-    op.add_column('users', sa.Column('city', sa.String(length=100), nullable=True))
-    op.add_column('users', sa.Column('state', sa.String(length=2), nullable=True))
-    op.add_column('users', sa.Column('zip_code', sa.String(length=10), nullable=True))
+    if 'address' not in columns:
+        op.add_column('users', sa.Column('address', sa.String(length=255), nullable=True))
+    if 'city' not in columns:
+        op.add_column('users', sa.Column('city', sa.String(length=100), nullable=True))
+    if 'state' not in columns:
+        op.add_column('users', sa.Column('state', sa.String(length=2), nullable=True))
+    if 'zip_code' not in columns:
+        op.add_column('users', sa.Column('zip_code', sa.String(length=10), nullable=True))
     
     # Add country field with default
-    op.add_column('users', sa.Column('country', sa.String(length=100), nullable=True, server_default='United States'))
+    if 'country' not in columns:
+        op.add_column('users', sa.Column('country', sa.String(length=100), nullable=True, server_default='United States'))
     
     # Add preferences
-    op.add_column('users', sa.Column('timezone', sa.String(length=50), nullable=True, server_default='America/New_York'))
-    op.add_column('users', sa.Column('language', sa.String(length=10), nullable=True, server_default='en'))
+    if 'timezone' not in columns:
+        op.add_column('users', sa.Column('timezone', sa.String(length=50), nullable=True, server_default='America/New_York'))
+    if 'language' not in columns:
+        op.add_column('users', sa.Column('language', sa.String(length=10), nullable=True, server_default='en'))
 
 
 def downgrade() -> None:
