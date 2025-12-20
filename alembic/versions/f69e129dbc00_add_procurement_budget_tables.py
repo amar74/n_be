@@ -883,9 +883,17 @@ def upgrade() -> None:
     op.drop_index(op.f('idx_users_username'), table_name='users')
     op.drop_constraint(op.f('users_username_key'), 'users', type_='unique')
     op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
-    op.drop_constraint(op.f('vendors_email_key'), 'vendors', type_='unique')
-    op.drop_index(op.f('ix_vendors_email'), table_name='vendors')
-    op.create_index(op.f('ix_vendors_email'), 'vendors', ['email'], unique=True)
+    # Modify vendors table only if it exists
+    if 'vendors' in tables:
+        try:
+            op.drop_constraint(op.f('vendors_email_key'), 'vendors', type_='unique')
+        except:
+            pass
+        try:
+            op.drop_index(op.f('ix_vendors_email'), table_name='vendors')
+        except:
+            pass
+        op.create_index(op.f('ix_vendors_email'), 'vendors', ['email'], unique=True)
     # ### end Alembic commands ###
 
 
