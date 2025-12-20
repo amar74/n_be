@@ -154,7 +154,6 @@ def upgrade() -> None:
     tables = inspector.get_table_names()
     if 'vendors' in tables:
         op.create_foreign_key('fk_purchase_orders_vendor_id', 'purchase_orders', 'vendors', ['vendor_id'], ['id'])
-    )
     op.create_index(op.f('ix_purchase_orders_created_by'), 'purchase_orders', ['created_by'], unique=False)
     op.create_index(op.f('ix_purchase_orders_custom_id'), 'purchase_orders', ['custom_id'], unique=True)
     op.create_index(op.f('ix_purchase_orders_id'), 'purchase_orders', ['id'], unique=False)
