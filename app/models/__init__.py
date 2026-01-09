@@ -23,6 +23,7 @@ from .expense_category import *
 from .account_team import *
 from .account_audit import *
 from .proposal import *
+from .contract import *
 from .ai_agentic import *
 from .chat import *
 from .procurement import *

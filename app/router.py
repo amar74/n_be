@@ -42,6 +42,7 @@ from app.routes.procurement import router as procurement_router
 from app.routes.notifications import router as notifications_router
 from app.routes.opportunity_filter_preset import router as opportunity_filter_preset_router
 from app.routes.departments import router as departments_router
+from app.routes.contract import router as contract_router
 
 api_router = APIRouter()
 
@@ -88,3 +89,4 @@ api_router.include_router(procurement_router)
 api_router.include_router(notifications_router)
 api_router.include_router(opportunity_filter_preset_router)
 api_router.include_router(departments_router)
+api_router.include_router(contract_router)
